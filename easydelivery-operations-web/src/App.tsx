@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react';
 import {
-    Alert, Button, Card, Form, Input, Layout, Menu, Select, Space, Spin, Statistic, Table, Typography,
+    Alert, Badge, Button, Card, DatePicker, Form, Input, Layout, Menu, Select, Space, Spin, Table, Typography,
 } from 'antd';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Session } from './api/client';
@@ -8,6 +8,8 @@ import { allowedPages, type PageKey } from './auth/permissions';
 import { useAuth } from './auth/session';
 import { useTranslation } from 'react-i18next';
 import { changeLocale, SUPPORTED_LOCALES, type SupportedLocale } from './i18n';
+import dayjs from 'dayjs';
+import { TodayWorkspace } from './workflows/TodayWorkspace';
 
 const AreaWorkspace = lazy(() => import('./workflows/AreaWorkspace').then((module) => ({ default: module.AreaWorkspace })));
 const DispatchWorkspace = lazy(() => import('./workflows/DispatchWorkspace').then((module) => ({ default: module.DispatchWorkspace })));
@@ -56,17 +58,26 @@ function Workspace() {
     const { t, i18n } = useTranslation();
     const queryClient = useQueryClient();
     const pages = allowedPages(session!.user.roles);
-    const [page, setPage] = useState<PageKey>(pages[0]);
+    const initial=new URLSearchParams(location.hash.slice(1));
+    const [page, setPage] = useState<PageKey>(pages.includes(initial.get('page') as PageKey)?initial.get('page') as PageKey:'dashboard');
+    const [filter,setFilter]=useState(initial.get('filter')??'');
+    const [serviceDate,setServiceDate]=useState(initial.get('date')??dayjs().format('YYYY-MM-DD'));
     const [station, setStation] = useState(session!.user.stationCode ?? '');
     const stations = useQuery({
         queryKey: ['stations'],
         queryFn: () => api<Record<string, string>[]>('/ops/v1/stations', session!),
     });
+    const navigation=useQuery({queryKey:['control-tower',station,serviceDate],queryFn:()=>api<{stages:Array<{target:PageKey;blockers:number}>}>(`/ops/v1/control-tower?serviceDate=${serviceDate}`,session!,{},station),enabled:Boolean(station)});
 
     function changeStation(nextStation: string) {
         setStation(nextStation);
         queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== 'stations' });
     }
+    function navigate(nextPage:PageKey,nextFilter=''){setPage(nextPage);setFilter(nextFilter);location.hash=new URLSearchParams({page:nextPage,date:serviceDate,...(nextFilter?{filter:nextFilter}:{})}).toString();}
+    const daily:PageKey[]=['dashboard','orders','dispatch','manifests','scanning','handover','delivery','closeout'];
+    const exception:PageKey[]=['cases'];const configuration:PageKey[]=['areas','drivers','stations','callbacks'];
+    const blocker=(key:PageKey)=>navigation.data?.stages.find(stage=>stage.target===key)?.blockers??0;
+    const menuItems=[{type:'group' as const,label:t('nav.group.daily'),children:daily.filter(k=>pages.includes(k)).map((key,index)=>({key,label:<span className="menu-label"><span>{index+1}</span><em>{t(`nav.${key}`)}</em>{blocker(key)>0&&<Badge count={blocker(key)} overflowCount={99}/>}</span>}))},{type:'group' as const,label:t('nav.group.exceptions'),children:exception.filter(k=>pages.includes(k)).map(key=>({key,label:t(`nav.${key}`)}))},{type:'group' as const,label:t('nav.group.configuration'),children:configuration.filter(k=>pages.includes(k)).map(key=>({key,label:t(`nav.${key}`)}))}];
 
     return <Layout className="shell">
         <Sider>
@@ -74,8 +85,8 @@ function Workspace() {
             <Menu
                 theme="dark"
                 selectedKeys={[page]}
-                onClick={(event) => setPage(event.key as PageKey)}
-                items={pages.map((key) => ({ key, label: t(`nav.${key}`) }))}
+                onClick={(event) => navigate(event.key as PageKey)}
+                items={menuItems}
             />
         </Sider>
         <Layout>
@@ -90,6 +101,7 @@ function Workspace() {
                             label: item.station_code,
                         }))}
                     />
+                    <DatePicker value={dayjs(serviceDate)} onChange={value=>{if(value){const next=value.format('YYYY-MM-DD');setServiceDate(next);queryClient.removeQueries({predicate:q=>q.queryKey[0]!=='stations'});}}}/>
                     <Select aria-label={t('locale.label')} value={i18n.language as SupportedLocale} style={{ width: 100 }}
                         options={SUPPORTED_LOCALES.map((value) => ({ value, label: value }))}
                         onChange={async (value: SupportedLocale) => {
@@ -100,25 +112,25 @@ function Workspace() {
                     <Button onClick={logout}>{t('auth.signOut')}</Button>
                 </Space>
             </Header>
-            <Content className="content"><Page page={page} station={station} /></Content>
+            <Content className="content"><Page page={page} station={station} serviceDate={serviceDate} filter={filter} onNavigate={navigate}/></Content>
         </Layout>
     </Layout>;
 }
 
-function Page({ page, station }: { page: PageKey; station: string }) {
+function Page({ page, station,serviceDate,filter,onNavigate }: { page: PageKey; station: string;serviceDate:string;filter:string;onNavigate:(page:PageKey,filter?:string)=>void }) {
     const { session } = useAuth();
     let content;
     if (page === 'areas') content = <AreaWorkspace key={station} session={session!} station={station} />;
     else if (page === 'manifests') content = <ManifestWorkspace session={session!} station={station} />;
-    else if (page === 'dispatch') content = <DispatchWorkspace session={session!} station={station} />;
+    else if (page === 'dispatch') content = <DispatchWorkspace key={`${station}-${serviceDate}-${filter}`} session={session!} station={station} initialDate={serviceDate} initialFilter={filter}/>;
+    else if(page==='dashboard')content=<TodayWorkspace session={session!} station={station} serviceDate={serviceDate} onNavigate={onNavigate}/>;
     else content = <ReadPage page={page} station={station} session={session!} />;
     return <Suspense fallback={<Spin />}>{content}</Suspense>;
 }
 
 function ReadPage({ page, station, session }: { page: PageKey; station: string; session: Session }) {
     const { t } = useTranslation();
-    const path = page === 'dashboard' ? '/ops/v1/readiness'
-        : page === 'cases' ? '/ops/v1/cases' : null;
+    const path = page === 'cases' ? '/ops/v1/cases' : null;
     const query = useQuery({
         queryKey: [page, station],
         queryFn: () => api<unknown>(path!, session, {}, station),
@@ -128,11 +140,6 @@ function ReadPage({ page, station, session }: { page: PageKey; station: string; 
     if (!path) return <Card title={t(`nav.${page}`)}>{t('common.notReady')}</Card>;
     if (query.isLoading) return <Spin />;
     if (query.error) return <Alert type="error" message={query.error.message} />;
-    if (page === 'dashboard') {
-        const data = query.data as Record<string, number | boolean>;
-        return <Space wrap>{Object.entries(data).map(([key, value]) =>
-            <Card key={key}><Statistic title={key} value={String(value)} /></Card>)}</Space>;
-    }
     const rows = Array.isArray(query.data) ? query.data as Record<string, unknown>[] : [];
     const keys = rows.length ? Object.keys(rows[0]) : [];
     return <Card title={page}>

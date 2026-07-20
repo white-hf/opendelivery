@@ -10,7 +10,7 @@ final class OperationsAuthorizationPolicy {
         if (roles.contains("ADMIN") || roles.contains("SUPERVISOR")) return true;
         boolean read = "GET".equals(method);
         boolean commonRead = read && (path.endsWith("/stations") || path.contains("/cases")
-                || path.endsWith("/readiness"));
+                || path.endsWith("/readiness") || path.contains("/control-tower"));
         return roles.contains("INBOUND") && (path.contains("/manifests") || commonRead)
                 || roles.contains("DISPATCHER") && (path.contains("/waves")
                 || path.contains("/dispatch/") || commonRead);

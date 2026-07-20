@@ -18,11 +18,12 @@ public class OperationsController {
     private final FailureReturnService failureReturn;
     private final DeliveryAreaOperationsService deliveryAreas;
     private final MapPlanningService planning;
+    private final ControlTowerService controlTower;
 
     public OperationsController(OperationsService service, RoutingOperationsService routing,
                                 InboundOperationsService inbound, DispatchOperationsService dispatch,
                                 FailureReturnService failureReturn, DeliveryAreaOperationsService deliveryAreas,
-                                MapPlanningService planning) {
+                                MapPlanningService planning, ControlTowerService controlTower) {
         this.service = service;
         this.routing = routing;
         this.inbound = inbound;
@@ -30,6 +31,12 @@ public class OperationsController {
         this.failureReturn = failureReturn;
         this.deliveryAreas = deliveryAreas;
         this.planning = planning;
+        this.controlTower = controlTower;
+    }
+
+    @GetMapping("/control-tower")
+    public AppResponse<?> controlTower(@RequestParam java.time.LocalDate serviceDate) {
+        return AppResponse.success(controlTower.snapshot(serviceDate));
     }
 
     @PostMapping("/manifests/{manifestNo}/receipts")

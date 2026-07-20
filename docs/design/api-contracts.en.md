@@ -233,3 +233,7 @@ All endpoints require an operator bearer token and `X-Station-Code`; cross-stati
 | `POST .../{id}/parcels/{parcelId}/reassign` | `driverId,reason` | Draft only; retires the source item, creates the target item, and audits the move |
 | `POST .../{id}/freeze` | `reason` | Moves to `FROZEN` only after non-empty task, shift, and daily capacity preflight |
 | `POST .../{id}/publish` | `reason` | `FROZEN→PUBLISHED` only; creates expected scan lists and sets `ASSIGNED` without changing custody |
+
+## R02.1 Control Tower
+
+`GET /ops/v1/control-tower?serviceDate=YYYY-MM-DD` requires bearer token and `X-Station-Code`. It returns `station/serviceDate/generatedAt`, `metrics[]`, `stages[]`, `capacity`, `exceptions[]`, and `actions[]`. Clickable items contain stable `target/filter`; stages contain `status,total,completed,blockers,percent`. The server computes every aggregate under one station, business-date, and authorization definition.

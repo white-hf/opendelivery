@@ -7,12 +7,12 @@ describe('allowedPages', () => {
     });
 
     it('keeps inbound operators out of dispatch and callbacks', () => {
-        expect(allowedPages(['INBOUND'])).toEqual(['dashboard', 'manifests', 'cases', 'closeout']);
+        expect(allowedPages(['INBOUND'])).toEqual(['dashboard','orders','manifests','scanning','handover','closeout','cases']);
     });
 
     it('unions multiple roles in stable navigation order', () => {
         expect(allowedPages(['DISPATCHER', 'INBOUND'])).toEqual([
-            'dashboard', 'manifests', 'dispatch', 'cases', 'closeout',
+            'dashboard','orders','dispatch','manifests','scanning','handover','delivery','closeout','cases','areas','drivers',
         ]);
     });
 

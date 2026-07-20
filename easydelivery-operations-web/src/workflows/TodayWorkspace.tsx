@@ -1,0 +1,23 @@
+import { Alert, Button, Card, Col, Empty, Progress, Row, Space, Spin, Statistic, Tag, Typography } from 'antd';
+import { useQuery } from '@tanstack/react-query';
+import { api, type Session } from '../api/client';
+import type { PageKey } from '../auth/permissions';
+import { useTranslation } from 'react-i18next';
+
+type Tower={station:Record<string,unknown>;serviceDate:string;generatedAt:string;metrics:Array<{code:string;count:number;target:PageKey;filter?:string}>;stages:Array<{code:string;status:string;total:number;completed:number;blockers:number;percent:number;target:PageKey}>;capacity:{availableDrivers:number;total:number;assigned:number;remaining:number;shortage:number};exceptions:Array<{code:string;count:number;severity:string;target:PageKey;filter:string}>;actions:Array<{code:string;count:number;severity:string;target:PageKey;filter?:string}>};
+
+const severityColor:Record<string,string>={ERROR:'red',WARNING:'orange',INFO:'blue',SUCCESS:'green'};
+const stageColor:Record<string,string>={BLOCKED:'red',IN_PROGRESS:'blue',COMPLETED:'green',NOT_STARTED:'default'};
+
+export function TodayWorkspace({session,station,serviceDate,onNavigate}:{session:Session;station:string;serviceDate:string;onNavigate:(page:PageKey,filter?:string)=>void}){
+ const {t}=useTranslation();const query=useQuery({queryKey:['control-tower',station,serviceDate],queryFn:()=>api<Tower>(`/ops/v1/control-tower?serviceDate=${serviceDate}`,session,{},station),refetchInterval:60000});
+ if(query.isLoading)return <Spin/>;if(query.error)return <Alert type="error" showIcon message={query.error.message} action={<Button onClick={()=>void query.refetch()}>{t('common.retry')}</Button>}/>;const data=query.data!;
+ return <Space direction="vertical" size="middle" style={{width:'100%'}}>
+  <Card className="tower-hero"><Row justify="space-between" align="middle"><Col><Typography.Title level={2}>{String(data.station.station_name)}</Typography.Title><Typography.Text type="secondary">{station} · {serviceDate} · {t('tower.updated')} {new Date(data.generatedAt).toLocaleTimeString()}</Typography.Text></Col><Col><Tag color={data.exceptions.some(e=>e.severity==='ERROR')?'red':'green'}>{data.exceptions.some(e=>e.severity==='ERROR')?t('tower.blocked'):t('tower.ready')}</Tag></Col></Row></Card>
+  <Card title={t('tower.journey')}><div className="journey-strip">{data.stages.map((stage,index)=><button className={`journey-step ${stage.status.toLowerCase()}`} key={stage.code} onClick={()=>onNavigate(stage.target)}><span className="journey-index">{index+1}</span><span><strong>{t(`stage.${stage.code}`)}</strong><small>{stage.completed}/{stage.total} · {stage.percent}%</small></span><Tag color={stageColor[stage.status]}>{t(`stageStatus.${stage.status}`)}</Tag>{stage.blockers>0&&<b>{stage.blockers}</b>}</button>)}</div></Card>
+  <Row gutter={[12,12]}>{data.metrics.map(metric=><Col xs={12} md={8} xl={4} key={metric.code}><Card hoverable onClick={()=>onNavigate(metric.target,metric.filter)}><Statistic title={t(`metric.${metric.code}`)} value={metric.count}/><Typography.Link>{t('tower.viewDetails')} →</Typography.Link></Card></Col>)}</Row>
+  <Row gutter={[12,12]}><Col xs={24} lg={9}><Card title={t('tower.capacity')}><Row gutter={12}><Col span={8}><Statistic title={t('tower.drivers')} value={data.capacity.availableDrivers}/></Col><Col span={8}><Statistic title={t('tower.totalCapacity')} value={data.capacity.total}/></Col><Col span={8}><Statistic title={t('tower.remaining')} value={data.capacity.remaining} valueStyle={{color:data.capacity.shortage?'#cf1322':undefined}}/></Col></Row><Progress percent={data.capacity.total?Math.min(100,Math.round(data.capacity.assigned*100/data.capacity.total)):0} status={data.capacity.shortage?'exception':'active'}/><Button block onClick={()=>onNavigate('dispatch','capacity')}>{t('tower.manageCapacity')}</Button></Card></Col>
+   <Col xs={24} lg={7}><Card title={t('tower.exceptions')}>{data.exceptions.length?<Space direction="vertical" style={{width:'100%'}}>{data.exceptions.map(item=><Button className="tower-list-button" key={item.code} onClick={()=>onNavigate(item.target,item.filter)}><Tag color={severityColor[item.severity]}>{item.count}</Tag>{t(`exception.${item.code}`)}</Button>)}</Space>:<Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('tower.noExceptions')}/>}</Card></Col>
+   <Col xs={24} lg={8}><Card title={t('tower.nextActions')}>{data.actions.map(item=><button className="next-action" key={item.code} onClick={()=>onNavigate(item.target,item.filter)}><Tag color={severityColor[item.severity]}>{item.count||'✓'}</Tag><span><strong>{t(`action.${item.code}`)}</strong><small>{t(`action.${item.code}.help`)}</small></span><b>→</b></button>)}</Card></Col></Row>
+ </Space>;
+}

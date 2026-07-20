@@ -303,3 +303,7 @@ GeoJSON 接受 `FeatureCollection`、`Feature`、`Polygon` 或 `MultiPolygon`，
 | `POST .../{id}/parcels/{parcelId}/reassign` | `driverId,reason` | 仅草稿；原 item 标为 `REASSIGNED`，新任务新增活动 item 并审计 |
 | `POST .../{id}/freeze` | `reason` | 非空任务、出勤和当日总容量预检通过后进入 `FROZEN` |
 | `POST .../{id}/publish` | `reason` | 仅 `FROZEN→PUBLISHED`；生成应扫清单，包裹改为 `ASSIGNED`，custody 不变 |
+
+## R02.1 控制塔
+
+`GET /ops/v1/control-tower?serviceDate=YYYY-MM-DD` 要求 Bearer Token 和 `X-Station-Code`。返回 `station/serviceDate/generatedAt`、`metrics[]`、`stages[]`、`capacity`、`exceptions[]` 和 `actions[]`。可点击项包含稳定 `target/filter`；阶段包含 `status,total,completed,blockers,percent`。所有聚合均由服务端按同一站点、营业日和权限口径计算。
