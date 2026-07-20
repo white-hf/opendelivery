@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Session } from '../api/client';
 import { areaPayload, type AreaForm } from './areaPayload';
 import { useTranslation } from 'react-i18next';
+import { AreaMapEditor } from './AreaMapEditor';
 
 type AreaRow = {
     id: number; area_code: string; area_name: string; area_level: number; status: string;
@@ -15,6 +16,7 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
     const cache = useQueryClient();
     const [open, setOpen] = useState(false);
     const [form] = Form.useForm<AreaForm>();
+    const geoJson = Form.useWatch('geoJson', form);
     const list = useQuery({
         queryKey: ['areas', station],
         queryFn: () => api<AreaRow[]>('/ops/v1/delivery-areas', session, {}, station),
@@ -56,7 +58,7 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                     </Space> },
                 ]} />
         </Card>
-        <Modal title={t('areas.dialog')} open={open} footer={null} onCancel={() => setOpen(false)} destroyOnHidden>
+        <Modal title={t('areas.dialog')} width={900} open={open} footer={null} onCancel={() => setOpen(false)} destroyOnHidden>
             <Form<AreaForm> form={form} layout="vertical" initialValues={{ areaLevel: 1 }} onFinish={(values) => {
                 try { action.mutate({ path: '/ops/v1/delivery-areas', body: areaPayload(values) }); }
                 catch { message.error(t('areas.invalidJson')); }
@@ -66,7 +68,8 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                     <Form.Item name="areaLevel" label={t('areas.level')} rules={[{ required: true }]} style={{ width: '50%' }}><InputNumber min={1} max={9} style={{ width: '100%' }} /></Form.Item>
                 </Space.Compact>
                 <Form.Item name="areaName" label={t('areas.name')} rules={[{ required: true, whitespace: true }]}><Input placeholder="Downtown core" /></Form.Item>
-                <Form.Item name="geoJson" label={t('areas.geometry')} rules={[{ required: true, whitespace: true }]}><Input.TextArea rows={9} /></Form.Item>
+                <AreaMapEditor station={station} value={geoJson} onChange={(next) => form.setFieldValue('geoJson', next)} />
+                <Form.Item name="geoJson" label={t('areas.geometry')} rules={[{ required: true, whitespace: true }]}><Input.TextArea rows={6} /></Form.Item>
                 <Form.Item name="changeReason" label={t('areas.reason')} rules={[{ required: true, whitespace: true }]}><Input.TextArea rows={2} /></Form.Item>
                 <Button type="primary" htmlType="submit" loading={action.isPending}>{t('areas.create')}</Button>
             </Form>

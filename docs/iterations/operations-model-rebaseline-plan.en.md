@@ -14,6 +14,6 @@ The operations review established pre-arrival order/area/capacity planning follo
 | R07 | Closeout/automation | reconciliation, drilldown, sign-off, one-command evidence |
 | R08 | Five-day pilot | runbook, training, on-call, reports, defects, gate |
 
-R01 status (2026-07-20): Flyway V8 tables and draft/validate/publish/list/version, driver-preference and parcel spatial-match APIs are complete; Operations Web provides GeoJSON import, validation and publication. Real MySQL proves SRID 4326, validity/indexing, point intersection, overlap rejection, persisted matching and cross-station rejection. Embedded map preview/drawing, Web preference editing, shared-edge and full three-station E2E remain; R01 is not complete.
+R01 status (2026-07-20): V8 and the area lifecycle, preference, and parcel-match APIs are complete. Operations Web supports GeoJSON import, map preview, click drawing, validation, and publication. Web preference editing, shared-edge automation, full three-station E2E, and browser visual acceptance remain; R01 is not complete. Tiles are configured with `VITE_MAP_TILE_URL`/`VITE_MAP_ATTRIBUTION`; default OpenStreetMap tiles are development-only and no parcel/customer data is sent by the area editor.
 
 Publication uses `ST_Intersects` for boundary-inclusive point matching and `ST_Intersects AND NOT ST_Touches` to reject same-level area overlap while allowing a shared edge. Planning records reference immutable published versions so later edits cannot rewrite history.
