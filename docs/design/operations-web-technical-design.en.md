@@ -84,3 +84,6 @@ No secret enters the build. Only public configuration such as `VITE_API_BASE_URL
 - Ant Design components: <https://ant.design/components/overview/>
 - TanStack Query React: <https://tanstack.com/query/latest/docs/framework/react/overview>
 - Playwright: <https://playwright.dev/docs/intro>
+## 10. Map Platform Decision (R01)
+
+The operations console uses Google Maps JavaScript API as its map platform. The browser reads a public Web key from `VITE_GOOGLE_MAPS_API_KEY`; production restricts that key by HTTP referrer and API scope. The repository, API responses, and database never store it. OpenDelivery remains the system of record for area GeoJSON; Google Maps provides basemap, viewport, boundary rendering, and click coordinates only. Recipient names, phone numbers, complete addresses, and parcel details must not be transmitted to the map provider.

@@ -115,3 +115,6 @@ PR 门禁：`pnpm lint`、`pnpm typecheck`、`pnpm test --run`、`pnpm build`；
 - Ant Design 组件：<https://ant.design/components/overview/>
 - TanStack Query React：<https://tanstack.com/query/latest/docs/framework/react/overview>
 - Playwright：<https://playwright.dev/docs/intro>
+## 10. 地图平台决策（R01）
+
+运营控制台使用 Google Maps JavaScript API 作为地图底座。浏览器从 `VITE_GOOGLE_MAPS_API_KEY` 读取受域名限制的公开 Web Key；仓库、API 响应和数据库均不保存该 Key。区域 GeoJSON 仍由 OpenDelivery 后端持久化，Google Maps 仅负责底图、视口、边界展示和点击坐标采集。不得向地图服务传输收件人姓名、电话、完整地址或包裹详情。
