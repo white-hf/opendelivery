@@ -7,7 +7,9 @@
 | I00 Domain Baseline | Complete | domain, states, schema baseline |
 | I01 Persistence Foundation | Complete | MySQL/JDBC, Flyway, basic ingestion/driver/POD/Outbox and real-MySQL E2E |
 | `0.2 Foundation` | Complete | persistent demonstration, not operable production |
-| I02–I08 | Planned, not developed | constitute `0.5 MOV` |
+| I02–I06 backend | Complete | routing, identity, inbound, dispatch handover, failure return; Web/automation remain |
+| I07–I08 | In progress | Cases/callback, closeout, and three-city five-day pilot |
+| I09–I15 | Paused | Reprioritize only after the `0.5` gate |
 
 ## 2. Boundary
 
@@ -61,4 +63,3 @@ No automatic promise of optimization, live tracking, or headquarters aggregation
 Each iteration includes bilingual requirement/design, Flyway if needed, backend and Web, authorization/idempotency/concurrency, unit/integration/API/Playwright/real-MySQL E2E, demonstration evidence, release/rollback, and summary. Compilation or tests alone do not establish business acceptance.
 
 `0.5` blockers are routing error, cross-station mixing, broken custody, duplicate assignment, lost POD, unrecoverable callback, or unexplained closeout. Optimization, live tracking, and advanced reporting do not block MOV.
-

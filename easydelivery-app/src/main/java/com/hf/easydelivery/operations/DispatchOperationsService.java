@@ -42,6 +42,29 @@ public class DispatchOperationsService {
                 """,stationId,afterId,stationId,Math.min(Math.max(limit,1),200));
     }
 
+    public List<Map<String,Object>> activeDrivers() {
+        Long stationId=requireStationContext();
+        return jdbc.queryForList("""
+                SELECT id,credential_id AS driver_code,driver_name AS display_name,status
+                FROM driver WHERE home_station_id=? AND status='ACTIVE'
+                ORDER BY display_name,id
+                """,stationId);
+    }
+
+    public List<Map<String,Object>> waves(int limit,long afterId) {
+        Long stationId=requireStationContext();
+        return jdbc.queryForList("""
+                SELECT w.id,w.wave_code,w.service_date,w.route_code,w.status,w.published_at,
+                       t.id task_id,t.task_code,t.driver_id,t.status task_status,COUNT(ti.id) parcel_count
+                FROM dispatch_wave w JOIN driver_task t ON t.wave_id=w.id
+                LEFT JOIN driver_task_item ti ON ti.task_id=t.id
+                WHERE w.station_id=? AND w.id>?
+                GROUP BY w.id,w.wave_code,w.service_date,w.route_code,w.status,w.published_at,
+                         t.id,t.task_code,t.driver_id,t.status
+                ORDER BY w.id LIMIT ?
+                """,stationId,afterId,Math.min(Math.max(limit,1),200));
+    }
+
     @Transactional
     public DraftResult createDraft(DraftRequest request) {
         Long stationId=requireStationContext();

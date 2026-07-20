@@ -82,12 +82,9 @@ public class OperationsAuthInterceptor implements HandlerInterceptor {
         if (path.contains("/users") && !principal.hasRole("ADMIN")) {
             throw new ForbiddenException("Only administrators can manage operator users");
         }
-        if (principal.hasRole("ADMIN") || principal.hasRole("SUPERVISOR")) return;
-        boolean read = "GET".equals(method);
-        boolean commonRead = read && (path.endsWith("/stations") || path.contains("/cases") || path.endsWith("/readiness"));
-        boolean allowed = principal.hasRole("INBOUND") && (path.contains("/manifests") || commonRead)
-                || principal.hasRole("DISPATCHER") && (path.contains("/waves") || path.contains("/dispatch/") || commonRead);
-        if (!allowed) throw new ForbiddenException("Role is not permitted to perform this operation");
+        if (!OperationsAuthorizationPolicy.isAllowed(principal.roles(), method, path)) {
+            throw new ForbiddenException("Role is not permitted to perform this operation");
+        }
     }
 
     private void auditDenied(HttpServletRequest request, OperatorSessionService.Principal principal, String reason) {

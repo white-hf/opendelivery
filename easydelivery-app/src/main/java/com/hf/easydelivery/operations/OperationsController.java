@@ -133,6 +133,17 @@ public class OperationsController {
         return AppResponse.success(dispatch.candidates(limit, afterId));
     }
 
+    @GetMapping("/dispatch/drivers")
+    public AppResponse<?> activeDrivers() {
+        return AppResponse.success(dispatch.activeDrivers());
+    }
+
+    @GetMapping("/dispatch/waves")
+    public AppResponse<?> dispatchWaves(@RequestParam(defaultValue = "50") int limit,
+                                        @RequestParam(defaultValue = "0") long afterId) {
+        return AppResponse.success(dispatch.waves(limit, afterId));
+    }
+
     @PostMapping("/dispatch/waves")
     public AppResponse<?> createWaveDraft(@RequestBody DispatchOperationsService.DraftRequest request) {
         return AppResponse.success("Wave draft created", dispatch.createDraft(request));

@@ -2,7 +2,9 @@
 
 ## 1. Purpose, Status, and Assumptions
 
-This turns the [roadmap](../roadmap/version-roadmap.en.md) into execution. I00–I01 are complete. I02–I08 are the committed `0.5 Multi-City MOV`; I09–I12 start only after the MOV gate, and I13–I15 only after `1.0` establishes metrics.
+This turns the [roadmap](../roadmap/version-roadmap.en.md) into execution. I00–I01 are complete. I02–I06 backend, database, and real-MySQL primary flows are delivered, but Operations Web and systematic automation remain unfinished DoD. From 2026-07-20, delivery is pilot-first: finish the operator UI, I07, I08, and automated gates required for five consecutive business days in three cities. I09–I15 are paused until the `0.5` gate.
+
+The [Three-City Five-Day Pilot-First Plan](pilot-first-execution-plan.en.md) is now the critical-path authority; later versions are post-gate backlog.
 
 The calendar assumes a 2026-07-20 start and one cross-functional delivery unit. Normal iterations are five working days; I08 is ten days to include a five-day pilot. Dates are baselines, never permission to bypass quality. Scope change, missing external inputs, or P0 defects trigger replanning.
 
@@ -108,4 +110,3 @@ Use short-lived branches and forward-only Flyway migrations. Backend gates: Mave
 ## 9. Reporting and Change Control
 
 Board states are `Ready → In Progress → Review → Verified → Accepted`. Weekly reporting contains accepted outcomes, evidence, residual risks, and next critical path. New scope is tested against the current release goal; non-blocking work moves to later backlog. Date changes update this plan, roadmap, and both languages together.
-
