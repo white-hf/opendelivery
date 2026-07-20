@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Alert, Button, Card, Form, Input, InputNumber, Modal, Select, Space, Table, Tag, Typography, Upload, notification } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,15 +14,21 @@ type AreaRow = {
 };
 type PreferenceRow = { id: number; driver_id: number; driver_code: string; driver_name: string; priority: number; status: string };
 type DriverRow = { id: number; driver_code: string; display_name: string };
+type VersionRow = { id: number; version_no: number; status: string; change_reason: string; created_at: string; geo_json: string };
 
 export function AreaWorkspace({ session, station }: { session: Session; station: string }) {
     const { t } = useTranslation();
     const [notice, noticeContext] = notification.useNotification();
     const cache = useQueryClient();
     const [open, setOpen] = useState(false);
+    const [editingArea, setEditingArea] = useState<AreaRow>();
+    const [selectedArea, setSelectedArea] = useState<AreaRow>();
+    const [viewingArea, setViewingArea] = useState<AreaRow>();
+    const [stateArea, setStateArea] = useState<AreaRow>();
     const [preferenceArea, setPreferenceArea] = useState<AreaRow>();
     const [form] = Form.useForm<AreaForm>();
     const [preferenceForm] = Form.useForm();
+    const [stateForm] = Form.useForm<{ reason: string }>();
     const geoJson = Form.useWatch('geoJson', form);
     const list = useQuery({
         queryKey: ['areas', station],
@@ -38,17 +44,42 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
         queryFn: () => api<PreferenceRow[]>(`/ops/v1/delivery-areas/${preferenceArea!.id}/driver-preferences`, session, {}, station),
         enabled: Boolean(preferenceArea),
     });
+    const versions = useQuery({
+        queryKey: ['area-versions', station, viewingArea?.id],
+        queryFn: () => api<VersionRow[]>(`/ops/v1/delivery-areas/${viewingArea!.id}/versions`, session, {}, station),
+        enabled: Boolean(viewingArea),
+    });
+    const overviewGeoJson = useMemo(() => {
+        const rows = selectedArea ? [selectedArea] : (list.data ?? []).filter((row) => row.status === 'ACTIVE');
+        const features = rows.flatMap((row) => {
+            try { return row.geo_json ? [{ type: 'Feature', properties: { areaCode: row.area_code }, geometry: JSON.parse(row.geo_json) }] : []; }
+            catch { return []; }
+        });
+        return features.length ? JSON.stringify({ type: 'FeatureCollection', features }) : undefined;
+    }, [list.data, selectedArea]);
     const action = useMutation({
-        mutationFn: ({ path, body }: { path: string; body?: unknown }) => api(path, session, {
-            method: 'POST', body: body === undefined ? undefined : JSON.stringify(body),
+        mutationFn: ({ path, body, method = 'POST' }: { path: string; body?: unknown; method?: string }) => api(path, session, {
+            method, body: body === undefined ? undefined : JSON.stringify(body),
         }, station),
         onSuccess: async () => {
             notice.success({ message: t('areas.success'), placement: 'topRight', duration: 4 });
             setOpen(false);
+            setEditingArea(undefined);
             form.resetFields();
             await cache.invalidateQueries({ queryKey: ['areas', station] });
         },
         onError: (caught) => notice.error({ message: t('common.operationFailed'), description: caught.message, placement: 'topRight', duration: 6 }),
+    });
+    const stateAction = useMutation({
+        mutationFn: ({ area, reason }: { area: AreaRow; reason: string }) => api(
+            area.status === 'ACTIVE' ? `/ops/v1/delivery-areas/${area.id}` : `/ops/v1/delivery-areas/${area.id}/activate`,
+            session, { method: area.status === 'ACTIVE' ? 'DELETE' : 'POST', body: JSON.stringify({ reason }) }, station),
+        onSuccess: async () => {
+            notice.success({ message: t('areas.success'), placement: 'topRight' });
+            setStateArea(undefined); stateForm.resetFields(); setSelectedArea(undefined);
+            await cache.invalidateQueries({ queryKey: ['areas', station] });
+        },
+        onError: (caught) => notice.error({ message: t('common.operationFailed'), description: caught.message, placement: 'topRight' }),
     });
     const error = list.error ?? drivers.error ?? preferences.error;
     const savePreference = useMutation({
@@ -66,17 +97,42 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
     return <Space direction="vertical" size="middle" style={{ width: '100%' }}>
         {noticeContext}
         {displayedError && <Alert type="error" message={displayedError.message} />}
-        <Card title={t('areas.title')} extra={<Button type="primary" onClick={() => setOpen(true)}>{t('areas.import')}</Button>}>
+        <Card title={t('areas.title')} extra={<Button type="primary" onClick={() => {
+            setEditingArea(undefined); form.resetFields(); form.setFieldValue('areaLevel', 1); setOpen(true);
+        }}>{t('areas.add')}</Button>}>
             <Typography.Paragraph type="secondary">
                 {t('areas.help')}
             </Typography.Paragraph>
+            <div className="area-console">
+                <div className="area-console-map">
+                    <AreaMapEditor station={station} value={overviewGeoJson} readOnly />
+                </div>
+                <div className="area-console-list">
+                    <Typography.Title level={5}>{t('areas.list')}</Typography.Title>
+                    <Button size="small" disabled={!selectedArea} onClick={() => setSelectedArea(undefined)}>{t('areas.showAll')}</Button>
+                    {(list.data ?? []).map((row) => <button type="button" key={row.id}
+                        className={`area-list-item ${selectedArea?.id === row.id ? 'selected' : ''}`}
+                        onClick={() => setSelectedArea(row)}>
+                        <span><strong>{row.area_code}</strong><small>{row.area_name}</small></span>
+                        <Tag color={row.status === 'ACTIVE' ? 'green' : 'default'}>{t(`status.${row.status}`, { defaultValue: row.status })}</Tag>
+                    </button>)}
+                </div>
+            </div>
             <Table<AreaRow> rowKey="id" dataSource={list.data ?? []} loading={list.isLoading} pagination={false}
+                onRow={(row) => ({ onClick: () => setSelectedArea(row) })}
                 columns={[
                     { title: t('areas.code'), dataIndex: 'area_code' }, { title: t('areas.name'), dataIndex: 'area_name' },
                     { title: t('areas.level'), dataIndex: 'area_level' },
                     { title: t('areas.version'), render: (_, row) => row.version_no ?? t('areas.draft') },
                     { title: t('common.status'), render: (_, row) => { const status=row.version_status ?? row.status; return <Tag>{t(`status.${status}`, { defaultValue: status })}</Tag>; } },
                     { title: t('common.action'), render: (_, row) => <Space>
+                        <Button size="small" onClick={(event) => { event.stopPropagation(); setViewingArea(row); }}>{t('common.view')}</Button>
+                        {row.status === 'ACTIVE' && <Button size="small" onClick={(event) => {
+                            event.stopPropagation(); setEditingArea(row); form.setFieldsValue({
+                                areaCode: row.area_code, areaName: row.area_name, areaLevel: row.area_level,
+                                geoJson: row.geo_json ?? '', changeReason: '',
+                            }); setOpen(true);
+                        }}>{t('common.edit')}</Button>}
                         <Button size="small" onClick={() => setPreferenceArea(row)}>{t('preferences.button')}</Button>
                         {row.version_status === 'DRAFT' && <Button size="small" onClick={() => action.mutate({
                             path: `/ops/v1/delivery-areas/${row.id}/versions/${row.version_id}/validate`,
@@ -85,21 +141,30 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                             path: `/ops/v1/delivery-areas/${row.id}/versions/${row.version_id}/publish`,
                             body: { reason: 'Approved in delivery area workspace' },
                         })}>{t('areas.publish')}</Button>}
+                        <Button size="small" danger={row.status === 'ACTIVE'} onClick={(event) => {
+                            event.stopPropagation(); stateForm.resetFields(); setStateArea(row);
+                        }}>{row.status === 'ACTIVE' ? t('common.delete') : t('areas.reactivate')}</Button>
                     </Space> },
                 ]} />
         </Card>
-        <Modal title={t('areas.dialog')} width={1100} open={open} onCancel={() => setOpen(false)} destroyOnHidden
+        <Modal title={editingArea ? t('areas.editTitle', { code: editingArea.area_code }) : t('areas.dialog')} width={1100} open={open} onCancel={() => setOpen(false)} destroyOnHidden
             styles={{ body: { maxHeight: 'calc(100vh - 210px)', overflowY: 'auto' } }}
             footer={[
                 <Button key="cancel" onClick={() => setOpen(false)}>{t('common.cancel')}</Button>,
-                <Button key="create" type="primary" htmlType="submit" form="delivery-area-form" loading={action.isPending}>{t('areas.create')}</Button>,
+                <Button key="create" type="primary" htmlType="submit" form="delivery-area-form" loading={action.isPending}>{editingArea ? t('common.save') : t('areas.create')}</Button>,
             ]}>
             <Form<AreaForm> id="delivery-area-form" form={form} layout="vertical" initialValues={{ areaLevel: 1 }} onFinish={(values) => {
-                try { action.mutate({ path: '/ops/v1/delivery-areas', body: areaPayload(values) }); }
+                try {
+                    const payload=areaPayload(values);
+                    action.mutate(editingArea ? {
+                        path: `/ops/v1/delivery-areas/${editingArea.id}`, method: 'PUT',
+                        body: { areaName: payload.areaName, areaLevel: payload.areaLevel, geoJson: payload.geoJson, changeReason: payload.changeReason },
+                    } : { path: '/ops/v1/delivery-areas', body: payload });
+                }
                 catch { notice.error({ message: t('areas.invalidJson'), placement: 'topRight', duration: 6 }); }
             }}>
                 <div className="area-metadata">
-                    <Form.Item name="areaCode" label={t('areas.code')} rules={[{ required: true, whitespace: true }]}><Input placeholder="DT-01" /></Form.Item>
+                    <Form.Item name="areaCode" label={t('areas.code')} rules={[{ required: true, whitespace: true }]}><Input placeholder="DT-01" disabled={Boolean(editingArea)} /></Form.Item>
                     <Form.Item name="areaName" label={t('areas.name')} rules={[{ required: true, whitespace: true }]}><Input placeholder="Downtown core" /></Form.Item>
                     <Form.Item name="areaLevel" label={t('areas.level')} rules={[{ required: true }]}><InputNumber min={1} max={9} style={{ width: '100%' }} /></Form.Item>
                 </div>
@@ -129,6 +194,38 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                         <Form.Item name="changeReason" label={t('areas.reason')} rules={[{ required: true, whitespace: true }]}><Input.TextArea rows={2} /></Form.Item>
                     </div>
                 </div>
+            </Form>
+        </Modal>
+        <Modal title={t('areas.detailTitle', { code: viewingArea?.area_code })} width={1000} open={Boolean(viewingArea)}
+            footer={<Button onClick={() => setViewingArea(undefined)}>{t('common.close')}</Button>}
+            onCancel={() => setViewingArea(undefined)} destroyOnHidden>
+            {viewingArea && <>
+                <Space wrap style={{ marginBottom: 12 }}>
+                    <Tag>{viewingArea.area_name}</Tag><Tag>{t('areas.level')}: {viewingArea.area_level}</Tag>
+                    <Tag color={viewingArea.status === 'ACTIVE' ? 'green' : 'default'}>{viewingArea.status}</Tag>
+                </Space>
+                <AreaMapEditor station={station} value={viewingArea.geo_json} readOnly />
+                <Table<VersionRow> rowKey="id" size="small" loading={versions.isLoading} dataSource={versions.data ?? []}
+                    pagination={false} style={{ marginTop: 16 }} columns={[
+                        { title: t('areas.version'), dataIndex: 'version_no' },
+                        { title: t('common.status'), dataIndex: 'status' },
+                        { title: t('areas.reason'), dataIndex: 'change_reason' },
+                        { title: t('areas.createdAt'), dataIndex: 'created_at' },
+                    ]} />
+            </>}
+        </Modal>
+        <Modal title={stateArea?.status === 'ACTIVE' ? t('areas.deactivateTitle') : t('areas.reactivateTitle')}
+            open={Boolean(stateArea)} onCancel={() => setStateArea(undefined)} destroyOnHidden
+            footer={[
+                <Button key="cancel" onClick={() => setStateArea(undefined)}>{t('common.cancel')}</Button>,
+                <Button key="confirm" danger={stateArea?.status === 'ACTIVE'} type="primary" loading={stateAction.isPending}
+                    onClick={() => stateForm.submit()}>{t('common.confirm')}</Button>,
+            ]}>
+            <Alert type="warning" showIcon message={stateArea?.status === 'ACTIVE' ? t('areas.deactivateWarning') : t('areas.reactivateWarning')} />
+            <Form form={stateForm} layout="vertical" onFinish={(values) => stateArea && stateAction.mutate({ area: stateArea, reason: values.reason })}>
+                <Form.Item name="reason" label={t('common.reason')} rules={[{ required: true, whitespace: true }]} style={{ marginTop: 16 }}>
+                    <Input.TextArea rows={3} />
+                </Form.Item>
             </Form>
         </Modal>
         <Modal title={t('preferences.title', { area: preferenceArea?.area_code })} open={Boolean(preferenceArea)} footer={null}

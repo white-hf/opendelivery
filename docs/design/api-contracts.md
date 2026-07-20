@@ -274,9 +274,12 @@ Body：`stationCode:string`、`waveCode:string`、`serviceDate:date`、`routeCod
 
 | 方法与路径 | 输入 | 输出/规则 |
 |---|---|---|
-| `GET /ops/v1/delivery-areas` | 无 | 当前站点区域及优先展示的已发布/最新版本、GeoJSON |
+| `GET /ops/v1/delivery-areas` | 无 | 当前站点全部活动/停用区域及最新工作版本、GeoJSON |
 | `GET /ops/v1/delivery-areas/{areaId}/versions` | path ID | 全版本、校验结果、生效时间和审批人 |
 | `POST /ops/v1/delivery-areas` | `areaCode`、`areaName`、`areaLevel?`、`geoJson`、`changeReason` | 创建区域和 V1 `DRAFT`，返回 `areaId/versionId/versionNo/status` |
+| `PUT /ops/v1/delivery-areas/{areaId}` | `areaName`、`areaLevel`、`geoJson`、`changeReason` | 更新元数据并创建下一 `DRAFT`；`areaCode` 不可变，原发布版本继续服务至新版本发布 |
+| `DELETE /ops/v1/delivery-areas/{areaId}` | `reason` | 逻辑停用，停止新匹配并停用司机偏好；不删除版本和历史分配 |
+| `POST /ops/v1/delivery-areas/{areaId}/activate` | `reason` | 重新启用并恢复保留的已发布版本参与新匹配 |
 | `POST /ops/v1/delivery-areas/{areaId}/versions` | `geoJson`、`changeReason` | 为现有区域创建下一草稿版本 |
 | `POST .../{versionId}/validate` | 无 | 校验几何及同站同层重叠；成功转为 `VALIDATED` |
 | `POST .../{versionId}/publish` | `reason` | 仅发布已校验版本，原发布版本转 `RETIRED` |
@@ -284,4 +287,4 @@ Body：`stationCode:string`、`waveCode:string`、`serviceDate:date`、`routeCod
 | `POST .../{areaId}/driver-preferences` | `driverId`、`priority?`、`effectiveFrom?`、`effectiveTo?`、`reason` | 幂等新增/更新本站有效司机偏好 |
 | `POST /ops/v1/parcels/{parcelId}/area-match` | `longitude`、`latitude`、`providerCode`、`precisionCode`、`confidence?`、`normalizedAddress?`、`reason` | 保存地理编码，按本站已发布区域匹配并持久化具体版本；返回 `areaId/areaVersionId/source` |
 
-GeoJSON 接受 `Feature`、`Polygon` 或 `MultiPolygon`，服务端统一保存为 WGS84 `MultiPolygon`。点面匹配优先选择最高 `areaLevel`；无命中必须进入人工异常队列，不得猜测区域。典型错误：`AREA.GEOJSON.INVALID`、`AREA.OVERLAP`、`AREA.STATE.INVALID`、`AREA.MATCH.NOT.FOUND`、`AREA.COORDINATE.INVALID`。
+GeoJSON 接受 `FeatureCollection`、`Feature`、`Polygon` 或 `MultiPolygon`，服务端统一保存为 WGS84 `MultiPolygon`；混合集合中的 Point/Line 等辅助要素忽略。点面匹配优先选择最高 `areaLevel`；无命中必须进入人工异常队列，不得猜测区域。典型错误：`AREA.GEOJSON.INVALID`、`AREA.OVERLAP`、`AREA.STATE.INVALID`、`AREA.MATCH.NOT.FOUND`、`AREA.COORDINATE.INVALID`。

@@ -28,7 +28,9 @@ function extendBounds(bounds: google.maps.LatLngBounds, coordinates: unknown) {
     coordinates.forEach((child) => extendBounds(bounds, child));
 }
 
-export function AreaMapEditor({ station, value, onChange }: { station: string; value?: string; onChange: (value: string) => void }) {
+export function AreaMapEditor({ station, value, onChange, readOnly = false }: {
+    station: string; value?: string; onChange?: (value: string) => void; readOnly?: boolean;
+}) {
     const { t } = useTranslation();
     const [notice, noticeContext] = notification.useNotification();
     const containerRef = useRef<HTMLDivElement>(null);
@@ -55,7 +57,7 @@ export function AreaMapEditor({ station, value, onChange }: { station: string; v
             mapRef.current = map;
             dataRef.current = new google.maps.Data({ map });
             dataRef.current.setStyle({ fillColor: '#1677ff', fillOpacity: 0.22, strokeColor: '#0958d9', strokeWeight: 3 });
-            clickRef.current = map.addListener('click', (event: google.maps.MapMouseEvent) => {
+            if (!readOnly) clickRef.current = map.addListener('click', (event: google.maps.MapMouseEvent) => {
                 if (event.latLng) setPoints((current) => [...current, [event.latLng!.lng(), event.latLng!.lat()]]);
             });
             setMapReady(true);
@@ -68,7 +70,7 @@ export function AreaMapEditor({ station, value, onChange }: { station: string; v
             dataRef.current?.setMap(null);
             drawingRef.current.forEach((shape) => shape.setMap(null));
         };
-    }, [apiKey, station, t]);
+    }, [apiKey, readOnly, station, t]);
 
     useEffect(() => {
         if (!mapRef.current || !mapReady) return;
@@ -111,18 +113,18 @@ export function AreaMapEditor({ station, value, onChange }: { station: string; v
 
     return <Space direction="vertical" style={{ width: '100%' }}>
         {noticeContext}
-        <Typography.Text type="secondary">{t('areas.drawHelp')}</Typography.Text>
+        {!readOnly && <Typography.Text type="secondary">{t('areas.drawHelp')}</Typography.Text>}
         {!apiKey && <Alert type="warning" showIcon message={t('areas.googleMapsMissing')} />}
         {loadError && <Alert type="error" showIcon message={loadError} />}
         <div ref={containerRef} className="area-map" />
-        <Space wrap>
+        {!readOnly && <Space wrap>
             <Typography.Text>{t('areas.pointCount', { count: points.length })}</Typography.Text>
             <Button disabled={!points.length} onClick={() => setPoints((current) => current.slice(0, -1))}>{t('areas.undoPoint')}</Button>
             <Button onClick={() => setPoints([])} disabled={!points.length}>{t('areas.clearDrawing')}</Button>
             <Button type="primary" disabled={points.length < 3} onClick={() => {
-                try { onChange(JSON.stringify(polygonGeoJson(points))); setPoints([]); }
+                try { onChange?.(JSON.stringify(polygonGeoJson(points))); setPoints([]); }
                 catch { notice.error({ message: t('areas.minimumPoints'), placement: 'topRight' }); }
             }}>{t('areas.useDrawing')}</Button>
-        </Space>
+        </Space>}
     </Space>;
 }

@@ -34,7 +34,7 @@ public class DeliveryAreaOperationsService {
                 FROM delivery_area a LEFT JOIN delivery_area_version v ON v.id=(
                   SELECT candidate.id FROM delivery_area_version candidate
                   WHERE candidate.delivery_area_id=a.id
-                  ORDER BY (candidate.status='PUBLISHED') DESC,candidate.version_no DESC LIMIT 1
+                  ORDER BY candidate.version_no DESC LIMIT 1
                 )
                 WHERE a.station_id=? ORDER BY a.area_level,a.area_code
                 """,stationId);
@@ -137,6 +137,48 @@ public class DeliveryAreaOperationsService {
     }
 
     @Transactional
+    public VersionResult update(long areaId,UpdateRequest request,HttpServletRequest http) {
+        AreaRow area=area(areaId,true);
+        String reason=required(request.changeReason(),"changeReason");
+        Integer level=request.areaLevel()==null?1:request.areaLevel();
+        if(level<1||level>9) throw new BizException("PARAM.INVALID","areaLevel must be between 1 and 9");
+        Map<String,Object> before=jdbc.queryForMap("SELECT area_name,area_level,status FROM delivery_area WHERE id=?",areaId);
+        if(!"ACTIVE".equals(before.get("status"))) state("Inactive delivery area must be reactivated before editing");
+        jdbc.update("UPDATE delivery_area SET area_name=?,area_level=?,version=version+1 WHERE id=?",
+                required(request.areaName(),"areaName"),level,areaId);
+        Integer next=jdbc.queryForObject("SELECT COALESCE(MAX(version_no),0)+1 FROM delivery_area_version WHERE delivery_area_id=?",Integer.class,areaId);
+        long versionId=insertVersion(areaId,next,request.geoJson(),reason,operator(http));
+        audit(http,area.stationId(),"DELIVERY_AREA_UPDATED",areaId,"SUCCESS",reason,before,
+                Map.of("areaName",request.areaName(),"areaLevel",level,"versionId",versionId));
+        return new VersionResult(areaId,versionId,next,"DRAFT");
+    }
+
+    @Transactional
+    public Map<String,Object> deactivate(long areaId,StateChangeRequest request,HttpServletRequest http) {
+        AreaRow area=area(areaId,true);
+        String reason=required(request.reason(),"reason");
+        String before=jdbc.queryForObject("SELECT status FROM delivery_area WHERE id=?",String.class,areaId);
+        if("INACTIVE".equals(before)) return Map.of("areaId",areaId,"status","INACTIVE");
+        jdbc.update("UPDATE delivery_area SET status='INACTIVE',version=version+1 WHERE id=?",areaId);
+        jdbc.update("UPDATE driver_area_preference SET status='INACTIVE' WHERE delivery_area_id=? AND status='ACTIVE'",areaId);
+        audit(http,area.stationId(),"DELIVERY_AREA_DEACTIVATED",areaId,"SUCCESS",reason,
+                Map.of("status",before),Map.of("status","INACTIVE"));
+        return Map.of("areaId",areaId,"status","INACTIVE");
+    }
+
+    @Transactional
+    public Map<String,Object> activate(long areaId,StateChangeRequest request,HttpServletRequest http) {
+        AreaRow area=area(areaId,true);
+        String reason=required(request.reason(),"reason");
+        String before=jdbc.queryForObject("SELECT status FROM delivery_area WHERE id=?",String.class,areaId);
+        if("ACTIVE".equals(before)) return Map.of("areaId",areaId,"status","ACTIVE");
+        jdbc.update("UPDATE delivery_area SET status='ACTIVE',version=version+1 WHERE id=?",areaId);
+        audit(http,area.stationId(),"DELIVERY_AREA_REACTIVATED",areaId,"SUCCESS",reason,
+                Map.of("status",before),Map.of("status","ACTIVE"));
+        return Map.of("areaId",areaId,"status","ACTIVE");
+    }
+
+    @Transactional
     public ValidationResult validate(long areaId,long versionId,HttpServletRequest http) {
         AreaRow area=area(areaId,true); VersionRow version=version(areaId,versionId,true);
         if(!List.of("DRAFT","VALIDATED").contains(version.status())) state("Only draft or validated versions can be validated");
@@ -205,6 +247,8 @@ public class DeliveryAreaOperationsService {
     private record MatchRow(long areaId,long versionId,String areaCode,int versionNo){}
     public record CreateRequest(String areaCode,String areaName,Integer areaLevel,JsonNode geoJson,String changeReason){}
     public record VersionRequest(JsonNode geoJson,String changeReason){}
+    public record UpdateRequest(String areaName,Integer areaLevel,JsonNode geoJson,String changeReason){}
+    public record StateChangeRequest(String reason){}
     public record PublishRequest(String reason){}
     public record VersionResult(long areaId,long versionId,int versionNo,String status){}
     public record ValidationResult(long versionId,boolean valid,int overlapCount){}

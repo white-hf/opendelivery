@@ -212,6 +212,27 @@ public class OperationsController {
         return AppResponse.success("Delivery area version created",deliveryAreas.createVersion(areaId,body,request));
     }
 
+    @PutMapping("/delivery-areas/{areaId}")
+    public AppResponse<?> updateDeliveryArea(@PathVariable long areaId,
+            @RequestBody DeliveryAreaOperationsService.UpdateRequest body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Delivery area updated",deliveryAreas.update(areaId,body,request));
+    }
+
+    @DeleteMapping("/delivery-areas/{areaId}")
+    public AppResponse<?> deactivateDeliveryArea(@PathVariable long areaId,
+            @RequestBody DeliveryAreaOperationsService.StateChangeRequest body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Delivery area deactivated",deliveryAreas.deactivate(areaId,body,request));
+    }
+
+    @PostMapping("/delivery-areas/{areaId}/activate")
+    public AppResponse<?> activateDeliveryArea(@PathVariable long areaId,
+            @RequestBody DeliveryAreaOperationsService.StateChangeRequest body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Delivery area activated",deliveryAreas.activate(areaId,body,request));
+    }
+
     @PostMapping("/delivery-areas/{areaId}/versions/{versionId}/validate")
     public AppResponse<?> validateDeliveryArea(@PathVariable long areaId,@PathVariable long versionId,
                                                jakarta.servlet.http.HttpServletRequest request) {

@@ -204,9 +204,12 @@ Every route requires an operator bearer token, `X-Station-Code`, and `X-Request-
 
 | Method/path | Input | Result/rule |
 |---|---|---|
-| `GET /ops/v1/delivery-areas` | none | Station areas with the preferred published/latest version and GeoJSON |
+| `GET /ops/v1/delivery-areas` | none | All active/inactive station areas with their latest working version and GeoJSON |
 | `GET /ops/v1/delivery-areas/{areaId}/versions` | path ID | Complete version, validation, effective-time and approver history |
 | `POST /ops/v1/delivery-areas` | `areaCode`, `areaName`, optional `areaLevel`, `geoJson`, `changeReason` | Create area and V1 `DRAFT`; return IDs/version/status |
+| `PUT /ops/v1/delivery-areas/{areaId}` | `areaName`, `areaLevel`, `geoJson`, `changeReason` | Update metadata and create the next `DRAFT`; code is immutable and the published predecessor serves until replacement |
+| `DELETE /ops/v1/delivery-areas/{areaId}` | `reason` | Logically deactivate, stop new matches, and deactivate preferences without deleting versions/history |
+| `POST /ops/v1/delivery-areas/{areaId}/activate` | `reason` | Reactivate and restore the retained published version for new matching |
 | `POST /ops/v1/delivery-areas/{areaId}/versions` | `geoJson`, `changeReason` | Create the next draft version |
 | `POST .../{versionId}/validate` | none | Validate geometry and same-station/level overlap; move to `VALIDATED` |
 | `POST .../{versionId}/publish` | `reason` | Publish a validated version and retire its predecessor |
@@ -214,4 +217,4 @@ Every route requires an operator bearer token, `X-Station-Code`, and `X-Request-
 | `POST .../{areaId}/driver-preferences` | `driverId`, optional `priority/effectiveFrom/effectiveTo`, `reason` | Idempotently save an active same-station driver preference |
 | `POST /ops/v1/parcels/{parcelId}/area-match` | coordinates, provider/precision, optional confidence/address, `reason` | Save geocode, spatially match a published version, and persist `areaId/areaVersionId/source` |
 
-GeoJSON may be a `Feature`, `Polygon`, or `MultiPolygon` and is normalized to a WGS84 `MultiPolygon`. Matching chooses the highest `areaLevel`; no match must become an operator exception rather than a guessed assignment. Expected errors include `AREA.GEOJSON.INVALID`, `AREA.OVERLAP`, `AREA.STATE.INVALID`, `AREA.MATCH.NOT.FOUND`, and `AREA.COORDINATE.INVALID`.
+GeoJSON may be a `FeatureCollection`, `Feature`, `Polygon`, or `MultiPolygon` and is normalized to a WGS84 `MultiPolygon`; Point/Line helpers in mixed collections are ignored. Matching chooses the highest `areaLevel`; no match must become an operator exception rather than a guessed assignment. Expected errors include `AREA.GEOJSON.INVALID`, `AREA.OVERLAP`, `AREA.STATE.INVALID`, `AREA.MATCH.NOT.FOUND`, and `AREA.COORDINATE.INVALID`.
