@@ -478,3 +478,5 @@ I02 已通过 V3 增加 `station.city/province_code/country_code`、一城一站
 I04 V5 新增 `inbound_scan_event`，以 `(manifest_id, device_event_id)` 保证扫码设备重试幂等，并记录 tracking、条件、分类结果、item、操作人和发生时间。`operational_case.inbound_manifest_id/manifest_item_id` 将少货、多货、错站、破损差异明确关联至 Manifest。Manifest 的计数字段是查询投影，每次命令均从 Item 状态重算；Item 与 Scan Event 才是收货事实依据。
 
 I05 V6 为 `scan_session` 增加活动槽生成列及 `(task_id,session_type,active_slot)` 唯一约束，保证一个任务同类型至多一个 OPEN/SUBMITTED Session；为站点库存候选查询增加 `(current_station_id,status,current_custody_type,updated_at)` 索引。`driver_task_item.active_slot` 继续保证一个 Parcel 至多属于一个活动任务。发布只改变分配状态；批准装车才产生站点到司机的 custody event。
+
+I06 V7 新增 `delivery_failure_reason` 配置失败证据、下一动作和尝试上限；Attempt 增加 `failure_note/next_action`，Return Session 增加处理结论。RETURN 复用 Scan Event 幂等事实；主管批准后才写司机到站点/上游 custody。地址异常只建 Case，开放 Case 继续阻断调度，不自动重路由。

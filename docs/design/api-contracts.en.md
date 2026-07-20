@@ -166,15 +166,17 @@ Scan `conditionCode` supports `NORMAL/DAMAGED`; outcomes are `RECEIVED/DAMAGED/E
 
 Candidate inventory must be at the selected station, in station custody, routed successfully, and free of blocking Cases. The active-task unique index prevents duplicate allocation. Publication retains station custody. Only supervisor approval of a submitted Load Session moves Parcel and Task Item to `OUT_FOR_DELIVERY` and writes custody, status event, and outbox per piece.
 
-### I06 Failure and Return
+### I06 Failure and Return (CURRENT)
 
 | Method/path | Input | Result |
 |---|---|---|
-| `GET /driver/v1/failure-reasons` | serviceCode | allowed reasons/evidence |
-| `POST /driver/v1/task-items/{id}/attempts` | outcome,reason,location,POD,key | attempt result |
-| `POST /driver/v1/tasks/{id}/closeout` | version | unresolved list |
-| `POST /ops/v1/return-sessions/{id}/decision` | decision,reason,version | station custody/next action |
-| `POST /ops/v1/parcels/{id}/reschedule` | date,route,reason,version | dispatchable next day |
+| `GET /driver/v1/failure-reasons` | — | reason, evidence, next action, limit |
+| `POST /driver/v1/task-items/{id}/attempts` | outcome,reasonCode,note,photoEvidence,location,key | idempotent Attempt |
+| `GET /driver/v1/tasks/{id}/closeout` | — | owner task counts and closeability |
+| `POST /driver/v1/tasks/{id}/return-sessions` | — | owner RETURN session |
+| `POST /driver/v1/return-sessions/{id}/events` | trackingNo,deviceEventId | owner-only idempotent return scan |
+| `POST /driver/v1/return-sessions/{id}/submit` | — | submit for station review |
+| `POST /ops/v1/return-sessions/{id}/decision` | action,reason | station custody and redispatch/upstream return |
 
 ### I07–I08 Case, Callback, and Closeout
 

@@ -236,15 +236,17 @@ Body：`stationCode:string`、`waveCode:string`、`serviceDate:date`、`routeCod
 
 候选库存要求本站、站点 custody、已成功路由、无阻断 Case。活动任务唯一索引阻止同件重复分配。发布后仍由站点保管；只有主管批准已提交的装车 Session 后，Parcel 和 Task Item 才进入 `OUT_FOR_DELIVERY`，并逐件写 custody、状态事件和 outbox。
 
-### 9.5 失败与回站（I06）
+### 9.5 失败与回站（I06，CURRENT）
 
 | Method/Path | 输入 | 输出/副作用 |
 |---|---|---|
-| `GET /driver/v1/failure-reasons` | serviceCode | 允许原因和证据要求 |
-| `POST /driver/v1/task-items/{id}/attempts` | outcome,reason,location,POD,idempotencyKey | Attempt 结果 |
-| `POST /driver/v1/tasks/{id}/closeout` | version | 返回未闭环清单 |
-| `POST /ops/v1/return-sessions/{id}/decision` | decision,reason,version | custody 回站及下一动作 |
-| `POST /ops/v1/parcels/{id}/reschedule` | date,route,reason,version | 次日重新进入可派队列 |
+| `GET /driver/v1/failure-reasons` | — | 原因、照片/备注要求、下一动作、上限 |
+| `POST /driver/v1/task-items/{id}/attempts` | outcome,reasonCode,note,photoEvidence,location,idempotencyKey | 幂等 Attempt |
+| `GET /driver/v1/tasks/{id}/closeout` | — | 本人任务状态统计和可关闭标志 |
+| `POST /driver/v1/tasks/{id}/return-sessions` | — | 创建本人 RETURN session |
+| `POST /driver/v1/return-sessions/{id}/events` | trackingNo,deviceEventId | 本人幂等回站扫描 |
+| `POST /driver/v1/return-sessions/{id}/submit` | — | 提交站点审核 |
+| `POST /ops/v1/return-sessions/{id}/decision` | action,reason | custody 回站及重派/退上游 |
 
 ### 9.6 Case、回传和日终（I07–I08）
 

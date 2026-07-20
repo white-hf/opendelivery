@@ -15,13 +15,16 @@ public class OperationsController {
     private final RoutingOperationsService routing;
     private final InboundOperationsService inbound;
     private final DispatchOperationsService dispatch;
+    private final FailureReturnService failureReturn;
 
     public OperationsController(OperationsService service, RoutingOperationsService routing,
-                                InboundOperationsService inbound, DispatchOperationsService dispatch) {
+                                InboundOperationsService inbound, DispatchOperationsService dispatch,
+                                FailureReturnService failureReturn) {
         this.service = service;
         this.routing = routing;
         this.inbound = inbound;
         this.dispatch = dispatch;
+        this.failureReturn = failureReturn;
     }
 
     @PostMapping("/manifests/{manifestNo}/receipts")
@@ -149,5 +152,12 @@ public class OperationsController {
     @PostMapping("/scan-sessions/{sessionId}/approve")
     public AppResponse<?> approveLoad(@PathVariable long sessionId, jakarta.servlet.http.HttpServletRequest request) {
         return AppResponse.success("Load handover approved", dispatch.approveLoad(sessionId, request));
+    }
+
+    @PostMapping("/return-sessions/{sessionId}/decision")
+    public AppResponse<?> approveReturn(@PathVariable long sessionId,
+                                        @RequestBody FailureReturnService.ReturnDecision decision,
+                                        jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Return handover approved", failureReturn.approveReturn(sessionId, decision, request));
     }
 }
