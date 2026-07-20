@@ -49,6 +49,70 @@ public class DeliveryAreaOperationsService {
                 """,area.id());
     }
 
+    public List<Map<String,Object>> driverPreferences(long areaId) {
+        area(areaId,false);
+        return jdbc.queryForList("""
+                SELECT p.id,p.driver_id,d.credential_id AS driver_code,d.driver_name,p.priority,p.status,
+                       p.effective_from,p.effective_to,p.created_at
+                FROM driver_area_preference p JOIN driver d ON d.id=p.driver_id
+                WHERE p.delivery_area_id=? ORDER BY (p.status='ACTIVE') DESC,p.priority,d.driver_name
+                """,areaId);
+    }
+
+    @Transactional
+    public Map<String,Object> saveDriverPreference(long areaId,DriverPreferenceRequest request,HttpServletRequest http) {
+        AreaRow area=area(areaId,true);
+        DeliveryAreaInputPolicy.preference(request.priority(),request.effectiveFrom(),request.effectiveTo());
+        Integer driverCount=jdbc.queryForObject("SELECT COUNT(*) FROM driver WHERE id=? AND home_station_id=? AND status='ACTIVE'",
+                Integer.class,request.driverId(),area.stationId());
+        if(driverCount==null||driverCount==0) throw new BizException("AREA.DRIVER.INVALID","Driver is not active in the selected station");
+        jdbc.update("""
+                INSERT INTO driver_area_preference(driver_id,delivery_area_id,priority,status,effective_from,effective_to,created_by)
+                VALUES (?, ?, ?, 'ACTIVE', ?, ?, ?)
+                ON DUPLICATE KEY UPDATE priority=VALUES(priority),status='ACTIVE',effective_from=VALUES(effective_from),
+                  effective_to=VALUES(effective_to),created_by=VALUES(created_by),updated_at=CURRENT_TIMESTAMP(3)
+                """,request.driverId(),areaId,request.priority()==null?100:request.priority(),request.effectiveFrom(),request.effectiveTo(),operator(http));
+        audit(http,area.stationId(),"DRIVER_AREA_PREFERENCE_SAVED",areaId,"SUCCESS",required(request.reason(),"reason"),null,
+                Map.of("driverId",request.driverId(),"priority",request.priority()==null?100:request.priority()));
+        return Map.of("areaId",areaId,"driverId",request.driverId(),"status","ACTIVE");
+    }
+
+    @Transactional
+    public AreaMatchResult matchParcel(long parcelId,ParcelLocationRequest request,HttpServletRequest http) {
+        Long stationId=requireStation();
+        List<ParcelRow> parcels=jdbc.query("""
+                SELECT p.id,p.waybill_id FROM parcel p WHERE p.id=? AND p.current_station_id=?
+                """,(rs,n)->new ParcelRow(rs.getLong(1),rs.getLong(2)),parcelId,stationId);
+        if(parcels.isEmpty()) throw new BizException("PARCEL.NOT.FOUND","Parcel not found in selected station");
+        DeliveryAreaInputPolicy.coordinates(request.longitude(),request.latitude(),request.confidence());
+        ParcelRow parcel=parcels.get(0);
+        jdbc.update("""
+                INSERT INTO waybill_geocode(waybill_id,delivery_point,provider_code,precision_code,confidence,normalized_address,geocoded_at)
+                VALUES (?,ST_SRID(POINT(?,?),4326),?,?,?,?,CURRENT_TIMESTAMP(3))
+                ON DUPLICATE KEY UPDATE delivery_point=VALUES(delivery_point),provider_code=VALUES(provider_code),
+                  precision_code=VALUES(precision_code),confidence=VALUES(confidence),normalized_address=VALUES(normalized_address),
+                  geocoded_at=CURRENT_TIMESTAMP(3),version=version+1
+                """,parcel.waybillId(),request.longitude(),request.latitude(),required(request.providerCode(),"providerCode"),
+                required(request.precisionCode(),"precisionCode"),request.confidence(),request.normalizedAddress());
+        List<MatchRow> matches=jdbc.query("""
+                SELECT a.id,v.id,a.area_code,v.version_no
+                FROM delivery_area a JOIN delivery_area_version v ON v.delivery_area_id=a.id AND v.status='PUBLISHED'
+                WHERE a.station_id=? AND a.status='ACTIVE'
+                  AND ST_Intersects(v.boundary,ST_SRID(POINT(?,?),4326))
+                ORDER BY a.area_level DESC,a.area_code LIMIT 1
+                """,(rs,n)->new MatchRow(rs.getLong(1),rs.getLong(2),rs.getString(3),rs.getInt(4)),stationId,request.longitude(),request.latitude());
+        if(matches.isEmpty()) throw new BizException("AREA.MATCH.NOT.FOUND","No published delivery area contains the parcel location");
+        MatchRow match=matches.get(0);
+        jdbc.update("UPDATE parcel_area_assignment SET ended_at=CURRENT_TIMESTAMP(3) WHERE parcel_id=? AND ended_at IS NULL",parcelId);
+        jdbc.update("""
+                INSERT INTO parcel_area_assignment(parcel_id,delivery_area_version_id,assignment_source,assignment_reason,assigned_by)
+                VALUES (?,?,'GEO_POLYGON',?,?)
+                """,parcelId,match.versionId(),request.reason(),operator(http));
+        audit(http,stationId,"PARCEL_AREA_MATCHED",match.areaId(),"SUCCESS",required(request.reason(),"reason"),null,
+                Map.of("parcelId",parcelId,"areaVersionId",match.versionId()));
+        return new AreaMatchResult(parcelId,match.areaId(),match.versionId(),match.areaCode(),match.versionNo(),"GEO_POLYGON");
+    }
+
     @Transactional
     public VersionResult create(CreateRequest request,HttpServletRequest http) {
         Long stationId=requireStation();
@@ -137,9 +201,16 @@ public class DeliveryAreaOperationsService {
 
     private record AreaRow(long id,long stationId){}
     private record VersionRow(long id,int versionNo,String status,Long previousPublishedId){}
+    private record ParcelRow(long id,long waybillId){}
+    private record MatchRow(long areaId,long versionId,String areaCode,int versionNo){}
     public record CreateRequest(String areaCode,String areaName,Integer areaLevel,JsonNode geoJson,String changeReason){}
     public record VersionRequest(JsonNode geoJson,String changeReason){}
     public record PublishRequest(String reason){}
     public record VersionResult(long areaId,long versionId,int versionNo,String status){}
     public record ValidationResult(long versionId,boolean valid,int overlapCount){}
+    public record DriverPreferenceRequest(long driverId,Integer priority,java.time.LocalDate effectiveFrom,
+                                          java.time.LocalDate effectiveTo,String reason){}
+    public record ParcelLocationRequest(double longitude,double latitude,String providerCode,String precisionCode,
+                                        java.math.BigDecimal confidence,String normalizedAddress,String reason){}
+    public record AreaMatchResult(long parcelId,long areaId,long areaVersionId,String areaCode,int versionNo,String source){}
 }

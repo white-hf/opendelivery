@@ -277,5 +277,8 @@ Body：`stationCode:string`、`waveCode:string`、`serviceDate:date`、`routeCod
 | `POST /ops/v1/delivery-areas/{areaId}/versions` | `geoJson`、`changeReason` | 为现有区域创建下一草稿版本 |
 | `POST .../{versionId}/validate` | 无 | 校验几何及同站同层重叠；成功转为 `VALIDATED` |
 | `POST .../{versionId}/publish` | `reason` | 仅发布已校验版本，原发布版本转 `RETIRED` |
+| `GET .../{areaId}/driver-preferences` | 无 | 区域的默认司机偏好及有效期 |
+| `POST .../{areaId}/driver-preferences` | `driverId`、`priority?`、`effectiveFrom?`、`effectiveTo?`、`reason` | 幂等新增/更新本站有效司机偏好 |
+| `POST /ops/v1/parcels/{parcelId}/area-match` | `longitude`、`latitude`、`providerCode`、`precisionCode`、`confidence?`、`normalizedAddress?`、`reason` | 保存地理编码，按本站已发布区域匹配并持久化具体版本；返回 `areaId/areaVersionId/source` |
 
-GeoJSON 接受 `Feature`、`Polygon` 或 `MultiPolygon`，服务端统一保存为 WGS84 `MultiPolygon`。典型错误：`AREA.GEOJSON.INVALID`、`AREA.OVERLAP`、`AREA.STATE.INVALID`、`AREA.NOT.FOUND`。
+GeoJSON 接受 `Feature`、`Polygon` 或 `MultiPolygon`，服务端统一保存为 WGS84 `MultiPolygon`。点面匹配优先选择最高 `areaLevel`；无命中必须进入人工异常队列，不得猜测区域。典型错误：`AREA.GEOJSON.INVALID`、`AREA.OVERLAP`、`AREA.STATE.INVALID`、`AREA.MATCH.NOT.FOUND`、`AREA.COORDINATE.INVALID`。

@@ -207,5 +207,8 @@ Every route requires an operator bearer token, `X-Station-Code`, and `X-Request-
 | `POST /ops/v1/delivery-areas/{areaId}/versions` | `geoJson`, `changeReason` | Create the next draft version |
 | `POST .../{versionId}/validate` | none | Validate geometry and same-station/level overlap; move to `VALIDATED` |
 | `POST .../{versionId}/publish` | `reason` | Publish a validated version and retire its predecessor |
+| `GET .../{areaId}/driver-preferences` | none | Default driver preferences and effective dates |
+| `POST .../{areaId}/driver-preferences` | `driverId`, optional `priority/effectiveFrom/effectiveTo`, `reason` | Idempotently save an active same-station driver preference |
+| `POST /ops/v1/parcels/{parcelId}/area-match` | coordinates, provider/precision, optional confidence/address, `reason` | Save geocode, spatially match a published version, and persist `areaId/areaVersionId/source` |
 
-GeoJSON may be a `Feature`, `Polygon`, or `MultiPolygon` and is normalized to a WGS84 `MultiPolygon`. Expected errors include `AREA.GEOJSON.INVALID`, `AREA.OVERLAP`, `AREA.STATE.INVALID`, and `AREA.NOT.FOUND`.
+GeoJSON may be a `Feature`, `Polygon`, or `MultiPolygon` and is normalized to a WGS84 `MultiPolygon`. Matching chooses the highest `areaLevel`; no match must become an operator exception rather than a guessed assignment. Expected errors include `AREA.GEOJSON.INVALID`, `AREA.OVERLAP`, `AREA.STATE.INVALID`, `AREA.MATCH.NOT.FOUND`, and `AREA.COORDINATE.INVALID`.

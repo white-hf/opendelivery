@@ -180,6 +180,25 @@ public class OperationsController {
     @GetMapping("/delivery-areas/{areaId}/versions")
     public AppResponse<?> deliveryAreaVersions(@PathVariable long areaId) { return AppResponse.success(deliveryAreas.versions(areaId)); }
 
+    @GetMapping("/delivery-areas/{areaId}/driver-preferences")
+    public AppResponse<?> deliveryAreaDriverPreferences(@PathVariable long areaId) {
+        return AppResponse.success(deliveryAreas.driverPreferences(areaId));
+    }
+
+    @PostMapping("/delivery-areas/{areaId}/driver-preferences")
+    public AppResponse<?> saveDeliveryAreaDriverPreference(@PathVariable long areaId,
+            @RequestBody DeliveryAreaOperationsService.DriverPreferenceRequest body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Driver area preference saved",deliveryAreas.saveDriverPreference(areaId,body,request));
+    }
+
+    @PostMapping("/parcels/{parcelId}/area-match")
+    public AppResponse<?> matchParcelArea(@PathVariable long parcelId,
+            @RequestBody DeliveryAreaOperationsService.ParcelLocationRequest body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Parcel matched to delivery area",deliveryAreas.matchParcel(parcelId,body,request));
+    }
+
     @PostMapping("/delivery-areas")
     public AppResponse<?> createDeliveryArea(@RequestBody DeliveryAreaOperationsService.CreateRequest body,
                                              jakarta.servlet.http.HttpServletRequest request) {
