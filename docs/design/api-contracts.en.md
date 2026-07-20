@@ -138,15 +138,18 @@ Response: `ingestionRecordId`, `duplicate`, `parcelCount`, `routingStatus`, `sta
 | `GET /ops/v1/readiness` | optional admin `X-Station-Code` | driver/manifest/case/unrouted checks |
 | `GET/POST /ops/v1/users` | user/default station/role | admin list/create operators |
 
-### I04 Inbound
+### I04 Inbound (CURRENT)
 
 | Method/path | Input | Result |
 |---|---|---|
 | `GET /ops/v1/manifests` | station,status,date,cursor | manifest page |
 | `GET /ops/v1/manifests/{id}` | — | counts/items/discrepancies |
+| `POST /ops/v1/manifests/{id}/start` | — | enter `RECEIVING` and record arrival |
 | `POST /ops/v1/manifests/{id}/scan-events` | trackingNo,deviceEventId,time | classified receipt |
 | `POST /ops/v1/manifests/{id}/discrepancies/{itemId}/decisions` | decision,reason,version | resolve/quarantine/redirect |
-| `POST /ops/v1/manifests/{id}/close` | version,carryoverCaseIds | close or gate errors |
+| `POST /ops/v1/manifests/{id}/close` | allowCaseCarryover | close or discrepancy gate error |
+
+Scan `conditionCode` supports `NORMAL/DAMAGED`; outcomes are `RECEIVED/DAMAGED/EXTRA/WRONG_STATION/DUPLICATE`. `deviceEventId` is unique within a Manifest. Normal and damaged receipts atomically update inventory, custody, status events, and outbox. Extra, wrong-station, damaged, and close-time missing pieces link to Operations Cases.
 
 ### I05 Dispatch and Handover
 

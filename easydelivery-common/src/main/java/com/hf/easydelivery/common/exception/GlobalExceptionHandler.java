@@ -6,6 +6,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -53,6 +55,18 @@ public class GlobalExceptionHandler {
     public AppResponse<Void> handleMissingParamException(MissingServletRequestParameterException ex) {
         log.warn("Missing parameter: {}", ex.getParameterName());
         return AppResponse.fail("PARAM.MISSING", "Required parameter is missing: " + ex.getParameterName());
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public AppResponse<Void> handleNotFound(NoResourceFoundException ex) {
+        return AppResponse.fail("RESOURCE.NOT.FOUND", "Requested resource was not found");
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    @ResponseStatus(HttpStatus.METHOD_NOT_ALLOWED)
+    public AppResponse<Void> handleMethodNotAllowed(HttpRequestMethodNotSupportedException ex) {
+        return AppResponse.fail("METHOD.NOT.ALLOWED", "Request method is not supported");
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)

@@ -13,10 +13,12 @@ import java.util.List;
 public class OperationsController {
     private final OperationsService service;
     private final RoutingOperationsService routing;
+    private final InboundOperationsService inbound;
 
-    public OperationsController(OperationsService service, RoutingOperationsService routing) {
+    public OperationsController(OperationsService service, RoutingOperationsService routing, InboundOperationsService inbound) {
         this.service = service;
         this.routing = routing;
+        this.inbound = inbound;
     }
 
     @PostMapping("/manifests/{manifestNo}/receipts")
@@ -78,5 +80,44 @@ public class OperationsController {
                                    @PathVariable long waybillId,
                                    @RequestBody RoutingOperationsService.RoutingOverrideRequest request) {
         return AppResponse.success("Routing overridden", routing.override(waybillId, request));
+    }
+
+    @GetMapping("/manifests")
+    public AppResponse<?> manifests(@RequestParam(required = false) String status,
+                                    @RequestParam(defaultValue = "50") int limit,
+                                    @RequestParam(defaultValue = "0") long afterId) {
+        return AppResponse.success(inbound.manifests(status, limit, afterId));
+    }
+
+    @GetMapping("/manifests/{manifestId}")
+    public AppResponse<?> manifest(@PathVariable long manifestId) {
+        return AppResponse.success(inbound.detail(manifestId));
+    }
+
+    @PostMapping("/manifests/{manifestId}/start")
+    public AppResponse<?> startManifest(@PathVariable long manifestId) {
+        return AppResponse.success("Receiving started", inbound.start(manifestId));
+    }
+
+    @PostMapping("/manifests/{manifestId}/scan-events")
+    public AppResponse<?> scanManifest(@PathVariable long manifestId,
+                                       @RequestBody InboundOperationsService.ScanRequest request,
+                                       jakarta.servlet.http.HttpServletRequest httpRequest) {
+        return AppResponse.success("Scan classified", inbound.scan(manifestId, request, httpRequest));
+    }
+
+    @PostMapping("/manifests/{manifestId}/discrepancies/{itemId}/decisions")
+    public AppResponse<?> decideDiscrepancy(@PathVariable long manifestId, @PathVariable long itemId,
+                                            @RequestBody InboundOperationsService.DecisionRequest request,
+                                            jakarta.servlet.http.HttpServletRequest httpRequest) {
+        inbound.resolveDiscrepancy(manifestId, itemId, request, httpRequest);
+        return AppResponse.success("Discrepancy resolved", null);
+    }
+
+    @PostMapping("/manifests/{manifestId}/close")
+    public AppResponse<?> closeManifest(@PathVariable long manifestId,
+                                        @RequestBody InboundOperationsService.CloseRequest request,
+                                        jakarta.servlet.http.HttpServletRequest httpRequest) {
+        return AppResponse.success("Manifest closed", inbound.close(manifestId, request, httpRequest));
     }
 }

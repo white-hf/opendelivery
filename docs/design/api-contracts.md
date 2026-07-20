@@ -208,15 +208,18 @@ Body：`stationCode:string`、`waveCode:string`、`serviceDate:date`、`routeCod
 | `GET /ops/v1/readiness` | 管理员可选 `X-Station-Code` | 司机、Manifest、Case、未路由统计 |
 | `GET/POST /ops/v1/users` | 用户/默认站点/角色 | 管理员查询或创建运营用户 |
 
-### 9.3 入站（I04）
+### 9.3 入站（I04，CURRENT）
 
 | Method/Path | 输入 | 输出/副作用 |
 |---|---|---|
 | `GET /ops/v1/manifests` | stationId,status,date,cursor | Manifest 分页摘要 |
 | `GET /ops/v1/manifests/{id}` | — | 计数、items、差异 |
+| `POST /ops/v1/manifests/{id}/start` | — | 进入 `RECEIVING` 并记录实际到达时间 |
 | `POST /ops/v1/manifests/{id}/scan-events` | trackingNo,deviceEventId,occurredAt | 分类后的收货结果 |
 | `POST /ops/v1/manifests/{id}/discrepancies/{itemId}/decisions` | decision,reason,version | 解决/隔离/转站 |
-| `POST /ops/v1/manifests/{id}/close` | version,carryoverCaseIds | 关闭或返回门禁失败 |
+| `POST /ops/v1/manifests/{id}/close` | allowCaseCarryover | 关闭或返回差异门禁失败 |
+
+扫码 `conditionCode` 支持 `NORMAL/DAMAGED`；输出为 `RECEIVED/DAMAGED/EXTRA/WRONG_STATION/DUPLICATE`。`deviceEventId` 在 Manifest 内唯一。正常/破损实收原子更新库存、custody、状态事件和 outbox；多货、错站、破损和关闭时少货均关联运营 Case。
 
 ### 9.4 调度与交接（I05）
 

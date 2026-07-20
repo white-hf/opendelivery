@@ -147,3 +147,5 @@ Files and future high-frequency GPS do not scale in MySQL: use object storage an
 ## 9. MOV Gaps
 
 I02 V3 adds station city/province/country, a one-city-one-station constraint, `station_service_area`, and Waybill current `routing_status/resolved_station_id/routing_reason_code/routed_at`. Routing algorithms, candidates, and branch details do not enter business tables; failures use Cases and manual overrides write `case_action`. Later additions include operator/role/default station/audit, reason codes, idempotent commands, reconciliation detail, and partner credential versions. Every addition updates this dictionary, ER model, migration, indexes, permissions, and retention.
+
+I04 V5 adds `inbound_scan_event`; `(manifest_id, device_event_id)` makes scanner retries idempotent while recording tracking, condition, outcome, item, operator, and occurrence time. `operational_case.inbound_manifest_id/manifest_item_id` explicitly links missing, extra, wrong-station, and damaged discrepancies. Manifest counts are query projections recomputed from Item state after commands; Items and Scan Events remain the receiving facts.
