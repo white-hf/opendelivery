@@ -106,7 +106,7 @@ function Workspace() {
 
 function Page({ page, station }: { page: PageKey; station: string }) {
     const { session } = useAuth();
-    if (page === 'areas') return <AreaWorkspace session={session!} station={station} />;
+    if (page === 'areas') return <AreaWorkspace key={station} session={session!} station={station} />;
     if (page === 'manifests') return <ManifestWorkspace session={session!} station={station} />;
     if (page === 'dispatch') return <DispatchWorkspace session={session!} station={station} />;
     return <ReadPage page={page} station={station} session={session!} />;
