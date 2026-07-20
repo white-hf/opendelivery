@@ -8,6 +8,16 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 @Component
 public class OperationsAccess {
+    public boolean canAccessAllStations() {
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attributes == null) return false;
+        HttpServletRequest request = attributes.getRequest();
+        if (Boolean.TRUE.equals(request.getAttribute("legacyOpsApiKey"))) return true;
+        Object principal = request.getAttribute("operatorPrincipal");
+        return principal instanceof com.hf.easydelivery.operations.auth.OperatorSessionService.Principal operator
+                && operator.hasRole("ADMIN");
+    }
+
     public void requireStation(long resourceStationId) {
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         if (attributes == null) return;

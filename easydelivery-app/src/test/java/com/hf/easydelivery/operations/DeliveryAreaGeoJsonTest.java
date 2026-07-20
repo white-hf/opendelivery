@@ -29,11 +29,26 @@ class DeliveryAreaGeoJsonTest {
     }
 
     @Test
+    void combinesGeoJsonIoFeatureCollectionPolygons() throws Exception {
+        var input=mapper.readTree("""
+                {"type":"FeatureCollection","features":[
+                  {"type":"Feature","properties":{"name":"A"},"geometry":{"type":"Polygon","coordinates":[[[0,0],[1,0],[1,1],[0,0]]]}},
+                  {"type":"Feature","properties":{"name":"B"},"geometry":{"type":"MultiPolygon","coordinates":[[[[2,2],[3,2],[3,3],[2,2]]]]}}
+                ]}
+                """);
+        var result=mapper.readTree(DeliveryAreaGeoJson.normalize(mapper,input));
+        assertEquals("MultiPolygon",result.path("type").asText());
+        assertEquals(2,result.path("coordinates").size());
+    }
+
+    @Test
     void rejectsLinesAndEmptyGeometry() throws Exception {
         BizException line=assertThrows(BizException.class,()->DeliveryAreaGeoJson.normalize(mapper,
                 mapper.readTree("{\"type\":\"LineString\",\"coordinates\":[[-63,44],[-62,44]]}")));
         assertEquals("AREA.GEOJSON.INVALID",line.getBizCode());
         assertThrows(BizException.class,()->DeliveryAreaGeoJson.normalize(mapper,
                 mapper.readTree("{\"type\":\"Polygon\",\"coordinates\":[]}")));
+        assertThrows(BizException.class,()->DeliveryAreaGeoJson.normalize(mapper,
+                mapper.readTree("{\"type\":\"FeatureCollection\",\"features\":[]}")));
     }
 }

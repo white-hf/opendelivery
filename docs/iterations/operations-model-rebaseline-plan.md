@@ -16,6 +16,8 @@
 
 R01 执行状态（2026-07-20）：Flyway V8、区域生命周期、司机偏好和包裹空间匹配 API 已完成；运营 Web 已支持 GeoJSON 导入、地图预览/点击绘制、校验/发布，以及区域默认司机和优先级维护。`scripts/delivery-area-e2e.sh` 已在真实 MySQL 自动验证 YHZ/YYZ/YVR 各自建区和发布、共享边界允许、面积重叠拒绝、跨站资源访问拒绝及退出清理。地图浏览器视觉验收仍待具备浏览器工具的环境执行，因此 R01 暂不标为完成。
 
+R01 验收缺陷切片：管理员站点下拉必须展示全部活动站点；导入必须支持 geojson.io 常见的 `FeatureCollection`、`Feature`、`Polygon`、`MultiPolygon`，支持选择本地 `.geojson/.json` 文件并立即回显；地图点击绘制必须持续显示节点、闭合边界、填充和节点数量。解析失败要在提交前给出明确提示。上述缺陷完成自动化回归并由运营人员浏览器复验后关闭 R01。
+
 地图瓦片通过 `VITE_MAP_TILE_URL` 和 `VITE_MAP_ATTRIBUTION` 配置；默认 OpenStreetMap 只用于开发验证。生产必须使用具有容量/SLA 授权的瓦片服务。当前区域编辑不向瓦片提供方发送包裹或收件人数据。
 
 发布验证采用 `ST_Intersects` 判断点在面内（包含边界），同层发布区域用 `ST_Intersects AND NOT ST_Touches` 拒绝面积重叠但允许共享边界。每次发布保留不可变版本，规划结果引用具体版本，后续修改规则不会改写历史任务。

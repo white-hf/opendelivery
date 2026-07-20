@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import L from 'leaflet';
-import { CircleMarker, GeoJSON, MapContainer, Polyline, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { CircleMarker, GeoJSON, MapContainer, Polygon, Polyline, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import type { GeoJsonObject } from 'geojson';
 import { Button, Space, Typography, message } from 'antd';
 import { useTranslation } from 'react-i18next';
@@ -40,11 +40,14 @@ export function AreaMapEditor({ station, value, onChange }: { station: string; v
                 <ClickCapture onPoint={(point) => setPoints((current) => [...current, point])} />
                 {geometry && <GeoJSON key={value} data={geometry as GeoJsonObject} style={{ color: '#1677ff', weight: 3 }} />}
                 <FitBoundary geometry={geometry} />
-                {latLngs.length > 1 && <Polyline positions={latLngs} color="#fa8c16" />}
+                {latLngs.length > 2
+                    ? <Polygon positions={latLngs} pathOptions={{ color: '#fa8c16', weight: 4, fillColor: '#ffd591', fillOpacity: 0.35 }} />
+                    : latLngs.length > 1 && <Polyline positions={latLngs} pathOptions={{ color: '#fa8c16', weight: 4 }} />}
                 {latLngs.map((point, index) => <CircleMarker key={`${point[0]}-${point[1]}-${index}`} center={point} radius={5} />)}
             </MapContainer>
         </div>
         <Space>
+            <Typography.Text>{t('areas.pointCount', { count: points.length })}</Typography.Text>
             <Button disabled={!points.length} onClick={() => setPoints((current) => current.slice(0, -1))}>{t('areas.undoPoint')}</Button>
             <Button onClick={() => setPoints([])} disabled={!points.length}>{t('areas.clearDrawing')}</Button>
             <Button type="primary" disabled={points.length < 3} onClick={() => {

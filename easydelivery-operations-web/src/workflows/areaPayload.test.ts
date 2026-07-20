@@ -4,11 +4,11 @@ import { areaPayload } from './areaPayload';
 describe('areaPayload', () => {
     it('normalizes operator input and parses GeoJSON', () => {
         expect(areaPayload({
-            areaCode: ' dt-01 ', areaName: ' Downtown ', geoJson: '{"type":"Polygon","coordinates":[]}',
+            areaCode: ' dt-01 ', areaName: ' Downtown ', geoJson: '{"type":"Polygon","coordinates":[[[0,0],[1,0],[0,0]]]}',
             changeReason: ' Initial boundary ',
         })).toEqual({
             areaCode: 'DT-01', areaName: 'Downtown', areaLevel: 1,
-            geoJson: { type: 'Polygon', coordinates: [] }, changeReason: 'Initial boundary',
+            geoJson: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [0, 0]]] }, changeReason: 'Initial boundary',
         });
     });
 

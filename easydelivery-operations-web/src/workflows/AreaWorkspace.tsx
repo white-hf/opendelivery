@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Alert, Button, Card, Form, Input, InputNumber, Modal, Select, Space, Table, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Form, Input, InputNumber, Modal, Select, Space, Table, Tag, Typography, Upload, message } from 'antd';
+import { UploadOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Session } from '../api/client';
 import { areaPayload, type AreaForm } from './areaPayload';
 import { useTranslation } from 'react-i18next';
 import { AreaMapEditor } from './AreaMapEditor';
+import { parseAreaGeoJson } from './areaGeometry';
 
 type AreaRow = {
     id: number; area_code: string; area_name: string; area_level: number; status: string;
@@ -93,7 +95,22 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                 </Space.Compact>
                 <Form.Item name="areaName" label={t('areas.name')} rules={[{ required: true, whitespace: true }]}><Input placeholder="Downtown core" /></Form.Item>
                 <AreaMapEditor station={station} value={geoJson} onChange={(next) => form.setFieldValue('geoJson', next)} />
-                <Form.Item name="geoJson" label={t('areas.geometry')} rules={[{ required: true, whitespace: true }]}><Input.TextArea rows={6} /></Form.Item>
+                <Upload accept=".geojson,.json,application/geo+json,application/json" showUploadList={false} beforeUpload={async (file) => {
+                    try {
+                        const text = await file.text();
+                        parseAreaGeoJson(text);
+                        form.setFieldValue('geoJson', text);
+                        await form.validateFields(['geoJson']);
+                        message.success(t('areas.fileLoaded', { name: file.name }));
+                    } catch {
+                        message.error(t('areas.invalidJson'));
+                    }
+                    return false;
+                }}><Button icon={<UploadOutlined />}>{t('areas.chooseFile')}</Button></Upload>
+                <Form.Item name="geoJson" label={t('areas.geometry')} rules={[
+                    { required: true, whitespace: true },
+                    { validator: async (_, value) => { if (value) parseAreaGeoJson(value); } },
+                ]}><Input.TextArea rows={6} placeholder={t('areas.geoJsonPlaceholder')} /></Form.Item>
                 <Form.Item name="changeReason" label={t('areas.reason')} rules={[{ required: true, whitespace: true }]}><Input.TextArea rows={2} /></Form.Item>
                 <Button type="primary" htmlType="submit" loading={action.isPending}>{t('areas.create')}</Button>
             </Form>

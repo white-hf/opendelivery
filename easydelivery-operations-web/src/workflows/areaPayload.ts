@@ -7,7 +7,7 @@ export type AreaForm = {
 };
 
 export function areaPayload(values: AreaForm) {
-    const parsed = JSON.parse(values.geoJson) as unknown;
+    const parsed = normalizeAreaGeoJson(JSON.parse(values.geoJson));
     return {
         areaCode: values.areaCode.trim().toUpperCase(),
         areaName: values.areaName.trim(),
@@ -16,3 +16,4 @@ export function areaPayload(values: AreaForm) {
         changeReason: values.changeReason.trim(),
     };
 }
+import { normalizeAreaGeoJson } from './areaGeometry';

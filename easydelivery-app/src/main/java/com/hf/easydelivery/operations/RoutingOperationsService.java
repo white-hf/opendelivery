@@ -26,6 +26,7 @@ public class RoutingOperationsService {
 
     public List<Map<String, Object>> stations() {
         Long stationId = access.selectedStationId();
+        if (access.canAccessAllStations()) stationId = null;
         return jdbc.queryForList("""
                 SELECT station_code, station_name, city, province_code, country_code, timezone, status
                 FROM station WHERE (? IS NULL OR id=?) ORDER BY country_code, province_code, city
