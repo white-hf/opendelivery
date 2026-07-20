@@ -6,7 +6,7 @@
 
 通用字段：`id` 为内部主键；`version` 为乐观锁版本；`created_at/updated_at` 为创建/最后修改时间。下文仍列出通用字段，便于开发逐字段核对。JSON 只保存协议快照或扩展元数据，禁止用 JSON 绕过核心字段建模。
 
-Flyway V9 为 `station.default_locale`、`operator_user.preferred_locale`、`driver.preferred_locale` 增加受约束的 locale，当前仅允许 `en-CA/fr-CA/zh-CN`。它们只控制展示，不参与权限、路由、状态或审计主键。
+Flyway V9–V10 为 `station.default_locale`、`operator_user.preferred_locale`、`driver.preferred_locale` 增加受约束的 locale，当前仅允许 `en-CA/fr-CA/zh-CN`。账户偏好可空：空值回退站点默认，再回退 `en-CA`。它们只控制展示，不参与权限、路由、状态或审计主键。
 
 ## 2. 实体关系
 

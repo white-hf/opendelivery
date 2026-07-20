@@ -34,7 +34,7 @@ function Login() {
                     setError('');
                     await auth.login(values.username, values.password);
                 } catch (caught) {
-                    setError(caught instanceof Error ? caught.message : 'Login failed');
+                    setError(caught instanceof Error ? caught.message : t('auth.failed'));
                 }
             }}>
                 <Form.Item name="username" rules={[{ required: true }]}>
@@ -81,7 +81,7 @@ function Workspace() {
             <Header className="top">
                 <Space>
                     <Select
-                        aria-label="Station"
+                        aria-label={t('station.label')}
                         value={station}
                         onChange={changeStation}
                         options={(stations.data ?? []).map((item) => ({
@@ -113,6 +113,7 @@ function Page({ page, station }: { page: PageKey; station: string }) {
 }
 
 function ReadPage({ page, station, session }: { page: PageKey; station: string; session: Session }) {
+    const { t } = useTranslation();
     const path = page === 'dashboard' ? '/ops/v1/readiness'
         : page === 'cases' ? '/ops/v1/cases' : null;
     const query = useQuery({
@@ -121,7 +122,7 @@ function ReadPage({ page, station, session }: { page: PageKey; station: string; 
         enabled: Boolean(path && station),
     });
 
-    if (!path) return <Card title={page}>This pilot-critical workspace is connected in the next vertical slice.</Card>;
+    if (!path) return <Card title={t(`nav.${page}`)}>{t('common.notReady')}</Card>;
     if (query.isLoading) return <Spin />;
     if (query.error) return <Alert type="error" message={query.error.message} />;
     if (page === 'dashboard') {
@@ -135,7 +136,7 @@ function ReadPage({ page, station, session }: { page: PageKey; station: string; 
         <Table<Record<string, unknown>>
             rowKey={(row) => String(row.id ?? row.caseNo ?? row.tracking_no)}
             dataSource={rows}
-            columns={keys.slice(0, 8).map((key) => ({ title: key, dataIndex: key }))}
+            columns={keys.slice(0, 8).map((key) => ({ title: t(`field.${key}`, { defaultValue: key }), dataIndex: key }))}
             pagination={false}
         />
     </Card>;

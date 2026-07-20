@@ -6,7 +6,7 @@ The current production baseline is Flyway `V1__baseline_schema.sql`: MySQL 8, In
 
 Common fields: `id` internal key; `version` optimistic-lock counter; `created_at/updated_at` creation and last-update time. JSON is limited to protocol snapshots and extension metadata, never a substitute for queryable constrained facts.
 
-Flyway V9 adds constrained `station.default_locale`, `operator_user.preferred_locale`, and `driver.preferred_locale` values. Launch values are `en-CA/fr-CA/zh-CN`; locale affects presentation only, never authorization, routing, state, or audit identity.
+Flyway V9–V10 add constrained `station.default_locale`, `operator_user.preferred_locale`, and `driver.preferred_locale` values. Account preference is nullable and falls back to station default, then `en-CA`. Launch values are `en-CA/fr-CA/zh-CN`; locale affects presentation only, never authorization, routing, state, or audit identity.
 
 ## 2. Relationships
 

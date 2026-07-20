@@ -26,8 +26,9 @@ public class JdbcDriverRepository implements DriverRepository {
     public Optional<Driver> findByCredentialId(String credentialId) {
         if (credentialId == null) return Optional.empty();
         return first(jdbc.query("""
-                SELECT id, credential_id, password_hash, driver_name, status, preferred_locale
-                FROM driver WHERE credential_id = ?
+                SELECT d.id,d.credential_id,d.password_hash,d.driver_name,d.status,
+                       COALESCE(d.preferred_locale,s.default_locale,'en-CA') preferred_locale
+                FROM driver d LEFT JOIN station s ON s.id=d.home_station_id WHERE d.credential_id = ?
                 """, (rs, rowNum) -> map(rs.getLong("id"), rs.getString("credential_id"),
                 rs.getString("password_hash"), rs.getString("driver_name"), rs.getString("status"),rs.getString("preferred_locale")), credentialId));
     }
@@ -35,8 +36,9 @@ public class JdbcDriverRepository implements DriverRepository {
     @Override
     public Optional<Driver> findById(int id) {
         return first(jdbc.query("""
-                SELECT id, credential_id, password_hash, driver_name, status, preferred_locale
-                FROM driver WHERE id = ?
+                SELECT d.id,d.credential_id,d.password_hash,d.driver_name,d.status,
+                       COALESCE(d.preferred_locale,s.default_locale,'en-CA') preferred_locale
+                FROM driver d LEFT JOIN station s ON s.id=d.home_station_id WHERE d.id = ?
                 """, (rs, rowNum) -> map(rs.getLong("id"), rs.getString("credential_id"),
                 rs.getString("password_hash"), rs.getString("driver_name"), rs.getString("status"),rs.getString("preferred_locale")), id));
     }

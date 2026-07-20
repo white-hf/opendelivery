@@ -34,7 +34,10 @@ public class OperationsAuthController {
     @GetMapping("/me")
     public AppResponse<?> me(HttpServletRequest request) {
         OperatorSessionService.Principal principal=sessions.authenticate(bearer(request));
-        if(request.getHeader("Accept-Language")==null) LocaleContextHolder.setLocale(SupportedLocale.locale(principal.preferredLocale()));
+        if(request.getHeader("Accept-Language")==null) {
+            String locale=principal.preferredLocale()==null?principal.stationDefaultLocale():principal.preferredLocale();
+            LocaleContextHolder.setLocale(SupportedLocale.locale(locale));
+        }
         return AppResponse.success(principal);
     }
 

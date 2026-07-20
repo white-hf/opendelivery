@@ -17,4 +17,4 @@ Login and R01 critical paths work in all three locales; missing or unsupported l
 
 ## Status (2026-07-20)
 
-Slice 1 is complete: V9 is on real MySQL, driver/operator preferences, header resolution, shared API localization, and three bundles are verified. Slice 2 has the framework plus login, navigation, and area UI; manifest, dispatch, case, and closeout copy remains. Android resources and complete UI/E2E gates remain, so R01.1 is in progress.
+Slice 1 is complete on real MySQL through V10, including header and account→station→English fallback. Slice 2 covers login, navigation, areas, manifests, discrepancies, dispatch, dynamic headings, and placeholder workspaces with key-set automation. The Android contract is published, but that repository is outside this workspace; client resources and device E2E remain external evidence. Backend and Operations Web foundations are complete while overall R01.1 awaits driver-client proof.

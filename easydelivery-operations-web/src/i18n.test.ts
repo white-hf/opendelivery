@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import i18n, { changeLocale } from './i18n';
+import i18n, { changeLocale, translations } from './i18n';
 
 describe('operations localization', () => {
     beforeEach(() => localStorage.clear());
@@ -11,5 +11,10 @@ describe('operations localization', () => {
     it('falls back to English for missing keys', async () => {
         await changeLocale('zh-CN');
         expect(i18n.t('missing.key', { defaultValue: 'Fallback' })).toBe('Fallback');
+    });
+    it('keeps launch locale key sets identical', () => {
+        const expected = Object.keys(translations['en-CA']).sort();
+        expect(Object.keys(translations['fr-CA']).sort()).toEqual(expected);
+        expect(Object.keys(translations['zh-CN']).sort()).toEqual(expected);
     });
 });

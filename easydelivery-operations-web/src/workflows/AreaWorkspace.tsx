@@ -41,11 +41,11 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
             </Typography.Paragraph>
             <Table<AreaRow> rowKey="id" dataSource={list.data ?? []} loading={list.isLoading} pagination={false}
                 columns={[
-                    { title: 'Code', dataIndex: 'area_code' }, { title: 'Name', dataIndex: 'area_name' },
-                    { title: 'Level', dataIndex: 'area_level' },
-                    { title: 'Version', render: (_, row) => row.version_no ?? 'Draft' },
-                    { title: 'Status', render: (_, row) => <Tag>{row.version_status ?? row.status}</Tag> },
-                    { title: 'Action', render: (_, row) => <Space>
+                    { title: t('areas.code'), dataIndex: 'area_code' }, { title: t('areas.name'), dataIndex: 'area_name' },
+                    { title: t('areas.level'), dataIndex: 'area_level' },
+                    { title: t('areas.version'), render: (_, row) => row.version_no ?? t('areas.draft') },
+                    { title: t('common.status'), render: (_, row) => { const status=row.version_status ?? row.status; return <Tag>{t(`status.${status}`, { defaultValue: status })}</Tag>; } },
+                    { title: t('common.action'), render: (_, row) => <Space>
                         {row.version_status === 'DRAFT' && <Button size="small" onClick={() => action.mutate({
                             path: `/ops/v1/delivery-areas/${row.id}/versions/${row.version_id}/validate`,
                         })}>{t('areas.validate')}</Button>}
@@ -62,11 +62,11 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                 catch { message.error(t('areas.invalidJson')); }
             }}>
                 <Space.Compact block>
-                    <Form.Item name="areaCode" label="Area code" rules={[{ required: true, whitespace: true }]} style={{ width: '50%' }}><Input placeholder="DT-01" /></Form.Item>
-                    <Form.Item name="areaLevel" label="Level" rules={[{ required: true }]} style={{ width: '50%' }}><InputNumber min={1} max={9} style={{ width: '100%' }} /></Form.Item>
+                <Form.Item name="areaCode" label={t('areas.code')} rules={[{ required: true, whitespace: true }]} style={{ width: '50%' }}><Input placeholder="DT-01" /></Form.Item>
+                    <Form.Item name="areaLevel" label={t('areas.level')} rules={[{ required: true }]} style={{ width: '50%' }}><InputNumber min={1} max={9} style={{ width: '100%' }} /></Form.Item>
                 </Space.Compact>
-                <Form.Item name="areaName" label="Area name" rules={[{ required: true, whitespace: true }]}><Input placeholder="Downtown core" /></Form.Item>
-                <Form.Item name="geoJson" label="GeoJSON Feature, Polygon, or MultiPolygon" rules={[{ required: true, whitespace: true }]}><Input.TextArea rows={9} /></Form.Item>
+                <Form.Item name="areaName" label={t('areas.name')} rules={[{ required: true, whitespace: true }]}><Input placeholder="Downtown core" /></Form.Item>
+                <Form.Item name="geoJson" label={t('areas.geometry')} rules={[{ required: true, whitespace: true }]}><Input.TextArea rows={9} /></Form.Item>
                 <Form.Item name="changeReason" label={t('areas.reason')} rules={[{ required: true, whitespace: true }]}><Input.TextArea rows={2} /></Form.Item>
                 <Button type="primary" htmlType="submit" loading={action.isPending}>{t('areas.create')}</Button>
             </Form>

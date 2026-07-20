@@ -1,0 +1,2 @@
+ALTER TABLE operator_user MODIFY preferred_locale VARCHAR(16) NULL DEFAULT NULL;
+ALTER TABLE driver MODIFY preferred_locale VARCHAR(16) NULL DEFAULT NULL;
