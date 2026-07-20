@@ -28,8 +28,11 @@ public class ScanController {
     }
 
     @PostMapping("/ext/scan")
-    public AppResponse<ParcelScanData> scanParcel(@RequestBody ParcelScanReq req) {
+    public AppResponse<ParcelScanData> scanParcel(@RequestBody ParcelScanReq req, HttpServletRequest request) {
         log.info("Scanning parcel: tracking_no={}, scan_batch_id={}", req.getTracking_no(), req.getScan_batch_id());
+        DeliveryOperations.ScanBatch batch = dataStore.getBatch(req.getScan_batch_id() == null ? -1 : req.getScan_batch_id());
+        if (batch == null) return AppResponse.fail("SCAN.BATCH.NOT.FOUND", "Scan batch not found");
+        requireSelf(batch.getDriverId(), request);
         
         DeliveryOperations.ParcelScanResult result = dataStore.scanParcel(req.getTracking_no(), req.getScan_batch_id(), req.getDevice_event_id());
         if (!result.success()) return AppResponse.fail(result.errorCode(), result.errorMessage());
@@ -58,13 +61,15 @@ public class ScanController {
     }
 
     @PostMapping("/scan/batch/report")
-    public AppResponse<ScanBatchGenerateReportData> generateScanBatchReport(@RequestBody ScanBatchGenerateReportReq req) {
+    public AppResponse<ScanBatchGenerateReportData> generateScanBatchReport(@RequestBody ScanBatchGenerateReportReq req,
+                                                                            HttpServletRequest request) {
         log.info("Generating report for batchId={}", req.getScan_batch_id());
 
         ScanBatch batch = dataStore.getBatch(req.getScan_batch_id());
         if (batch == null) {
             return AppResponse.fail("REPORT.BATCH.NOT.FOUND", "Batch not found: " + req.getScan_batch_id());
         }
+        requireSelf(batch.getDriverId(), request);
 
         // Retrieve driver parcels
         List<DeliveringListData> driverUnscanned = dataStore.getUnscannedParcels(batch.getDriverId());
@@ -129,12 +134,18 @@ public class ScanController {
     @PutMapping("/ext/scan/batch/{scanBatchId}")
     public AppResponse<ScanBatchReviewData> submitScanBatchReview(
             @PathVariable("scanBatchId") Long scanBatchId,
-            @RequestBody ScanBatchReviewReq req) {
+            @RequestBody ScanBatchReviewReq req,
+            HttpServletRequest request) {
         log.info("Reviewing batchId={}, newStatus={}", scanBatchId, req.getStatus());
 
         ScanBatch batch = dataStore.getBatch(scanBatchId);
         if (batch == null) {
             return AppResponse.fail("REVIEW.BATCH.NOT.FOUND", "Batch not found: " + scanBatchId);
+        }
+
+        requireSelf(batch.getDriverId(), request);
+        if (!"SUBMITTED".equalsIgnoreCase(req.getStatus())) {
+            throw new UnauthorizedException("Driver may only submit a load session for operations review");
         }
 
         batch = dataStore.reviewBatch(scanBatchId, req.getStatus());

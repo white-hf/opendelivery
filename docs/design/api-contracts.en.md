@@ -151,19 +151,20 @@ Response: `ingestionRecordId`, `duplicate`, `parcelCount`, `routingStatus`, `sta
 
 Scan `conditionCode` supports `NORMAL/DAMAGED`; outcomes are `RECEIVED/DAMAGED/EXTRA/WRONG_STATION/DUPLICATE`. `deviceEventId` is unique within a Manifest. Normal and damaged receipts atomically update inventory, custody, status events, and outbox. Extra, wrong-station, damaged, and close-time missing pieces link to Operations Cases.
 
-### I05 Dispatch and Handover
+### I05 Dispatch and Handover (CURRENT)
 
 | Method/path | Input | Result |
 |---|---|---|
-| `GET /ops/v1/dispatch-candidates` | station,date,route,cursor | dispatchable parcels |
-| `POST /ops/v1/waves/drafts` | station/date/route | draft |
-| `PUT /ops/v1/waves/{id}/items` | add/remove IDs,version | revised draft |
-| `POST /ops/v1/waves/{id}/publish` | driverId,version | validated atomic publication |
-| `POST /ops/v1/waves/{id}/cancel` | reason,version | cancel unstarted wave |
-| `POST /driver/v1/tasks/{id}/scan-sessions` | sessionType | own session |
-| `POST /driver/v1/scan-sessions/{id}/events` | tracking,deviceEvent,location,time | idempotent scan |
-| `POST /driver/v1/scan-sessions/{id}/submit` | version | discrepancy report |
-| `POST /ops/v1/scan-sessions/{id}/decision` | approve/reject,reason,version | custody handover |
+| `GET /ops/v1/dispatch/candidates` | limit,afterId | selected-station candidates |
+| `POST /ops/v1/dispatch/waves` | waveCode,date,route,driverId,trackingNumbers | draft with task items |
+| `POST /ops/v1/dispatch/waves/{id}/publish` | — | lock, revalidate, and publish |
+| `POST /ops/v1/dispatch/waves/{id}/revoke` | — | revoke unscanned wave and restore inventory |
+| `POST /delivery/scan/batch` | driver_id,scan_as | driver-owned LOAD session |
+| `POST /delivery/ext/scan` | tracking_no,scan_batch_id,device_event_id | owner-only idempotent load scan |
+| `PUT /delivery/ext/scan/batch/{id}` | status=`SUBMITTED` | driver submits but cannot approve |
+| `POST /ops/v1/scan-sessions/{id}/approve` | — | supervisor approval and custody handover |
+
+Candidate inventory must be at the selected station, in station custody, routed successfully, and free of blocking Cases. The active-task unique index prevents duplicate allocation. Publication retains station custody. Only supervisor approval of a submitted Load Session moves Parcel and Task Item to `OUT_FOR_DELIVERY` and writes custody, status event, and outbox per piece.
 
 ### I06 Failure and Return
 

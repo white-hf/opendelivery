@@ -221,19 +221,20 @@ Body：`stationCode:string`、`waveCode:string`、`serviceDate:date`、`routeCod
 
 扫码 `conditionCode` 支持 `NORMAL/DAMAGED`；输出为 `RECEIVED/DAMAGED/EXTRA/WRONG_STATION/DUPLICATE`。`deviceEventId` 在 Manifest 内唯一。正常/破损实收原子更新库存、custody、状态事件和 outbox；多货、错站、破损和关闭时少货均关联运营 Case。
 
-### 9.4 调度与交接（I05）
+### 9.4 调度与交接（I05，CURRENT）
 
 | Method/Path | 输入 | 输出/副作用 |
 |---|---|---|
-| `GET /ops/v1/dispatch-candidates` | stationId,date,route,cursor | 可派 Parcel |
-| `POST /ops/v1/waves/drafts` | station/date/route | 创建草稿 |
-| `PUT /ops/v1/waves/{id}/items` | add/remove parcel IDs,version | 修改草稿 |
-| `POST /ops/v1/waves/{id}/publish` | driverId,version | 原子发布及逐件校验 |
-| `POST /ops/v1/waves/{id}/cancel` | reason,version | 未开始波次撤回 |
-| `POST /driver/v1/tasks/{id}/scan-sessions` | sessionType | 创建本人 session |
-| `POST /driver/v1/scan-sessions/{id}/events` | trackingNo,deviceEventId,location,time | 幂等扫描 |
-| `POST /driver/v1/scan-sessions/{id}/submit` | version | 提交差异报告 |
-| `POST /ops/v1/scan-sessions/{id}/decision` | APPROVE/REJECT,reason,version | 责任交接 |
+| `GET /ops/v1/dispatch/candidates` | limit,afterId | 当前站点可派 Parcel |
+| `POST /ops/v1/dispatch/waves` | waveCode,date,route,driverId,trackingNumbers | 创建含任务明细的草稿 |
+| `POST /ops/v1/dispatch/waves/{id}/publish` | — | 锁定并逐件校验后发布 |
+| `POST /ops/v1/dispatch/waves/{id}/revoke` | — | 未扫码波次撤回并恢复库存 |
+| `POST /delivery/scan/batch` | driver_id,scan_as | 司机创建本人 LOAD session |
+| `POST /delivery/ext/scan` | tracking_no,scan_batch_id,device_event_id | 本人幂等装车扫描 |
+| `PUT /delivery/ext/scan/batch/{id}` | status=`SUBMITTED` | 司机提交；不得自批 |
+| `POST /ops/v1/scan-sessions/{id}/approve` | — | 主管批准并转移 custody |
+
+候选库存要求本站、站点 custody、已成功路由、无阻断 Case。活动任务唯一索引阻止同件重复分配。发布后仍由站点保管；只有主管批准已提交的装车 Session 后，Parcel 和 Task Item 才进入 `OUT_FOR_DELIVERY`，并逐件写 custody、状态事件和 outbox。
 
 ### 9.5 失败与回站（I06）
 

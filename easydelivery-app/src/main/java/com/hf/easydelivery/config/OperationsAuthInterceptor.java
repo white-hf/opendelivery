@@ -86,7 +86,7 @@ public class OperationsAuthInterceptor implements HandlerInterceptor {
         boolean read = "GET".equals(method);
         boolean commonRead = read && (path.endsWith("/stations") || path.contains("/cases") || path.endsWith("/readiness"));
         boolean allowed = principal.hasRole("INBOUND") && (path.contains("/manifests") || commonRead)
-                || principal.hasRole("DISPATCHER") && (path.contains("/waves") || commonRead);
+                || principal.hasRole("DISPATCHER") && (path.contains("/waves") || path.contains("/dispatch/") || commonRead);
         if (!allowed) throw new ForbiddenException("Role is not permitted to perform this operation");
     }
 

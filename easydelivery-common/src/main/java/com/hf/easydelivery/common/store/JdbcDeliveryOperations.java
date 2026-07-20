@@ -102,6 +102,11 @@ public class JdbcDeliveryOperations implements DeliveryOperations {
                 ORDER BY service_date DESC, id DESC LIMIT 1
                 """, rs -> rs.next() ? rs.getLong(1) : null, driverId);
         if (taskId == null) throw new BizException("SCAN.TASK.NOT.FOUND", "No active driver task");
+        List<Long> active = jdbc.query("""
+                SELECT id FROM scan_session WHERE task_id=? AND session_type='LOAD' AND status IN ('OPEN','SUBMITTED')
+                ORDER BY id DESC LIMIT 1
+                """, (rs,n)->rs.getLong(1), taskId);
+        if (!active.isEmpty()) return active.get(0);
         Integer expected = jdbc.queryForObject("SELECT COUNT(*) FROM driver_task_item WHERE task_id=? AND item_status='ASSIGNED'", Integer.class, taskId);
         KeyHolder keys = new GeneratedKeyHolder();
         jdbc.update(connection -> {
@@ -177,6 +182,13 @@ public class JdbcDeliveryOperations implements DeliveryOperations {
     public ScanBatch reviewBatch(long batchId, String status) {
         ScanBatch batch = getBatch(batchId);
         if (batch == null) return null;
+        if ("SUBMITTED".equalsIgnoreCase(status)) {
+            jdbc.update("""
+                    UPDATE scan_session SET status='SUBMITTED',submitted_at=CURRENT_TIMESTAMP(3),version=version+1
+                    WHERE id=? AND status='OPEN'
+                    """, batchId);
+            return getBatch(batchId);
+        }
         if (!"APPROVED".equalsIgnoreCase(status)) {
             jdbc.update("UPDATE scan_session SET status='REJECTED', reviewed_at=CURRENT_TIMESTAMP(3) WHERE id=?", batchId);
             return getBatch(batchId);
@@ -201,6 +213,14 @@ public class JdbcDeliveryOperations implements DeliveryOperations {
                 """, batchId);
         jdbc.update("UPDATE scan_session SET status='APPROVED', submitted_at=COALESCE(submitted_at,CURRENT_TIMESTAMP(3)), reviewed_at=CURRENT_TIMESTAMP(3) WHERE id=?", batchId);
         for (Long parcelId : transitionedParcelIds) appendStatusAndOutbox(parcelId, "ASSIGNED", "OUT_FOR_DELIVERY", "LOAD_HANDOVER", "scan-review-" + batchId + "-" + parcelId);
+        Long driverId = jdbc.queryForObject("SELECT driver_id FROM scan_session WHERE id=?", Long.class, batchId);
+        for (Long parcelId : transitionedParcelIds) {
+            jdbc.update("""
+                    INSERT INTO custody_event(parcel_id,from_type,from_id,to_type,to_id,reason_code,reference_type,reference_id,occurred_at)
+                    SELECT ?, 'STATION', t.station_id, 'DRIVER', ?, 'LOAD_HANDOVER', 'SCAN_SESSION', ?, CURRENT_TIMESTAMP(3)
+                    FROM scan_session s JOIN driver_task t ON t.id=s.task_id WHERE s.id=?
+                    """, parcelId, driverId, batchId, batchId);
+        }
         return getBatch(batchId);
     }
 

@@ -14,11 +14,14 @@ public class OperationsController {
     private final OperationsService service;
     private final RoutingOperationsService routing;
     private final InboundOperationsService inbound;
+    private final DispatchOperationsService dispatch;
 
-    public OperationsController(OperationsService service, RoutingOperationsService routing, InboundOperationsService inbound) {
+    public OperationsController(OperationsService service, RoutingOperationsService routing,
+                                InboundOperationsService inbound, DispatchOperationsService dispatch) {
         this.service = service;
         this.routing = routing;
         this.inbound = inbound;
+        this.dispatch = dispatch;
     }
 
     @PostMapping("/manifests/{manifestNo}/receipts")
@@ -119,5 +122,32 @@ public class OperationsController {
                                         @RequestBody InboundOperationsService.CloseRequest request,
                                         jakarta.servlet.http.HttpServletRequest httpRequest) {
         return AppResponse.success("Manifest closed", inbound.close(manifestId, request, httpRequest));
+    }
+
+    @GetMapping("/dispatch/candidates")
+    public AppResponse<?> dispatchCandidates(@RequestParam(defaultValue = "50") int limit,
+                                             @RequestParam(defaultValue = "0") long afterId) {
+        return AppResponse.success(dispatch.candidates(limit, afterId));
+    }
+
+    @PostMapping("/dispatch/waves")
+    public AppResponse<?> createWaveDraft(@RequestBody DispatchOperationsService.DraftRequest request) {
+        return AppResponse.success("Wave draft created", dispatch.createDraft(request));
+    }
+
+    @PostMapping("/dispatch/waves/{waveId}/publish")
+    public AppResponse<?> publishWave(@PathVariable long waveId, jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Wave published", dispatch.publish(waveId, request));
+    }
+
+    @PostMapping("/dispatch/waves/{waveId}/revoke")
+    public AppResponse<?> revokeWave(@PathVariable long waveId) {
+        dispatch.revoke(waveId);
+        return AppResponse.success("Wave revoked", null);
+    }
+
+    @PostMapping("/scan-sessions/{sessionId}/approve")
+    public AppResponse<?> approveLoad(@PathVariable long sessionId, jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Load handover approved", dispatch.approveLoad(sessionId, request));
     }
 }

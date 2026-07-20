@@ -476,3 +476,5 @@ POD/GPS 不放大 MySQL：文件进入对象存储；若未来增加高频轨迹
 I02 已通过 V3 增加 `station.city/province_code/country_code`、一城一站约束、`station_service_area`，并在 Waybill 增加当前结果 `routing_status/resolved_station_id/routing_reason_code/routed_at`。路由算法、中间候选和排除过程不入业务表；系统失败进入 `operational_case`，人工覆盖写 `case_action`。后续增加 operator user/role/default station/audit、reason-code configuration、idempotency command record、reconciliation detail 和 partner credential/version。每项新增前必须更新本字典、ER 图、迁移、索引依据、权限和保留期。
 
 I04 V5 新增 `inbound_scan_event`，以 `(manifest_id, device_event_id)` 保证扫码设备重试幂等，并记录 tracking、条件、分类结果、item、操作人和发生时间。`operational_case.inbound_manifest_id/manifest_item_id` 将少货、多货、错站、破损差异明确关联至 Manifest。Manifest 的计数字段是查询投影，每次命令均从 Item 状态重算；Item 与 Scan Event 才是收货事实依据。
+
+I05 V6 为 `scan_session` 增加活动槽生成列及 `(task_id,session_type,active_slot)` 唯一约束，保证一个任务同类型至多一个 OPEN/SUBMITTED Session；为站点库存候选查询增加 `(current_station_id,status,current_custody_type,updated_at)` 索引。`driver_task_item.active_slot` 继续保证一个 Parcel 至多属于一个活动任务。发布只改变分配状态；批准装车才产生站点到司机的 custody event。
