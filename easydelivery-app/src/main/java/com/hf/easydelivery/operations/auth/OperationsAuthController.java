@@ -4,6 +4,8 @@ import com.hf.easydelivery.common.response.AppResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.*;
+import com.hf.easydelivery.common.i18n.SupportedLocale;
+import org.springframework.context.i18n.LocaleContextHolder;
 
 @RestController
 @Profile("!memory")
@@ -31,7 +33,17 @@ public class OperationsAuthController {
 
     @GetMapping("/me")
     public AppResponse<?> me(HttpServletRequest request) {
-        return AppResponse.success(sessions.authenticate(bearer(request)));
+        OperatorSessionService.Principal principal=sessions.authenticate(bearer(request));
+        if(request.getHeader("Accept-Language")==null) LocaleContextHolder.setLocale(SupportedLocale.locale(principal.preferredLocale()));
+        return AppResponse.success(principal);
+    }
+
+    @PutMapping("/me/locale")
+    public AppResponse<?> updateLocale(HttpServletRequest request,@RequestBody LocaleRequest body) {
+        String locale=SupportedLocale.canonicalTag(body.locale());
+        sessions.updateLocale(bearer(request),locale);
+        LocaleContextHolder.setLocale(SupportedLocale.locale(locale));
+        return AppResponse.success(java.util.Map.of("preferredLocale",locale));
     }
 
     private String bearer(HttpServletRequest request) {
@@ -41,5 +53,5 @@ public class OperationsAuthController {
 
     public record LoginRequest(String username, String password) {}
     public record RefreshRequest(String refreshToken) {}
+    public record LocaleRequest(String locale) {}
 }
-

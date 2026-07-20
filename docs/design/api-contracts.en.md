@@ -11,6 +11,9 @@ This document lists every current HTTP endpoint and the MOV API catalog. `CURREN
 - Driver uses `Authorization: Bearer`; Operations target Bearer + RBAC (current `X-Ops-Api-Key`); Integration currently uses `X-Upstream-Api-Key` and targets partner HMAC.
 - New writes require `Idempotency-Key` (1–160); updates require `If-Match: <version>`.
 - New lists default to 50, maximum 200, and return opaque `next_cursor`.
+- Driver and operator APIs accept `Accept-Language: en-CA|fr-CA|zh-CN`. `biz_message` is localized, while clients may depend only on stable `biz_code`; unsupported request languages fall back to `en-CA`.
+
+Preference endpoints are `PUT /auth/locale` for a driver bearer token and `PUT /ops/auth/me/locale` for an operator token. An explicit header overrides account preference, then station default, then `en-CA`.
 
 Current envelope:
 

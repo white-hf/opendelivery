@@ -1,5 +1,7 @@
 # Operations System Product Model
 
+> Localization is end-to-end: Operations Web, Driver App, and both API surfaces initially support `en-CA`, `fr-CA`, and `zh-CN`; locale changes never alter state, authorization, station isolation, or audit semantics.
+
 The Operations System is the city-station last-mile control plane, not a generic WMS, map editor, or database console. It closes the loop across upstream orders, geographic planning, physical arrival, driver pickup, custody, delivery, returns, and daily sign-off. The first outcome is five consecutive business days in YHZ, YYZ, and YVR under a one-city/one-station model; optimization, real-time dispatch, inter-station transfer, and organization hierarchy are excluded.
 
 The model separates commercial `Waybill/Parcel`, low-change `Station Service Area`, versioned GeoJSON `Delivery Area`, long-term `Driver Area Preference`, daily `Driver Shift`, pre-arrival `Dispatch Batch/Driver Task`, physical `Inbound Trip/Handling Unit`, immutable `Load Scan Event`, cross-task `Batch Reconciliation`, `Custody Event`, delivery/POD/return records, and Case/audit history.

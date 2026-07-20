@@ -9,6 +9,8 @@ import { useAuth } from './auth/session';
 import { DispatchWorkspace } from './workflows/DispatchWorkspace';
 import { ManifestWorkspace } from './workflows/ManifestWorkspace';
 import { AreaWorkspace } from './workflows/AreaWorkspace';
+import { useTranslation } from 'react-i18next';
+import { changeLocale, SUPPORTED_LOCALES, type SupportedLocale } from './i18n';
 
 const { Header, Sider, Content } = Layout;
 
@@ -19,10 +21,14 @@ export function App() {
 
 function Login() {
     const auth = useAuth();
+    const { t, i18n } = useTranslation();
     const [error, setError] = useState('');
 
     return <main className="login">
-        <Card title="OpenDelivery Operations">
+        <Card title={t('app.title')}>
+            <Select aria-label={t('locale.label')} value={i18n.language as SupportedLocale} style={{ width: '100%', marginBottom: 16 }}
+                onChange={(value: SupportedLocale) => void changeLocale(value)}
+                options={SUPPORTED_LOCALES.map((value) => ({ value, label: value }))} />
             <Form onFinish={async (values) => {
                 try {
                     setError('');
@@ -32,13 +38,13 @@ function Login() {
                 }
             }}>
                 <Form.Item name="username" rules={[{ required: true }]}>
-                    <Input placeholder="Username" />
+                    <Input placeholder={t('auth.username')} />
                 </Form.Item>
                 <Form.Item name="password" rules={[{ required: true }]}>
-                    <Input.Password placeholder="Password" />
+                    <Input.Password placeholder={t('auth.password')} />
                 </Form.Item>
                 {error && <Alert type="error" message={error} />}
-                <Button htmlType="submit" type="primary" block>Sign in</Button>
+                <Button htmlType="submit" type="primary" block>{t('auth.signIn')}</Button>
             </Form>
         </Card>
     </main>;
@@ -46,6 +52,7 @@ function Login() {
 
 function Workspace() {
     const { session, logout } = useAuth();
+    const { t, i18n } = useTranslation();
     const queryClient = useQueryClient();
     const pages = allowedPages(session!.user.roles);
     const [page, setPage] = useState<PageKey>(pages[0]);
@@ -67,7 +74,7 @@ function Workspace() {
                 theme="dark"
                 selectedKeys={[page]}
                 onClick={(event) => setPage(event.key as PageKey)}
-                items={pages.map((key) => ({ key, label: key[0].toUpperCase() + key.slice(1) }))}
+                items={pages.map((key) => ({ key, label: t(`nav.${key}`) }))}
             />
         </Sider>
         <Layout>
@@ -82,8 +89,14 @@ function Workspace() {
                             label: item.station_code,
                         }))}
                     />
+                    <Select aria-label={t('locale.label')} value={i18n.language as SupportedLocale} style={{ width: 100 }}
+                        options={SUPPORTED_LOCALES.map((value) => ({ value, label: value }))}
+                        onChange={async (value: SupportedLocale) => {
+                            await changeLocale(value);
+                            await api('/ops/auth/me/locale', session!, { method: 'PUT', body: JSON.stringify({ locale: value }) });
+                        }} />
                     <span>{session!.user.displayName}</span>
-                    <Button onClick={logout}>Sign out</Button>
+                    <Button onClick={logout}>{t('auth.signOut')}</Button>
                 </Space>
             </Header>
             <Content className="content"><Page page={page} station={station} /></Content>

@@ -24,4 +24,6 @@ public interface DriverRepository {
      * Checks if a credential id already exists in the store.
      */
     boolean existsByCredentialId(String credentialId);
+
+    void updatePreferredLocale(int driverId,String locale);
 }

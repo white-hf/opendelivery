@@ -53,4 +53,8 @@ public class InMemoryDriverRepository implements DriverRepository {
         if (credentialId == null) return false;
         return driversByCred.containsKey(credentialId);
     }
+
+    @Override public void updatePreferredLocale(int driverId,String locale) {
+        Driver driver=findById(driverId).orElseThrow(); driver.setPreferredLocale(locale);
+    }
 }

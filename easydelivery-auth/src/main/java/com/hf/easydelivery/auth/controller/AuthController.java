@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import com.hf.easydelivery.common.i18n.SupportedLocale;
 
 @RestController
 @RequestMapping("/auth")
@@ -108,4 +109,15 @@ public class AuthController {
 
         return AppResponse.success("Logout successful", null);
     }
+
+    @PutMapping("/locale")
+    public AppResponse<?> updateLocale(HttpServletRequest request,@RequestBody LocaleRequest body) {
+        Object driverId=request.getAttribute("driverId");
+        if(!(driverId instanceof Integer id)) throw new UnauthorizedException("Driver authentication is required");
+        String locale=SupportedLocale.canonicalTag(body.locale());
+        driverRepository.updatePreferredLocale(id,locale);
+        return AppResponse.success(Map.of("preferred_locale",locale));
+    }
+
+    public record LocaleRequest(String locale) {}
 }

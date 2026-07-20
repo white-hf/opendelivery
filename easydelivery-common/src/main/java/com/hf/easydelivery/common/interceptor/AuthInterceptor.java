@@ -7,6 +7,8 @@ import com.hf.easydelivery.common.repository.DriverRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Component;
+import org.springframework.context.i18n.LocaleContextHolder;
+import com.hf.easydelivery.common.i18n.SupportedLocale;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 @Component
@@ -54,12 +56,17 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
 
         // Set verified context attributes
-        Integer numericDriverId = driverRepository.findByCredentialId(driverId)
-                .map(com.hf.easydelivery.common.model.Driver::getId)
+        com.hf.easydelivery.common.model.Driver driver = driverRepository.findByCredentialId(driverId)
                 .orElseThrow(() -> new UnauthorizedException("Driver account no longer exists"));
+        Integer numericDriverId=driver.getId();
+        if(request.getHeader("Accept-Language")==null) LocaleContextHolder.setLocale(SupportedLocale.locale(driver.getPreferredLocale()));
         request.setAttribute("driverCredentialId", driverId);
         request.setAttribute("driverId", numericDriverId);
 
         return true;
+    }
+
+    @Override public void afterCompletion(HttpServletRequest request,HttpServletResponse response,Object handler,Exception ex) {
+        LocaleContextHolder.resetLocaleContext();
     }
 }

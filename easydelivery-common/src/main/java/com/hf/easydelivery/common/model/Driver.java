@@ -6,15 +6,21 @@ public class Driver {
     private String passwordHash; // Stores BCrypt salted hash
     private String name;
     private String status; // e.g. "ACTIVE", "SUSPENDED"
+    private String preferredLocale;
 
     public Driver() {}
 
     public Driver(int id, String credentialId, String passwordHash, String name, String status) {
+        this(id,credentialId,passwordHash,name,status,"en-CA");
+    }
+
+    public Driver(int id, String credentialId, String passwordHash, String name, String status, String preferredLocale) {
         this.id = id;
         this.credentialId = credentialId;
         this.passwordHash = passwordHash;
         this.name = name;
         this.status = status;
+        this.preferredLocale = preferredLocale;
     }
 
     public int getId() {
@@ -60,4 +66,7 @@ public class Driver {
     public boolean isActive() {
         return "ACTIVE".equalsIgnoreCase(this.status);
     }
+
+    public String getPreferredLocale() { return preferredLocale; }
+    public void setPreferredLocale(String preferredLocale) { this.preferredLocale=preferredLocale; }
 }

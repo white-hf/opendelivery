@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.util.List;
+import org.springframework.context.i18n.LocaleContextHolder;
+import com.hf.easydelivery.common.i18n.SupportedLocale;
 
 @Component
 @Profile("!memory")
@@ -50,11 +52,16 @@ public class OperationsAuthInterceptor implements HandlerInterceptor {
         request.setAttribute("operatorPrincipal", principal);
         request.setAttribute("operatorUserId", principal.userId());
         request.setAttribute("operatorStationId", stationId);
+        if(request.getHeader("Accept-Language")==null) {
+            String locale=principal.preferredLocale()==null?principal.stationDefaultLocale():principal.preferredLocale();
+            LocaleContextHolder.setLocale(SupportedLocale.locale(locale));
+        }
         return true;
     }
 
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
+        LocaleContextHolder.resetLocaleContext();
         if ("GET".equals(request.getMethod()) || Boolean.TRUE.equals(request.getAttribute("legacyOpsApiKey"))) return;
         Object userId = request.getAttribute("operatorUserId");
         if (!(userId instanceof Long)) return;

@@ -5,6 +5,7 @@ The operations review established pre-arrival order/area/capacity planning follo
 | Iteration | Outcome | Scope |
 |---|---|---|
 | R01 | Versioned GeoJSON areas | spatial schema, validation, preferences, audit |
+| R01.1 | Shared localization foundation | locale persistence, localized APIs, Web/Android resources, fallback gate |
 | R02 | Pre-arrival map planning | geocode, clusters, drawer, shifts, assignment, freeze/release |
 | R03 | Physical arrival | trips, handling units, aggregation observations |
 | R04 | Own-driver scans | expected lists, rejected scans, damage, submit, idempotency |

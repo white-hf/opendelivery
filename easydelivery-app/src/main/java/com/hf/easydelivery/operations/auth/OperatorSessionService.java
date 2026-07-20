@@ -27,11 +27,11 @@ public class OperatorSessionService {
             throw new UnauthorizedException("Invalid operator username or password");
         }
         List<UserRow> users = jdbc.query("""
-                SELECT u.id,u.username,u.password_hash,u.display_name,u.default_station_id,s.station_code
+                SELECT u.id,u.username,u.password_hash,u.display_name,u.default_station_id,s.station_code,u.preferred_locale,s.default_locale
                 FROM operator_user u LEFT JOIN station s ON s.id=u.default_station_id
                 WHERE u.username=? AND u.status='ACTIVE'
                 """, (rs,n) -> new UserRow(rs.getLong(1),rs.getString(2),rs.getString(3),rs.getString(4),
-                rs.getObject(5,Long.class),rs.getString(6)), username);
+                rs.getObject(5,Long.class),rs.getString(6),rs.getString(7),rs.getString(8)), username);
         if (users.isEmpty() || !BCrypt.checkpw(password, users.get(0).passwordHash())) {
             throw new UnauthorizedException("Invalid operator username or password");
         }
@@ -52,15 +52,15 @@ public class OperatorSessionService {
     public Principal authenticate(String accessToken) {
         List<Principal> rows = jdbc.query("""
                 SELECT u.id,u.username,u.display_name,u.default_station_id,s.station_code,
-                       GROUP_CONCAT(r.role_code ORDER BY r.role_code)
+                       GROUP_CONCAT(r.role_code ORDER BY r.role_code),u.preferred_locale,s.default_locale
                 FROM operator_session os JOIN operator_user u ON u.id=os.user_id
                 LEFT JOIN station s ON s.id=u.default_station_id
                 JOIN operator_user_role ur ON ur.user_id=u.id JOIN operator_role r ON r.id=ur.role_id
                 WHERE os.access_token_hash=? AND os.revoked_at IS NULL AND os.access_expires_at>CURRENT_TIMESTAMP(3)
                   AND u.status='ACTIVE'
-                GROUP BY u.id,u.username,u.display_name,u.default_station_id,s.station_code
+                GROUP BY u.id,u.username,u.display_name,u.default_station_id,s.station_code,u.preferred_locale,s.default_locale
                 """, (rs,n)->new Principal(rs.getLong(1),rs.getString(2),rs.getString(3),
-                rs.getObject(4,Long.class),rs.getString(5),List.of(rs.getString(6).split(","))), sha256(accessToken));
+                rs.getObject(4,Long.class),rs.getString(5),List.of(rs.getString(6).split(",")),rs.getString(7),rs.getString(8)), sha256(accessToken));
         if (rows.isEmpty()) throw new UnauthorizedException("Operator session is invalid or expired");
         return rows.get(0);
     }
@@ -68,6 +68,11 @@ public class OperatorSessionService {
     public void logout(String accessToken) {
         jdbc.update("UPDATE operator_session SET revoked_at=CURRENT_TIMESTAMP(3) WHERE access_token_hash=? AND revoked_at IS NULL",
                 sha256(accessToken));
+    }
+
+    public void updateLocale(String accessToken,String locale) {
+        Principal principal=authenticate(accessToken);
+        jdbc.update("UPDATE operator_user SET preferred_locale=?,version=version+1 WHERE id=?",locale,principal.userId());
     }
 
     private Tokens issue(long userId) {
@@ -87,9 +92,11 @@ public class OperatorSessionService {
         catch (Exception ex) { throw new IllegalStateException(ex); }
     }
 
-    private record UserRow(long id,String username,String passwordHash,String displayName,Long stationId,String stationCode) {}
+    private record UserRow(long id,String username,String passwordHash,String displayName,Long stationId,String stationCode,
+                           String preferredLocale,String stationDefaultLocale) {}
     public record Tokens(String tokenType,String accessToken,String refreshToken,long expiresIn) {}
-    public record Principal(long userId,String username,String displayName,Long stationId,String stationCode,List<String> roles) {
+    public record Principal(long userId,String username,String displayName,Long stationId,String stationCode,List<String> roles,
+                            String preferredLocale,String stationDefaultLocale) {
         public boolean hasRole(String role) { return roles.contains(role); }
     }
 }

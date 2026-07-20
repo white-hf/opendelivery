@@ -11,6 +11,9 @@
 - Driver：`Authorization: Bearer <access-token>`；Operations 目标同为 Bearer + RBAC，当前兼容 `X-Ops-Api-Key`；Integration 当前使用 `X-Upstream-Api-Key`，目标为 Partner HMAC。
 - 新写 API：`Idempotency-Key`（1–160 字符）；更新 API：`If-Match: <version>`。
 - 新列表默认 `limit=50`，最大 200，返回 opaque `next_cursor`；禁止无限列表。
+- 运营和司机接口接受 `Accept-Language: en-CA|fr-CA|zh-CN`。响应 `biz_message` 本地化，但客户端只允许依赖稳定 `biz_code`；不支持的请求语言回退 `en-CA`。
+
+语言设置接口：`PUT /auth/locale`（司机 Bearer，body `locale`，返回 `preferred_locale`）和 `PUT /ops/auth/me/locale`（运营 Bearer，返回 `preferredLocale`）。显式请求头优先于账户设置，之后为站点默认和 `en-CA`。
 
 当前响应包装：
 
