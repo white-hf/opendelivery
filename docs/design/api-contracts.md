@@ -166,7 +166,7 @@ Header：当前 `X-Upstream-Api-Key`；目标 Partner HMAC。Body：
 {"externalEventId":"evt-100","externalWaybillNo":"wb-100","recipientName":"Alex","addressLine1":"10 Main St","city":"Halifax","province":"NS","postalCode":"B3H1A1","countryCode":"CA","serviceCode":"STANDARD","trackingNumbers":["PKG-100-A","PKG-100-B"]}
 ```
 
-返回 `ingestionRecordId:long`、`duplicate:boolean`、`parcelCount:int` 和 `routing{status,stationCode?,reasonCode?}`。上游不需要提供内部站点；系统标准化地址并匹配服务范围。`ROUTED` 后才建立目标 Manifest；`UNROUTABLE/AMBIGUOUS` 创建 Case。重复 event ID 返回首次记录且不重复建单。当前代码仍要求 `targetStationCode`，将在 I02 迁移，迁移完成前本节是目标契约而非 CURRENT 行为。
+返回 `ingestionRecordId:long`、`duplicate:boolean`、`parcelCount:int`、`routingStatus`、`stationCode?` 和 `routingReasonCode`。上游不需要提供内部站点；`targetStationCode` 仅为可选提示。系统标准化地址并匹配服务范围。`ROUTED` 后才建立目标 Manifest；`UNROUTABLE/AMBIGUOUS` 创建 Case。重复 event ID 返回首次记录且不重复建单。同一幂等键不同报文的冲突检测仍是后续增强项。
 
 ## 8. Operations API（CURRENT）
 
@@ -189,6 +189,10 @@ Body：`stationCode:string`、`waveCode:string`、`serviceDate:date`、`routeCod
 | Method/Path | 输入 | 输出/副作用 |
 |---|---|---|
 | `GET /ops/v1/stations` | status,cursor | 多城市站点列表 |
+| `POST /ops/v1/stations` | stationCode,name,city,province,country,timezone,address | 创建一城一站配置 |
+| `GET /ops/v1/station-service-areas` | - | 查询服务范围 |
+| `POST /ops/v1/station-service-areas` | stationCode,province,city,postalPrefix?,serviceCode?,priority? | 创建有效服务范围 |
+| `POST /ops/v1/waybills/{id}/route` | - | 按当前地址与规则重新计算 |
 | `GET/POST/PUT /ops/v1/station-service-areas` | city/province/country/postalPrefix/station/version | 服务范围配置 |
 | `POST /ops/v1/waybills/{id}/route` | version | 执行/重试系统路由 |
 | `POST /ops/v1/waybills/{id}/routing-override` | stationId,reason,version | 人工指定并审计 |

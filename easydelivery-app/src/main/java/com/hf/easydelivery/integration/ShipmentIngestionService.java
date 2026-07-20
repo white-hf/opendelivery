@@ -3,6 +3,7 @@ package com.hf.easydelivery.integration;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hf.easydelivery.common.exception.BizException;
+import com.hf.easydelivery.integration.routing.ShipmentRoutingService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -22,23 +23,32 @@ import java.util.List;
 public class ShipmentIngestionService {
     private final JdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
+    private final ShipmentRoutingService routingService;
 
-    public ShipmentIngestionService(JdbcTemplate jdbc, ObjectMapper objectMapper) {
+    public ShipmentIngestionService(JdbcTemplate jdbc, ObjectMapper objectMapper, ShipmentRoutingService routingService) {
         this.jdbc = jdbc;
         this.objectMapper = objectMapper;
+        this.routingService = routingService;
     }
 
     @Transactional
     public IngestionResult ingest(String partnerCode, CanonicalShipmentRequest request) {
         Long partnerId = singleId("SELECT id FROM upstream_partner WHERE partner_code=? AND status='ACTIVE'", partnerCode,
                 "UPSTREAM.PARTNER.NOT.FOUND", "Active upstream partner not found");
-        Long stationId = singleId("SELECT id FROM station WHERE station_code=? AND status='ACTIVE'", request.targetStationCode(),
-                "STATION.NOT.FOUND", "Active target station not found");
+        List<IngestionResult> duplicate = jdbc.query("""
+                SELECT r.id, COUNT(p.id), w.routing_status, s.station_code, w.routing_reason_code
+                FROM ingestion_record r
+                LEFT JOIN waybill w ON w.partner_id=r.partner_id AND w.external_waybill_no=r.external_waybill_no
+                LEFT JOIN parcel p ON p.waybill_id=w.id
+                LEFT JOIN station s ON s.id=w.resolved_station_id
+                WHERE r.partner_id=? AND r.external_event_id=?
+                GROUP BY r.id, w.routing_status, s.station_code, w.routing_reason_code
+                """, (rs, n) -> new IngestionResult(rs.getLong(1), true, rs.getInt(2), rs.getString(3),
+                rs.getString(4), rs.getString(5)), partnerId, request.externalEventId());
+        if (!duplicate.isEmpty()) return duplicate.get(0);
 
-        List<Long> duplicate = jdbc.query("""
-                SELECT id FROM ingestion_record WHERE partner_id=? AND external_event_id=?
-                """, (rs, n) -> rs.getLong(1), partnerId, request.externalEventId());
-        if (!duplicate.isEmpty()) return new IngestionResult(duplicate.get(0), true, request.trackingNumbers().size());
+        ShipmentRoutingService.RoutingDecision routing = routingService.route(request.city(), request.province(),
+                request.postalCode(), request.countryCode(), request.serviceCode(), request.targetStationCode());
 
         String payload = toJson(request);
         KeyHolder batchKeys = new GeneratedKeyHolder();
@@ -70,17 +80,21 @@ public class ShipmentIngestionService {
                 INSERT INTO waybill
                 (partner_id, external_waybill_no, external_version, recipient_name, recipient_phone,
                  address_line1, address_line2, city, province, postal_code, country_code, service_code,
+                 routing_status, resolved_station_id, routing_reason_code, routed_at,
                  delivery_window_start, delivery_window_end, source_event_time)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP(3))
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, IF(?='ROUTED', CURRENT_TIMESTAMP(3), NULL), ?, ?, CURRENT_TIMESTAMP(3))
                 ON DUPLICATE KEY UPDATE external_version=VALUES(external_version), recipient_name=VALUES(recipient_name),
                   recipient_phone=VALUES(recipient_phone), address_line1=VALUES(address_line1),
                   address_line2=VALUES(address_line2), city=VALUES(city), province=VALUES(province),
                   postal_code=VALUES(postal_code), service_code=VALUES(service_code),
+                  routing_status=VALUES(routing_status), resolved_station_id=VALUES(resolved_station_id),
+                  routing_reason_code=VALUES(routing_reason_code), routed_at=VALUES(routed_at),
                   delivery_window_start=VALUES(delivery_window_start), delivery_window_end=VALUES(delivery_window_end),
                   source_event_time=VALUES(source_event_time), version=version+1
                 """, partnerId, request.externalWaybillNo(), request.externalVersion(), request.recipientName(),
                 request.recipientPhone(), request.addressLine1(), request.addressLine2(), request.city(), request.province(),
                 request.postalCode(), request.countryCode() == null ? "CA" : request.countryCode(), request.serviceCode(),
+                routing.status(), routing.stationId(), routing.reasonCode(), routing.status(),
                 request.deliveryWindowStart(), request.deliveryWindowEnd());
         Long waybillId = jdbc.queryForObject("SELECT id FROM waybill WHERE partner_id=? AND external_waybill_no=?",
                 Long.class, partnerId, request.externalWaybillNo());
@@ -90,26 +104,30 @@ public class ShipmentIngestionService {
             String tracking = request.trackingNumbers().get(index);
             jdbc.update("""
                     INSERT INTO parcel
-                    (waybill_id, tracking_no, piece_no, piece_count, status, current_custody_type, promised_date)
-                    VALUES (?, ?, ?, ?, 'RECEIVED', 'UPSTREAM', ?)
-                    ON DUPLICATE KEY UPDATE waybill_id=VALUES(waybill_id), piece_count=VALUES(piece_count), version=version+1
-                    """, waybillId, tracking, index + 1, pieceCount, request.promisedDate());
+                    (waybill_id, tracking_no, piece_no, piece_count, current_station_id, status, current_custody_type, promised_date)
+                    VALUES (?, ?, ?, ?, ?, ?, 'UPSTREAM', ?)
+                    ON DUPLICATE KEY UPDATE waybill_id=VALUES(waybill_id), piece_count=VALUES(piece_count),
+                      current_station_id=VALUES(current_station_id), status=VALUES(status), version=version+1
+                    """, waybillId, tracking, index + 1, pieceCount, routing.stationId(),
+                    routing.routed() ? "RECEIVED" : "ADDRESS_EXCEPTION", request.promisedDate());
             Long parcelId = jdbc.queryForObject("SELECT id FROM parcel WHERE tracking_no=?", Long.class, tracking);
             String eventKey = "ingestion-" + request.externalEventId() + "-" + tracking;
             jdbc.update("""
                     INSERT IGNORE INTO parcel_status_event
                     (parcel_id, sequence_no, from_status, to_status, event_type, idempotency_key, actor_type, occurred_at)
-                    VALUES (?, 1, NULL, 'RECEIVED', 'UPSTREAM_RECEIVED', ?, 'UPSTREAM', CURRENT_TIMESTAMP(3))
-                    """, parcelId, eventKey);
+                    VALUES (?, 1, NULL, ?, ?, ?, 'UPSTREAM', CURRENT_TIMESTAMP(3))
+                    """, parcelId, routing.routed() ? "RECEIVED" : "ADDRESS_EXCEPTION",
+                    routing.routed() ? "UPSTREAM_RECEIVED" : "ROUTING_EXCEPTION", eventKey);
+            if (!routing.routed()) createRoutingCase(parcelId, routing);
         }
 
-        if (request.externalManifestNo() != null && !request.externalManifestNo().isBlank()) {
+        if (routing.routed() && request.externalManifestNo() != null && !request.externalManifestNo().isBlank()) {
             jdbc.update("""
                     INSERT INTO inbound_manifest
                     (partner_id, station_id, external_manifest_no, status, expected_count)
                     VALUES (?, ?, ?, 'EXPECTED', ?)
                     ON DUPLICATE KEY UPDATE expected_count=VALUES(expected_count), version=version+1
-                    """, partnerId, stationId, request.externalManifestNo(), pieceCount);
+                    """, partnerId, routing.stationId(), request.externalManifestNo(), pieceCount);
             Long manifestId = jdbc.queryForObject("SELECT id FROM inbound_manifest WHERE partner_id=? AND external_manifest_no=?",
                     Long.class, partnerId, request.externalManifestNo());
             for (String tracking : request.trackingNumbers()) {
@@ -120,7 +138,17 @@ public class ShipmentIngestionService {
                         """, manifestId, parcelId, tracking);
             }
         }
-        return new IngestionResult(recordKeys.getKey().longValue(), false, pieceCount);
+        return new IngestionResult(recordKeys.getKey().longValue(), false, pieceCount, routing.status(),
+                routing.stationCode(), routing.reasonCode());
+    }
+
+    private void createRoutingCase(long parcelId, ShipmentRoutingService.RoutingDecision routing) {
+        String caseNo = "ROUTE-" + parcelId;
+        jdbc.update("""
+                INSERT INTO operational_case (case_no, case_type, parcel_id, priority, status, resolution_note)
+                VALUES (?, 'ROUTING_EXCEPTION', ?, 'HIGH', 'OPEN', ?)
+                ON DUPLICATE KEY UPDATE updated_at=CURRENT_TIMESTAMP(3)
+                """, caseNo, parcelId, routing.reasonCode());
     }
 
     private Long singleId(String sql, String value, String code, String message) {
@@ -139,5 +167,6 @@ public class ShipmentIngestionService {
         catch (Exception ex) { throw new IllegalStateException(ex); }
     }
 
-    public record IngestionResult(long ingestionRecordId, boolean duplicate, int parcelCount) {}
+    public record IngestionResult(long ingestionRecordId, boolean duplicate, int parcelCount,
+                                  String routingStatus, String stationCode, String routingReasonCode) {}
 }

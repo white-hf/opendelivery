@@ -473,4 +473,4 @@ POD/GPS 不放大 MySQL：文件进入对象存储；若未来增加高频轨迹
 
 ## 9. MOV 数据模型缺口
 
-I02 增加 `station.city/province/country_code`、一城一站约束、`station_service_area`，并在 Waybill 增加当前结果 `routing_status/resolved_station_id/routing_reason_code/routed_at`。路由算法、中间候选和排除过程不入业务表；系统失败进入 `operational_case`，人工覆盖进入通用审计。后续增加 operator user/role/default station/audit、reason-code configuration、idempotency command record、reconciliation detail 和 partner credential/version。每项新增前必须更新本字典、ER 图、迁移、索引依据、权限和保留期。
+I02 已通过 V3 增加 `station.city/province_code/country_code`、一城一站约束、`station_service_area`，并在 Waybill 增加当前结果 `routing_status/resolved_station_id/routing_reason_code/routed_at`。路由算法、中间候选和排除过程不入业务表；系统失败进入 `operational_case`，人工覆盖写 `case_action`。后续增加 operator user/role/default station/audit、reason-code configuration、idempotency command record、reconciliation detail 和 partner credential/version。每项新增前必须更新本字典、ER 图、迁移、索引依据、权限和保留期。

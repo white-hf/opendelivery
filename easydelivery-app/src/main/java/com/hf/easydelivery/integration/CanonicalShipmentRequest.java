@@ -18,14 +18,14 @@ public record CanonicalShipmentRequest(
         @NotBlank String addressLine1,
         String addressLine2,
         @NotBlank String city,
-        String province,
+        @NotBlank String province,
         @NotBlank String postalCode,
         String countryCode,
         String serviceCode,
         LocalDateTime deliveryWindowStart,
         LocalDateTime deliveryWindowEnd,
         LocalDate promisedDate,
-        @NotBlank String targetStationCode,
+        String targetStationCode,
         String externalManifestNo,
         @NotEmpty List<@NotBlank String> trackingNumbers
 ) {}

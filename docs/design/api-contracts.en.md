@@ -104,7 +104,7 @@ Current auth: `X-Upstream-Api-Key`; target: partner HMAC. Body fields:
 | `externalManifestNo` | string | no | inbound manifest number |
 | `trackingNumbers` | string[] | yes | at least one nonblank piece |
 
-Response: `ingestionRecordId`, `duplicate`, `parcelCount`, and `routing{status,stationCode?,reasonCode?}`. The upstream need not know internal stations. Only `ROUTED` creates the station Manifest; `UNROUTABLE/AMBIGUOUS` creates a Case. Current code still requires `targetStationCode`; I02 migrates it, so this paragraph is the target contract until then. Same key/different body 409 remains a gap.
+Response: `ingestionRecordId`, `duplicate`, `parcelCount`, `routingStatus`, `stationCode?`, and `routingReasonCode`. Upstreams need not know internal stations; `targetStationCode` is only an optional hint. Only `ROUTED` creates the station Manifest; `UNROUTABLE/AMBIGUOUS` creates a Case. Same-key/different-body conflict detection remains a later enhancement.
 
 ## 8. Operations (CURRENT)
 
@@ -119,6 +119,10 @@ Response: `ingestionRecordId`, `duplicate`, `parcelCount`, and `routing{status,s
 | Method/path | Input | Result |
 |---|---|---|
 | `GET /ops/v1/stations` | status,cursor | multi-city station page |
+| `POST /ops/v1/stations` | stationCode,name,city,province,country,timezone,address | create one-city station |
+| `GET /ops/v1/station-service-areas` | - | list service areas |
+| `POST /ops/v1/station-service-areas` | stationCode,province,city,postalPrefix?,serviceCode?,priority? | create active area |
+| `POST /ops/v1/waybills/{id}/route` | - | rerun current address through rules |
 | `GET/POST/PUT /ops/v1/station-service-areas` | coverage/station/version | service-area configuration |
 | `POST /ops/v1/waybills/{id}/route` | version | execute/retry system routing |
 | `POST /ops/v1/waybills/{id}/routing-override` | stationId,reason,version | audited manual assignment |

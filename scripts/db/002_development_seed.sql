@@ -1,8 +1,17 @@
 INSERT INTO upstream_partner (id, partner_code, partner_name, integration_mode, status, timezone)
 VALUES (1, 'DEMO_UPSTREAM', 'Demo Upstream Carrier', 'PUSH', 'ACTIVE', 'America/Halifax');
 
-INSERT INTO station (id, station_code, station_name, timezone, address_line, status)
-VALUES (1, 'YHZ-01', 'Halifax Last Mile Station', 'America/Halifax', 'Halifax, NS', 'ACTIVE');
+INSERT INTO station (id, station_code, station_name, city, province_code, country_code, timezone, address_line, status)
+VALUES
+    (1, 'YHZ-01', 'Halifax Last Mile Station', 'HALIFAX', 'NS', 'CA', 'America/Halifax', 'Halifax, NS', 'ACTIVE'),
+    (2, 'YYZ-01', 'Toronto Last Mile Station', 'TORONTO', 'ON', 'CA', 'America/Halifax', 'Toronto, ON', 'ACTIVE'),
+    (3, 'YVR-01', 'Vancouver Last Mile Station', 'VANCOUVER', 'BC', 'CA', 'America/Halifax', 'Vancouver, BC', 'ACTIVE');
+
+INSERT INTO station_service_area (station_id, country_code, province_code, city_name, postal_prefix, priority)
+VALUES
+    (1, 'CA', 'NS', 'HALIFAX', NULL, 100),
+    (2, 'CA', 'ON', 'TORONTO', NULL, 100),
+    (3, 'CA', 'BC', 'VANCOUVER', NULL, 100);
 
 INSERT INTO driver (id, home_station_id, credential_id, password_hash, driver_name, phone, status)
 VALUES
@@ -11,14 +20,15 @@ VALUES
 
 INSERT INTO waybill (
     id, partner_id, external_waybill_no, recipient_name, recipient_phone,
-    address_line1, city, province, postal_code, country_code, service_code, status
+    address_line1, city, province, postal_code, country_code, service_code,
+    routing_status, resolved_station_id, routing_reason_code, routed_at, status
 ) VALUES
-    (10001, 1, 'SN10001', 'John Doe', '604-555-0199', '123 Main St', 'Vancouver', 'BC', 'V6B 1A1', 'CA', 'REGULAR', 'ACTIVE'),
-    (10002, 1, 'SN10002', 'Alice Smith', '604-555-0199', '125 Main St', 'Vancouver', 'BC', 'V6B 1A1', 'CA', 'REGULAR', 'ACTIVE'),
-    (10003, 1, 'SN10003', 'Bob Chen', '604-555-0199', '888 Kingsway', 'Vancouver', 'BC', 'V5V 3C3', 'CA', 'REGULAR', 'ACTIVE'),
-    (10004, 1, 'SN10004', 'David Wong', '604-555-0199', '890 Kingsway', 'Vancouver', 'BC', 'V5V 3C3', 'CA', 'REGULAR', 'ACTIVE'),
-    (10005, 1, 'SN10005', 'Emma Wilson', '604-555-0199', '1055 W Georgia St', 'Vancouver', 'BC', 'V6E 3P3', 'CA', 'REGULAR', 'ACTIVE'),
-    (10006, 1, 'SN10006', 'George Martin', '604-555-0199', '2000 Simcoe St', 'Vancouver', 'BC', 'V6E 3P4', 'CA', 'REGULAR', 'ACTIVE');
+    (10001, 1, 'SN10001', 'John Doe', '902-555-0199', '123 Barrington St', 'Halifax', 'NS', 'B3J 1Z2', 'CA', 'REGULAR', 'ROUTED', 1, 'DEVELOPMENT_SEED', CURRENT_TIMESTAMP(3), 'ACTIVE'),
+    (10002, 1, 'SN10002', 'Alice Smith', '902-555-0199', '125 Barrington St', 'Halifax', 'NS', 'B3J 1Z2', 'CA', 'REGULAR', 'ROUTED', 1, 'DEVELOPMENT_SEED', CURRENT_TIMESTAMP(3), 'ACTIVE'),
+    (10003, 1, 'SN10003', 'Bob Chen', '902-555-0199', '1800 Argyle St', 'Halifax', 'NS', 'B3J 3N8', 'CA', 'REGULAR', 'ROUTED', 1, 'DEVELOPMENT_SEED', CURRENT_TIMESTAMP(3), 'ACTIVE'),
+    (10004, 1, 'SN10004', 'David Wong', '902-555-0199', '1810 Argyle St', 'Halifax', 'NS', 'B3J 3N8', 'CA', 'REGULAR', 'ROUTED', 1, 'DEVELOPMENT_SEED', CURRENT_TIMESTAMP(3), 'ACTIVE'),
+    (10005, 1, 'SN10005', 'Emma Wilson', '902-555-0199', '1650 Hollis St', 'Halifax', 'NS', 'B3J 1V7', 'CA', 'REGULAR', 'ROUTED', 1, 'DEVELOPMENT_SEED', CURRENT_TIMESTAMP(3), 'ACTIVE'),
+    (10006, 1, 'SN10006', 'George Martin', '902-555-0199', '1660 Hollis St', 'Halifax', 'NS', 'B3J 1V7', 'CA', 'REGULAR', 'ROUTED', 1, 'DEVELOPMENT_SEED', CURRENT_TIMESTAMP(3), 'ACTIVE');
 
 INSERT INTO parcel (
     id, waybill_id, tracking_no, current_station_id, status, current_custody_type,
