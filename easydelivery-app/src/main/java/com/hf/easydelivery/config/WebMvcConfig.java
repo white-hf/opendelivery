@@ -9,14 +9,18 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebMvcConfig implements WebMvcConfigurer {
 
     private final AuthInterceptor authInterceptor;
+    private final java.util.Optional<OperationsAuthInterceptor> operationsAuthInterceptor;
 
-    public WebMvcConfig(AuthInterceptor authInterceptor) {
+    public WebMvcConfig(AuthInterceptor authInterceptor, java.util.Optional<OperationsAuthInterceptor> operationsAuthInterceptor) {
         this.authInterceptor = authInterceptor;
+        this.operationsAuthInterceptor = operationsAuthInterceptor;
     }
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns("/**");
+        operationsAuthInterceptor.ifPresent(interceptor -> registry.addInterceptor(interceptor)
+                .addPathPatterns("/ops/v1/**"));
     }
 }

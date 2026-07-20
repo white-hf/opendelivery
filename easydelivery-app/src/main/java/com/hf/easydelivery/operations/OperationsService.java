@@ -1,6 +1,7 @@
 package com.hf.easydelivery.operations;
 
 import com.hf.easydelivery.common.exception.BizException;
+import com.hf.easydelivery.config.OperationsAccess;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -16,9 +17,11 @@ import java.util.List;
 @Profile("!memory")
 public class OperationsService {
     private final JdbcTemplate jdbc;
+    private final OperationsAccess access;
 
-    public OperationsService(JdbcTemplate jdbc) {
+    public OperationsService(JdbcTemplate jdbc, OperationsAccess access) {
         this.jdbc = jdbc;
+        this.access = access;
     }
 
     @Transactional
@@ -34,6 +37,7 @@ public class OperationsService {
                 rs.getLong("item_id"), rs.getLong("parcel_id"), rs.getString("status")), manifestNo, request.trackingNumber());
         if (rows.isEmpty()) throw new BizException("MANIFEST.ITEM.NOT.FOUND", "Tracking number is not expected on this manifest");
         ManifestRow row = rows.get(0);
+        access.requireStation(row.stationId());
         if ("AT_STATION".equals(row.status())) return new ReceiptResult(row.parcelId(), true, "AT_STATION");
         if (!"RECEIVED".equals(row.status())) throw new BizException("PARCEL.STATE.INVALID", "Parcel cannot be received from state " + row.status());
 
@@ -64,6 +68,7 @@ public class OperationsService {
     public WaveResult createAndPublishWave(CreateWaveRequest request) {
         Long stationId = requireId("SELECT id FROM station WHERE station_code=? AND status='ACTIVE'", request.stationCode(),
                 "STATION.NOT.FOUND", "Station not found");
+        access.requireStation(stationId);
         Integer driverCount = jdbc.queryForObject("SELECT COUNT(*) FROM driver WHERE id=? AND status='ACTIVE' AND home_station_id=?",
                 Integer.class, request.driverId(), stationId);
         if (driverCount == null || driverCount == 0) throw new BizException("DRIVER.NOT.AVAILABLE", "Driver is not active at this station");
@@ -126,12 +131,17 @@ public class OperationsService {
     }
 
     public List<CaseSummary> openCases() {
+        Long stationId = access.selectedStationId();
         return jdbc.query("""
                 SELECT case_no, case_type, priority, status, owner_type, owner_id, sla_due_at
-                FROM operational_case WHERE status NOT IN ('RESOLVED','CLOSED') ORDER BY priority DESC, sla_due_at
+                FROM operational_case WHERE status NOT IN ('RESOLVED','CLOSED')
+                  AND (? IS NULL OR station_id=? OR (station_id IS NULL AND parcel_id IN
+                    (SELECT id FROM parcel WHERE current_station_id=?)))
+                ORDER BY priority DESC, sla_due_at
                 """, (rs, n) -> new CaseSummary(rs.getString("case_no"), rs.getString("case_type"),
                 rs.getString("priority"), rs.getString("status"), rs.getString("owner_type"),
-                rs.getObject("owner_id", Long.class), rs.getTimestamp("sla_due_at") == null ? null : rs.getTimestamp("sla_due_at").toLocalDateTime()));
+                rs.getObject("owner_id", Long.class), rs.getTimestamp("sla_due_at") == null ? null : rs.getTimestamp("sla_due_at").toLocalDateTime()),
+                stationId, stationId, stationId);
     }
 
     private void appendEvent(long parcelId, String from, String to, String type, String key) {

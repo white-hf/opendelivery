@@ -108,9 +108,9 @@ Response: `ingestionRecordId`, `duplicate`, `parcelCount`, `routingStatus`, `sta
 
 ## 8. Operations (CURRENT)
 
-- `POST /ops/v1/manifests/{manifestNo}/receipts`: body `trackingNumber`; response `parcelId`, `duplicate`, `status:"AT_STATION"`. Expected RECEIVED items only; duplicate receipt is idempotent.
+- Operations endpoints use `Authorization: Bearer <accessToken>`; a configurable legacy API-key switch exists only for migration. `POST /ops/v1/manifests/{manifestNo}/receipts`: body `trackingNumber`; response `parcelId`, `duplicate`, `status:"AT_STATION"`. Expected RECEIVED items only; duplicate receipt is idempotent.
 - `POST /ops/v1/waves`: body `stationCode`, `waveCode`, `serviceDate`, optional `routeCode`, `driverId`, nonempty `trackingNumbers`; response `waveId`, `taskId`, `parcelCount`, `status:"PUBLISHED"`. MOV splits draft and publish.
-- `GET /ops/v1/cases`: open cases with `caseNo,caseType,priority,status,ownerType,ownerId,slaDueAt`. Current endpoint lacks pagination/station scope and is experimental.
+- `GET /ops/v1/cases`: selected-station open cases with `caseNo,caseType,priority,status,ownerType,ownerId,slaDueAt`. Pagination remains planned.
 
 ## 9. MOV API Catalog (PLANNED)
 
@@ -131,11 +131,12 @@ Response: `ingestionRecordId`, `duplicate`, `parcelCount`, `routingStatus`, `sta
 
 | Method/path | Input | Result |
 |---|---|---|
-| `POST /ops/v1/auth/login` | credential/password | operator access/refresh |
-| `POST /ops/v1/auth/refresh` | refreshToken | rotated tokens |
-| `GET /ops/v1/me` | — | user/roles/default station |
-| `GET /ops/v1/stations/{id}/readiness` | businessDate | partner/driver/carryover checks |
-| `GET /ops/v1/drivers` | stationId,status,cursor | driver page |
+| `POST /ops/auth/login` | username/password | operator access/refresh |
+| `POST /ops/auth/refresh` | refreshToken | one-time rotation and old-token revocation |
+| `POST /ops/auth/logout` | Bearer token | revoke session |
+| `GET /ops/auth/me` | Bearer token | user/roles/default station |
+| `GET /ops/v1/readiness` | optional admin `X-Station-Code` | driver/manifest/case/unrouted checks |
+| `GET/POST /ops/v1/users` | user/default station/role | admin list/create operators |
 
 ### I04 Inbound
 

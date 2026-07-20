@@ -25,7 +25,8 @@ public class AuthInterceptor implements HandlerInterceptor {
         String path = request.getRequestURI();
         // Skip authentication routes and error pages
         if (path.contains("/auth/login") || path.contains("/auth/register") || path.contains("/auth/refresh")
-                || path.startsWith("/integration/v1/") || path.startsWith("/ops/v1/") || path.contains("/error")) {
+                || path.startsWith("/integration/v1/") || path.startsWith("/ops/v1/")
+                || path.startsWith("/ops/auth/") || path.contains("/error")) {
             return true;
         }
 

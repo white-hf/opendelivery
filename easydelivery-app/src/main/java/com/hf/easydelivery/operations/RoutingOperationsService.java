@@ -2,6 +2,7 @@ package com.hf.easydelivery.operations;
 
 import com.hf.easydelivery.common.exception.BizException;
 import com.hf.easydelivery.integration.routing.ShipmentRoutingService;
+import com.hf.easydelivery.config.OperationsAccess;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -15,17 +16,20 @@ import java.util.Map;
 public class RoutingOperationsService {
     private final JdbcTemplate jdbc;
     private final ShipmentRoutingService routing;
+    private final OperationsAccess access;
 
-    public RoutingOperationsService(JdbcTemplate jdbc, ShipmentRoutingService routing) {
+    public RoutingOperationsService(JdbcTemplate jdbc, ShipmentRoutingService routing, OperationsAccess access) {
         this.jdbc = jdbc;
         this.routing = routing;
+        this.access = access;
     }
 
     public List<Map<String, Object>> stations() {
+        Long stationId = access.selectedStationId();
         return jdbc.queryForList("""
                 SELECT station_code, station_name, city, province_code, country_code, timezone, status
-                FROM station ORDER BY country_code, province_code, city
-                """);
+                FROM station WHERE (? IS NULL OR id=?) ORDER BY country_code, province_code, city
+                """, stationId, stationId);
     }
 
     @Transactional
@@ -40,16 +44,35 @@ public class RoutingOperationsService {
     }
 
     public List<Map<String, Object>> serviceAreas() {
+        Long stationId = access.selectedStationId();
         return jdbc.queryForList("""
                 SELECT a.id, s.station_code, a.country_code, a.province_code, a.city_name,
                        a.postal_prefix, a.service_code, a.priority, a.status, a.effective_from, a.effective_to
-                FROM station_service_area a JOIN station s ON s.id=a.station_id ORDER BY s.station_code, a.priority DESC
-                """);
+                FROM station_service_area a JOIN station s ON s.id=a.station_id
+                WHERE (? IS NULL OR a.station_id=?) ORDER BY s.station_code, a.priority DESC
+                """, stationId, stationId);
+    }
+
+    public Map<String, Object> readiness() {
+        Long stationId = access.selectedStationId();
+        if (stationId == null) throw new BizException("STATION.CONTEXT.REQUIRED", "Select a station for readiness");
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("stationId", stationId);
+        result.put("activeDrivers", jdbc.queryForObject("SELECT COUNT(*) FROM driver WHERE home_station_id=? AND status='ACTIVE'", Integer.class, stationId));
+        result.put("openManifests", jdbc.queryForObject("SELECT COUNT(*) FROM inbound_manifest WHERE station_id=? AND status NOT IN ('CLOSED','CANCELLED')", Integer.class, stationId));
+        result.put("openCases", jdbc.queryForObject("""
+                SELECT COUNT(*) FROM operational_case WHERE status NOT IN ('RESOLVED','CLOSED')
+                  AND (station_id=? OR parcel_id IN (SELECT id FROM parcel WHERE current_station_id=?))
+                """, Integer.class, stationId, stationId));
+        result.put("unroutedWaybills", jdbc.queryForObject("SELECT COUNT(*) FROM waybill WHERE routing_status IN ('PENDING','UNROUTABLE','AMBIGUOUS')", Integer.class));
+        result.put("ready", ((Number) result.get("activeDrivers")).intValue() > 0);
+        return result;
     }
 
     @Transactional
     public long createServiceArea(ServiceAreaRequest request) {
         Long stationId = stationId(request.stationCode());
+        access.requireStation(stationId);
         jdbc.update("""
                 INSERT INTO station_service_area
                   (station_id, country_code, province_code, city_name, postal_prefix, service_code, priority, status)

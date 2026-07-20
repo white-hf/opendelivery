@@ -30,6 +30,13 @@ public class GlobalExceptionHandler {
         return AppResponse.fail("AUTH.UNAUTHORIZED", ex.getMessage());
     }
 
+    @ExceptionHandler(ForbiddenException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public AppResponse<Void> handleForbiddenException(ForbiddenException ex) {
+        log.warn("Forbidden Access: {}", ex.getMessage());
+        return AppResponse.fail("AUTH.FORBIDDEN", ex.getMessage());
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public AppResponse<Void> handleValidationException(MethodArgumentNotValidException ex) {

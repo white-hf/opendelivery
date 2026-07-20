@@ -13,6 +13,19 @@ VALUES
     (2, 'CA', 'ON', 'TORONTO', NULL, 100),
     (3, 'CA', 'BC', 'VANCOUVER', NULL, 100);
 
+INSERT INTO operator_user (id, username, password_hash, display_name, default_station_id, status)
+VALUES
+    (201, 'opsadmin', '$2a$10$8QOXb3qUhBVIecy5luJH6emzRfxlrxbCjc2YnUPqeb/RqKQReHH3.', 'Operations Admin', 1, 'ACTIVE'),
+    (202, 'inbound.yhz', '$2a$10$8QOXb3qUhBVIecy5luJH6emzRfxlrxbCjc2YnUPqeb/RqKQReHH3.', 'Halifax Inbound', 1, 'ACTIVE'),
+    (203, 'dispatch.yhz', '$2a$10$8QOXb3qUhBVIecy5luJH6emzRfxlrxbCjc2YnUPqeb/RqKQReHH3.', 'Halifax Dispatcher', 1, 'ACTIVE');
+
+INSERT INTO operator_user_role (user_id, role_id)
+SELECT 201, id FROM operator_role WHERE role_code='ADMIN';
+INSERT INTO operator_user_role (user_id, role_id)
+SELECT 202, id FROM operator_role WHERE role_code='INBOUND';
+INSERT INTO operator_user_role (user_id, role_id)
+SELECT 203, id FROM operator_role WHERE role_code='DISPATCHER';
+
 INSERT INTO driver (id, home_station_id, credential_id, password_hash, driver_name, phone, status)
 VALUES
     (101, 1, 'driver123', '$2a$10$N9pprz7VCiwZvaGRp/7sQOh3qRIcIfYXt5wJYZTCQmWpRbiOgK2nm', 'Alex Driver', '604-555-0199', 'ACTIVE'),

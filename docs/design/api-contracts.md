@@ -172,7 +172,7 @@ Header：当前 `X-Upstream-Api-Key`；目标 Partner HMAC。Body：
 
 ### `POST /ops/v1/manifests/{manifestNo}/receipts`
 
-Header `X-Ops-Api-Key`；Body `{"trackingNumber":"PKG-100-A"}`。成功返回 `parcelId:long`、`duplicate:boolean`、`status:"AT_STATION"`。仅允许 Manifest 预期且 Parcel 为 `RECEIVED`；重复收货幂等。
+Header 使用运营 `Authorization: Bearer <accessToken>`；迁移期可通过配置临时启用 `X-Ops-Api-Key`。Body `{"trackingNumber":"PKG-100-A"}`。成功返回 `parcelId:long`、`duplicate:boolean`、`status:"AT_STATION"`。仅允许 Manifest 预期且 Parcel 为 `RECEIVED`；重复收货幂等。
 
 ### `POST /ops/v1/waves`
 
@@ -180,7 +180,7 @@ Body：`stationCode:string`、`waveCode:string`、`serviceDate:date`、`routeCod
 
 ### `GET /ops/v1/cases`
 
-返回全部开放 Case，字段为 `caseNo,caseType,priority,status,ownerType,ownerId,slaDueAt`。当前无分页和站点过滤，仅限试验；I06 必须修复。
+返回当前站点开放 Case，字段为 `caseNo,caseType,priority,status,ownerType,ownerId,slaDueAt`。分页与完整筛选在后续迭代补齐。
 
 ## 9. MOV 新增 API 目录（PLANNED）
 
@@ -201,11 +201,12 @@ Body：`stationCode:string`、`waveCode:string`、`serviceDate:date`、`routeCod
 
 | Method/Path | 输入 | 输出/副作用 |
 |---|---|---|
-| `POST /ops/v1/auth/login` | credential/password | operator access/refresh token |
-| `POST /ops/v1/auth/refresh` | refreshToken | 旋转 Token |
-| `GET /ops/v1/me` | — | 用户、角色、默认站点 |
-| `GET /ops/v1/stations/{id}/readiness` | businessDate | Partner/司机/未闭环检查 |
-| `GET /ops/v1/drivers` | stationId,status,cursor | 分页司机摘要 |
+| `POST /ops/auth/login` | username/password | operator access/refresh token |
+| `POST /ops/auth/refresh` | refreshToken | 单次旋转 Token，旧 token 撤销 |
+| `POST /ops/auth/logout` | Bearer token | 撤销会话 |
+| `GET /ops/auth/me` | Bearer token | 用户、角色、默认站点 |
+| `GET /ops/v1/readiness` | 管理员可选 `X-Station-Code` | 司机、Manifest、Case、未路由统计 |
+| `GET/POST /ops/v1/users` | 用户/默认站点/角色 | 管理员查询或创建运营用户 |
 
 ### 9.3 入站（I04）
 
