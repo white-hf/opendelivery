@@ -18,4 +18,6 @@ R01 status (2026-07-20): V8 and the area lifecycle, preference, and parcel-match
 
 R01 acceptance-defect slice: an administrator's station selector must show every active station; import must accept the common geojson.io `FeatureCollection`, `Feature`, `Polygon`, and `MultiPolygon` forms, allow a local `.geojson/.json` file, and preview it immediately. Click drawing must continuously show vertices, a closed boundary, fill, and point count. Parse errors must be reported before submission. R01 closes after automated regression and operator browser re-acceptance.
 
+R01 experience-acceptance slice: the area editor must fit the viewport, place map and import content side by side on wide screens and stack them on narrow screens, and keep Cancel/Create actions in a persistent modal footer. Business success/failure uses prominent global notifications while field validation stays inline. On a typical laptop viewport, map, import entry, and Create Draft must be visible without scrolling the whole dialog.
+
 Publication uses `ST_Intersects` for boundary-inclusive point matching and `ST_Intersects AND NOT ST_Touches` to reject same-level area overlap while allowing a shared edge. Planning records reference immutable published versions so later edits cannot rewrite history.
