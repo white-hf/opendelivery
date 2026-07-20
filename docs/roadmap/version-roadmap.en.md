@@ -63,3 +63,6 @@ No automatic promise of optimization, live tracking, or headquarters aggregation
 Each iteration includes bilingual requirement/design, Flyway if needed, backend and Web, authorization/idempotency/concurrency, unit/integration/API/Playwright/real-MySQL E2E, demonstration evidence, release/rollback, and summary. Compilation or tests alone do not establish business acceptance.
 
 `0.5` blockers are routing error, cross-station mixing, broken custody, duplicate assignment, lost POD, unrecoverable callback, or unexplained closeout. Optimization, live tracking, and advanced reporting do not block MOV.
+## R02.1 Operations Control Tower (New Mandatory Gate)
+
+R02.1 is inserted after R02 map planning and before R03 physical arrival. It delivers journey navigation, the Today control tower, actionable metrics/exceptions, a next-action queue, and map observability. Capabilities operators cannot discover, understand, or sequence still block a pilot. R02.1 runs as CT01–CT04; see the [Control Tower iteration plan](../iterations/iteration-r02-1-control-tower.en.md).

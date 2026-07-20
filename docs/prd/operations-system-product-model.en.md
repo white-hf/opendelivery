@@ -31,4 +31,6 @@ Operations sees progress continuously. Reconciliation completes after required s
 
 Operators manage areas, batches, and tasks by default. Map, area list, driver board, and parcel list stay synchronized; maps show distribution while lists provide bulk precision. Parcel drawers retain context and show area/version, task, handling unit, custody, and timeline. Versioned GeoJSON areas require geometry, overlap, boundary, impact, approval, and audit checks before publication.
 
+The home page is a business-day control tower. Journey navigation follows order readiness, dispatch planning, inbound arrival, driver scan, handover approval, delivery monitoring, and day close, with low-frequency configuration separated. Metrics drill into detail and fact-derived stage status produces prioritized next actions. See [Operations Control Tower and Journey Navigation](operations-control-tower.en.md).
+
 Business events, operation audit, and technical logs remain separate. MOV acceptance requires zero cross-station or duplicate active assignment, no mutation from rejected scans, correct-driver evidence for every approved parcel, custody conservation, and explained closeout variance.
