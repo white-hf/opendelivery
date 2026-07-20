@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import {
     Alert, Button, Card, Form, Input, Layout, Menu, Select, Space, Spin, Statistic, Table, Typography,
 } from 'antd';
@@ -6,11 +6,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Session } from './api/client';
 import { allowedPages, type PageKey } from './auth/permissions';
 import { useAuth } from './auth/session';
-import { DispatchWorkspace } from './workflows/DispatchWorkspace';
-import { ManifestWorkspace } from './workflows/ManifestWorkspace';
-import { AreaWorkspace } from './workflows/AreaWorkspace';
 import { useTranslation } from 'react-i18next';
 import { changeLocale, SUPPORTED_LOCALES, type SupportedLocale } from './i18n';
+
+const AreaWorkspace = lazy(() => import('./workflows/AreaWorkspace').then((module) => ({ default: module.AreaWorkspace })));
+const DispatchWorkspace = lazy(() => import('./workflows/DispatchWorkspace').then((module) => ({ default: module.DispatchWorkspace })));
+const ManifestWorkspace = lazy(() => import('./workflows/ManifestWorkspace').then((module) => ({ default: module.ManifestWorkspace })));
 
 const { Header, Sider, Content } = Layout;
 
@@ -106,10 +107,12 @@ function Workspace() {
 
 function Page({ page, station }: { page: PageKey; station: string }) {
     const { session } = useAuth();
-    if (page === 'areas') return <AreaWorkspace key={station} session={session!} station={station} />;
-    if (page === 'manifests') return <ManifestWorkspace session={session!} station={station} />;
-    if (page === 'dispatch') return <DispatchWorkspace session={session!} station={station} />;
-    return <ReadPage page={page} station={station} session={session!} />;
+    let content;
+    if (page === 'areas') content = <AreaWorkspace key={station} session={session!} station={station} />;
+    else if (page === 'manifests') content = <ManifestWorkspace session={session!} station={station} />;
+    else if (page === 'dispatch') content = <DispatchWorkspace session={session!} station={station} />;
+    else content = <ReadPage page={page} station={station} session={session!} />;
+    return <Suspense fallback={<Spin />}>{content}</Suspense>;
 }
 
 function ReadPage({ page, station, session }: { page: PageKey; station: string; session: Session }) {
