@@ -22,3 +22,14 @@ export function dispatchDraftPayload(values: DispatchDraftValues, trackingNumber
         trackingNumbers: [...new Set(trackingNumbers.map((value) => value.trim()).filter(Boolean))],
     };
 }
+
+const INBOUND_DECISIONS: Record<string, string> = {
+    MISSING: 'CONFIRM_MISSING',
+    EXTRA: 'QUARANTINE',
+    WRONG_STATION: 'QUARANTINE',
+    DAMAGED: 'ACCEPT_DAMAGED',
+};
+
+export function inboundDecision(receiptStatus: string): string | undefined {
+    return INBOUND_DECISIONS[receiptStatus];
+}

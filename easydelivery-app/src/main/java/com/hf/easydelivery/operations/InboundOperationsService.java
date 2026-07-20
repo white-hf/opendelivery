@@ -118,19 +118,21 @@ public class InboundOperationsService {
     @Transactional
     public void resolveDiscrepancy(long manifestId,long itemId,DecisionRequest request,HttpServletRequest httpRequest) {
         ManifestHeader header=manifest(manifestId,true);
-        Integer exists=jdbc.queryForObject("SELECT COUNT(*) FROM inbound_manifest_item WHERE id=? AND manifest_id=?",Integer.class,itemId,manifestId);
-        if(exists==null||exists==0) throw new BizException("MANIFEST.ITEM.NOT.FOUND","Manifest item not found");
+        List<String> statuses=jdbc.query("SELECT receipt_status FROM inbound_manifest_item WHERE id=? AND manifest_id=? FOR UPDATE",
+                (rs,n)->rs.getString(1),itemId,manifestId);
+        if(statuses.isEmpty()) throw new BizException("MANIFEST.ITEM.NOT.FOUND","Manifest item not found");
+        String decision=InboundDiscrepancyPolicy.validate(statuses.get(0),request.decision(),request.reason());
         Long operatorId=httpRequest.getAttribute("operatorUserId") instanceof Long id?id:null;
         int changed=jdbc.update("""
                 UPDATE operational_case SET status='RESOLVED',resolution_code=?,resolution_note=?,resolved_at=CURRENT_TIMESTAMP(3),version=version+1
                 WHERE inbound_manifest_id=? AND manifest_item_id=? AND status NOT IN ('RESOLVED','CLOSED')
-                """,request.decision(),request.reason(),manifestId,itemId);
+                """,decision,request.reason().trim(),manifestId,itemId);
         if(changed==0) throw new BizException("CASE.NOT.FOUND","Open discrepancy case not found");
         jdbc.update("""
                 INSERT INTO case_action(case_id,action_type,to_status,actor_type,actor_id,note)
                 SELECT id,'DISCREPANCY_DECISION','RESOLVED','OPERATOR',?,? FROM operational_case
                 WHERE inbound_manifest_id=? AND manifest_item_id=?
-                """,operatorId,request.reason(),manifestId,itemId);
+                """,operatorId,request.reason().trim(),manifestId,itemId);
         recalculate(manifestId);
     }
 

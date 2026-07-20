@@ -4,6 +4,12 @@
 
 The only active goal is enabling YHZ, YYZ, and YVR to operate five consecutive business days through readiness, intake, inbound, dispatch, handover, delivery/failure return, Cases, callbacks, and signed closeout. Second Partner, bulk efficiency, notifications, and advanced metrics are deferred.
 
+## Pilot Hard-Blocking Scope
+
+The following capabilities protect inventory, custody, concurrency, or station isolation and cannot be replaced by spreadsheets: idempotent upstream intake and autonomous routing; Manifest discrepancy handling and atomic receipt; active-task uniqueness and custody transfer only after load approval; own-driver-task enforcement, POD, failure, return, and redispatch; station/RBAC/audit controls; per-station closeout invariants; and automated three-station access, idempotency, concurrency, state-conservation, and migration tests. The fixed critical path is `inbound discrepancy → load handover → failure return → minimum closeout → three-station automation`.
+
+Controlled manual compensation is limited to supervisor assignment of Case owners, daily manual SLA review, engineer-operated callback query/replay scripts, manually completed daily reports, scripted account provisioning, and approval-controlled service-area changes. The Runbook must name the owner, frequency, evidence, and escalation condition for each. Second Partner, advanced metrics, bulk actions, notifications, and stop-sequence assistance are outside the `0.5` gate.
+
 ## Priority Iterations
 
 | Order | Iteration | Operable outcome | Evidence |
@@ -16,11 +22,12 @@ The only active goal is enabling YHZ, YYZ, and YVR to operate five consecutive b
 
 ## 2026-07-20 Execution Snapshot
 
-- P0-A is in progress: the React 19/TypeScript/Vite/Ant Design console provides login, role-aware navigation, admin station switching, readiness, Manifest start/scan/close, dispatch candidate/draft/publish, and Case list. Callback and closeout screens await P0-B/P0-C APIs.
-- Unit evidence: all 13 Maven reactor tests and 8 Vitest tests pass; strict frontend typecheck and production build pass.
+- P0-A is in progress: the React 19/TypeScript/Vite/Ant Design console provides login, role-aware navigation, admin station switching, readiness, Manifest start/scan/discrepancy decision/close, dispatch candidate/draft/publish, and Case list. Callback and closeout screens await P0-B/P0-C APIs.
+- Unit evidence: all 16 Maven reactor tests and 9 Vitest tests pass; strict frontend typecheck and production build pass.
 - Real MySQL: Flyway V1-V7 validates; all 18 authenticated read-model requests (six per station) pass across three stations.
 - `scripts/db/003_three_station_pilot_seed.sql` idempotently provisions non-production station staffing and service areas. Seeded credentials must be rotated after use.
-- Remaining P0-A work: browser Playwright flows, Manifest discrepancy decisions, load approval UI, and the callback/closeout modules.
+- Real-MySQL inbound discrepancy evidence: cross-type decisions and blank reasons are rejected; a valid missing confirmation resolves its Case while the missing piece remains outside inventory.
+- Remaining P0-A work: browser Playwright flows, load approval UI, and the callback/closeout modules.
 
 ## Test Priority
 

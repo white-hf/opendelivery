@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dispatchDraftPayload, scanPayload } from './payloads';
+import { dispatchDraftPayload, inboundDecision, scanPayload } from './payloads';
 
 describe('workflow payloads', () => {
     it('normalizes a damaged inbound scan and preserves its idempotency key', () => {
@@ -15,5 +15,13 @@ describe('workflow payloads', () => {
             waveCode: 'YHZ-AM', serviceDate: '2026-07-20', routeCode: 'R1', driverId: 9,
             trackingNumbers: ['PKG-1', 'PKG-2'],
         });
+    });
+
+    it('maps only discrepancy states with a safe pilot resolution', () => {
+        expect(inboundDecision('MISSING')).toBe('CONFIRM_MISSING');
+        expect(inboundDecision('EXTRA')).toBe('QUARANTINE');
+        expect(inboundDecision('WRONG_STATION')).toBe('QUARANTINE');
+        expect(inboundDecision('DAMAGED')).toBe('ACCEPT_DAMAGED');
+        expect(inboundDecision('RECEIVED')).toBeUndefined();
     });
 });
