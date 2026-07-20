@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeAreaGeoJson, parseAreaGeoJson, polygonGeoJson } from './areaGeometry';
+import { areaGeoJsonSummary, normalizeAreaGeoJson, parseAreaGeoJson, polygonGeoJson } from './areaGeometry';
 
 describe('area map geometry', () => {
     it('closes a drawn polygon ring', () => {
@@ -17,6 +17,7 @@ describe('area map geometry', () => {
             type: 'FeatureCollection', features: [
                 { type: 'Feature', geometry: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [0, 0]]] } },
                 { type: 'Feature', geometry: { type: 'MultiPolygon', coordinates: [[[[2, 2], [3, 2], [2, 2]]]] } },
+                { type: 'Feature', properties: { geom: 'start' }, geometry: { type: 'Point', coordinates: [0, 0] } },
             ],
         })).toEqual({
             type: 'MultiPolygon',
@@ -26,5 +27,10 @@ describe('area map geometry', () => {
     it('rejects empty collections and non-polygon features', () => {
         expect(() => normalizeAreaGeoJson({ type: 'FeatureCollection', features: [] })).toThrow();
         expect(() => normalizeAreaGeoJson({ type: 'Feature', geometry: { type: 'Point', coordinates: [0, 0] } })).toThrow();
+    });
+    it('summarizes imported polygons and ignored helper features', () => {
+        expect(areaGeoJsonSummary(JSON.stringify({ type: 'FeatureCollection', features: [
+            { geometry: { type: 'Polygon' } }, { geometry: { type: 'Point' } }, { geometry: { type: 'LineString' } },
+        ] }))).toEqual({ polygonCount: 1, ignoredFeatureCount: 2 });
     });
 });

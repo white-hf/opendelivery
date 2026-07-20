@@ -33,7 +33,8 @@ class DeliveryAreaGeoJsonTest {
         var input=mapper.readTree("""
                 {"type":"FeatureCollection","features":[
                   {"type":"Feature","properties":{"name":"A"},"geometry":{"type":"Polygon","coordinates":[[[0,0],[1,0],[1,1],[0,0]]]}},
-                  {"type":"Feature","properties":{"name":"B"},"geometry":{"type":"MultiPolygon","coordinates":[[[[2,2],[3,2],[3,3],[2,2]]]]}}
+                  {"type":"Feature","properties":{"name":"B"},"geometry":{"type":"MultiPolygon","coordinates":[[[[2,2],[3,2],[3,3],[2,2]]]]}},
+                  {"type":"Feature","properties":{"geom":"start"},"geometry":{"type":"Point","coordinates":[0,0]}}
                 ]}
                 """);
         var result=mapper.readTree(DeliveryAreaGeoJson.normalize(mapper,input));
@@ -50,5 +51,7 @@ class DeliveryAreaGeoJsonTest {
                 mapper.readTree("{\"type\":\"Polygon\",\"coordinates\":[]}")));
         assertThrows(BizException.class,()->DeliveryAreaGeoJson.normalize(mapper,
                 mapper.readTree("{\"type\":\"FeatureCollection\",\"features\":[]}")));
+        assertThrows(BizException.class,()->DeliveryAreaGeoJson.normalize(mapper,
+                mapper.readTree("{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[0,0]}}]}")));
     }
 }

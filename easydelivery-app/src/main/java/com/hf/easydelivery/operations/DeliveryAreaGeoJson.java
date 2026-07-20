@@ -35,11 +35,12 @@ final class DeliveryAreaGeoJson {
             JsonNode geometry=feature.path("geometry");
             String type=geometry.path("type").asText();
             JsonNode coordinates=geometry.path("coordinates");
-            if(!coordinates.isArray()||coordinates.isEmpty()) invalid("FeatureCollection contains an empty geometry");
+            if(!"Polygon".equals(type)&&!"MultiPolygon".equals(type)) continue;
+            if(!coordinates.isArray()||coordinates.isEmpty()) invalid("FeatureCollection contains an empty polygon geometry");
             if("Polygon".equals(type)) polygons.add(coordinates);
-            else if("MultiPolygon".equals(type)) coordinates.forEach(polygons::add);
-            else invalid("FeatureCollection may contain only Polygon or MultiPolygon features");
+            else coordinates.forEach(polygons::add);
         }
+        if(polygons.isEmpty()) invalid("FeatureCollection must contain at least one Polygon or MultiPolygon feature");
         ObjectNode normalized=mapper.createObjectNode();
         normalized.put("type","MultiPolygon");
         normalized.set("coordinates",polygons);

@@ -6,7 +6,7 @@ import { api, type Session } from '../api/client';
 import { areaPayload, type AreaForm } from './areaPayload';
 import { useTranslation } from 'react-i18next';
 import { AreaMapEditor } from './AreaMapEditor';
-import { parseAreaGeoJson } from './areaGeometry';
+import { areaGeoJsonSummary, parseAreaGeoJson } from './areaGeometry';
 
 type AreaRow = {
     id: number; area_code: string; area_name: string; area_level: number; status: string;
@@ -110,9 +110,13 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                             try {
                                 const text = await file.text();
                                 parseAreaGeoJson(text);
+                                const summary = areaGeoJsonSummary(text);
                                 form.setFieldValue('geoJson', text);
                                 await form.validateFields(['geoJson']);
-                                notice.success({ message: t('areas.fileLoaded', { name: file.name }), placement: 'topRight', duration: 4 });
+                                notice.success({
+                                    message: t('areas.fileLoaded', { name: file.name }),
+                                    description: t('areas.importSummary', summary), placement: 'topRight', duration: 6,
+                                });
                             } catch {
                                 notice.error({ message: t('areas.invalidJson'), placement: 'topRight', duration: 6 });
                             }
