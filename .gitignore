@@ -1,0 +1,27 @@
+# Maven output
+**/target/
+
+# IDE and operating-system files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+application-local.properties
+
+# Runtime output
+*.log
+logs/
+pod-data/
+uploads/
+
+# Frontend output (planned operations Web)
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/

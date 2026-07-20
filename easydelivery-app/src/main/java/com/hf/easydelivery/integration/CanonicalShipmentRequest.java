@@ -1,0 +1,31 @@
+package com.hf.easydelivery.integration;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+
+public record CanonicalShipmentRequest(
+        @NotBlank String externalEventId,
+        @NotBlank String externalWaybillNo,
+        String externalVersion,
+        @NotBlank String recipientName,
+        String recipientPhone,
+        @NotBlank String addressLine1,
+        String addressLine2,
+        @NotBlank String city,
+        String province,
+        @NotBlank String postalCode,
+        String countryCode,
+        String serviceCode,
+        LocalDateTime deliveryWindowStart,
+        LocalDateTime deliveryWindowEnd,
+        LocalDate promisedDate,
+        @NotBlank String targetStationCode,
+        String externalManifestNo,
+        @NotEmpty List<@NotBlank String> trackingNumbers
+) {}

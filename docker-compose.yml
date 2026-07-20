@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: opendelivery
+      MYSQL_USER: uniuni_hf
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
+    volumes:
+      - opendelivery-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  easydelivery-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: easydelivery-backend:1.0.0
+    container_name: easydelivery-backend-service
+    ports:
+      - "9000:9000"
+    environment:
+      - DB_URL=jdbc:mysql://mysql:3306/opendelivery?serverTimezone=UTC
+      - DB_USERNAME=uniuni_hf
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD is required}
+      - JAVA_OPTS=-XX:+UseG1GC -Xms256m -Xmx512m
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - UPSTREAM_API_KEY=${UPSTREAM_API_KEY:?UPSTREAM_API_KEY is required}
+      - OPERATIONS_API_KEY=${OPERATIONS_API_KEY:?OPERATIONS_API_KEY is required}
+      - POD_STORAGE_PATH=/var/lib/opendelivery/pod
+    volumes:
+      - opendelivery-pod:/var/lib/opendelivery/pod
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  opendelivery-mysql:
+  opendelivery-pod:

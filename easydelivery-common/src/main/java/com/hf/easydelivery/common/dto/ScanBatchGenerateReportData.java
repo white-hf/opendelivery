@@ -1,0 +1,52 @@
+package com.hf.easydelivery.common.dto;
+
+import java.util.List;
+
+public class ScanBatchGenerateReportData {
+    private String scan_time;
+    private int assigned_parcels_count;
+    private int scanned_parcels_count;
+    private int unscanned_parcels_count;
+    private List<ParcelInfo> unscanned_parcels;
+    private int returned_parcels_count;
+    private List<String> returned_parcels;
+
+    public String getScan_time() { return scan_time; }
+    public void setScan_time(String scan_time) { this.scan_time = scan_time; }
+
+    public int getAssigned_parcels_count() { return assigned_parcels_count; }
+    public void setAssigned_parcels_count(int assigned_parcels_count) { this.assigned_parcels_count = assigned_parcels_count; }
+
+    public int getScanned_parcels_count() { return scanned_parcels_count; }
+    public void setScanned_parcels_count(int scanned_parcels_count) { this.scanned_parcels_count = scanned_parcels_count; }
+
+    public int getUnscanned_parcels_count() { return unscanned_parcels_count; }
+    public void setUnscanned_parcels_count(int unscanned_parcels_count) { this.unscanned_parcels_count = unscanned_parcels_count; }
+
+    public List<ParcelInfo> getUnscanned_parcels() { return unscanned_parcels; }
+    public void setUnscanned_parcels(List<ParcelInfo> unscanned_parcels) { this.unscanned_parcels = unscanned_parcels; }
+
+    public int getReturned_parcels_count() { return returned_parcels_count; }
+    public void setReturned_parcels_count(int returned_parcels_count) { this.returned_parcels_count = returned_parcels_count; }
+
+    public List<String> getReturned_parcels() { return returned_parcels; }
+    public void setReturned_parcels(List<String> returned_parcels) { this.returned_parcels = returned_parcels; }
+
+    public static class ParcelInfo {
+        private String tracking_no;
+        private int route_no;
+
+        public ParcelInfo() {}
+
+        public ParcelInfo(String tracking_no, int route_no) {
+            this.tracking_no = tracking_no;
+            this.route_no = route_no;
+        }
+
+        public String getTracking_no() { return tracking_no; }
+        public void setTracking_no(String tracking_no) { this.tracking_no = tracking_no; }
+
+        public int getRoute_no() { return route_no; }
+        public void setRoute_no(int route_no) { this.route_no = route_no; }
+    }
+}

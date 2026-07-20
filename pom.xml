@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.hf.easydelivery</groupId>
+    <artifactId>easydelivery-backend</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+
+    <name>easydelivery-backend</name>
+    <description>Monolith Multi-module Demo Backend for EasyDelivery Android App</description>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.0</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+
+    <properties>
+        <java.version>17</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    </properties>
+
+    <modules>
+        <module>easydelivery-common</module>
+        <module>easydelivery-auth</module>
+        <module>easydelivery-delivery</module>
+        <module>easydelivery-scan</module>
+        <module>easydelivery-app</module>
+    </modules>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Core module dependency -->
+            <dependency>
+                <groupId>com.hf.easydelivery</groupId>
+                <artifactId>easydelivery-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.hf.easydelivery</groupId>
+                <artifactId>easydelivery-auth</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.hf.easydelivery</groupId>
+                <artifactId>easydelivery-delivery</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.hf.easydelivery</groupId>
+                <artifactId>easydelivery-scan</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <configuration>
+                        <systemPropertyVariables>
+                            <JWT_SECRET>OpenDelivery_Unit_Test_Secret_At_Least_32_Characters</JWT_SECRET>
+                        </systemPropertyVariables>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>
