@@ -1,54 +1,35 @@
-import { useState } from 'react';
-import { Alert, Button, Card, DatePicker, Form, Input, Select, Space, Table, message } from 'antd';
+import { useCallback, useMemo, useState } from 'react';
+import { Alert, Button, Card, DatePicker, Drawer, Form, Input, InputNumber, List, Progress, Select, Space, Statistic, Table, Tag, Typography, message } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { api, type Session } from '../api/client';
-import { dispatchDraftPayload, type DispatchDraftValues } from './payloads';
+import { PlanningMap, type PlanningParcel } from './PlanningMap';
 import { useTranslation } from 'react-i18next';
 
-type Row = Record<string, unknown>;
+type Shift={driver_id:number;driver_name:string;driver_code:string;availability_status:string;parcel_capacity?:number;assigned_count:number};
+type WaveResult={wave:{id:number;wave_code:string;status:string};drivers:Array<{task_id:number;driver_id:number;driver_name:string;parcel_count:number;parcel_capacity:number;remaining_capacity:number}>};
 
-export function DispatchWorkspace({ session, station }: { session: Session; station: string }) {
-    const { t } = useTranslation();
-    const cache = useQueryClient();
-    const [selected, setSelected] = useState<string[]>([]);
-    const candidates = useQuery({ queryKey: ['dispatch-candidates', station], queryFn: () => api<Row[]>('/ops/v1/dispatch/candidates', session, {}, station) });
-    const drivers = useQuery({ queryKey: ['dispatch-drivers', station], queryFn: () => api<Row[]>('/ops/v1/dispatch/drivers', session, {}, station) });
-    const waves = useQuery({ queryKey: ['dispatch-waves', station], queryFn: () => api<Row[]>('/ops/v1/dispatch/waves', session, {}, station) });
-    const create = useMutation({
-        mutationFn: async (values: DispatchDraftValues) => {
-            const draft = await api<{ waveId: number }>('/ops/v1/dispatch/waves', session, {
-                method: 'POST', body: JSON.stringify(dispatchDraftPayload(values, selected)),
-            }, station);
-            return api(`/ops/v1/dispatch/waves/${draft.waveId}/publish`, session, { method: 'POST' }, station);
-        },
-        onSuccess: async () => {
-            setSelected([]); message.success(t('dispatch.success'));
-            await Promise.all(['dispatch-candidates', 'dispatch-waves'].map((key) => cache.invalidateQueries({ queryKey: [key, station] })));
-        },
-    });
-    const error = candidates.error ?? drivers.error ?? waves.error ?? create.error;
-
-    return <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-        {error && <Alert type="error" message={error.message} />}
-        <Card title={t('dispatch.create')}>
-            <Form layout="inline" initialValues={{ serviceDate: dayjs() }} onFinish={(values) => create.mutate({ ...values, serviceDate: values.serviceDate.format('YYYY-MM-DD') })}>
-                <Form.Item name="waveCode" rules={[{ required: true }]}><Input placeholder={t('dispatch.waveCode')} /></Form.Item>
-                <Form.Item name="serviceDate" rules={[{ required: true }]}><DatePicker /></Form.Item>
-                <Form.Item name="routeCode"><Input placeholder={t('dispatch.routeCode')} /></Form.Item>
-                <Form.Item name="driverId" rules={[{ required: true }]}><Select style={{ width: 180 }} placeholder={t('dispatch.driver')}
-                    options={(drivers.data ?? []).map((row) => ({ value: row.id, label: row.display_name ?? row.driver_code }))} /></Form.Item>
-                <Button type="primary" htmlType="submit" disabled={!selected.length} loading={create.isPending}>{t('dispatch.submit', { count: selected.length })}</Button>
-            </Form>
-        </Card>
-        <Card title={t('dispatch.inventory')}>
-            <Table<Row> rowKey={(row) => String(row.tracking_no)} dataSource={candidates.data ?? []} loading={candidates.isLoading}
-                rowSelection={{ selectedRowKeys: selected, onChange: (keys) => setSelected(keys.map(String)) }}
-                columns={['tracking_no', 'status', 'route_code', 'promised_date', 'recipient_name', 'postal_code']
-                    .map((key) => ({ title: t(key === 'status' ? 'common.status' : `field.${key}`, { defaultValue: key }), dataIndex: key }))} pagination={false} />
-        </Card>
-        <Card title={t('dispatch.recent')}><Table<Row> rowKey={(row) => String(row.id)} dataSource={waves.data ?? []}
-            columns={['wave_code', 'service_date', 'route_code', 'status', 'driver_id', 'parcel_count']
-                .map((key) => ({ title: t(key === 'status' ? 'common.status' : `field.${key}`, { defaultValue: key }), dataIndex: key }))} pagination={false} /></Card>
-    </Space>;
+export function DispatchWorkspace({session,station}:{session:Session;station:string}){
+ const {t}=useTranslation();const cache=useQueryClient();const [date,setDate]=useState(dayjs());const serviceDate=date.format('YYYY-MM-DD');
+ const [selected,setSelected]=useState<Set<number>>(new Set());const [focus,setFocus]=useState<PlanningParcel>();const [driver,setDriver]=useState<number>();const [areaVersion,setAreaVersion]=useState<number>();const [waveId,setWaveId]=useState<number>();
+ const parcels=useQuery({queryKey:['planning-parcels',station,serviceDate],queryFn:()=>api<PlanningParcel[]>(`/ops/v1/planning/parcels?serviceDate=${serviceDate}`,session,{},station)});
+ const shifts=useQuery({queryKey:['planning-shifts',station,serviceDate],queryFn:()=>api<Shift[]>(`/ops/v1/planning/shifts?serviceDate=${serviceDate}`,session,{},station)});
+ const wave=useQuery({queryKey:['planning-wave',station,waveId],enabled:!!waveId,queryFn:()=>api<WaveResult>(`/ops/v1/planning/waves/${waveId}`,session,{},station)});
+ const refresh=async()=>Promise.all([cache.invalidateQueries({queryKey:['planning-parcels',station,serviceDate]}),cache.invalidateQueries({queryKey:['planning-shifts',station,serviceDate]}),cache.invalidateQueries({queryKey:['planning-wave',station,waveId]})]);
+ const command=useMutation({mutationFn:({path,body}:{path:string;body:unknown})=>api(path,session,{method:'POST',body:JSON.stringify(body)},station),onSuccess:async()=>{message.success(t('dispatch.commandSuccess'));await refresh();},onError:(e:Error)=>message.error(e.message)});
+ const saveShift=useMutation({mutationFn:(value:{driverId:number;availabilityStatus?:string;parcelCapacity:number})=>api('/ops/v1/planning/shifts',session,{method:'PUT',body:JSON.stringify({...value,availabilityStatus:value.availabilityStatus??'AVAILABLE',serviceDate,note:'Operations planning'})},station),onSuccess:async()=>{message.success(t('dispatch.shiftSaved'));await refresh();}});
+ const toggle=useCallback((id:number)=>setSelected(current=>{const next=new Set(current);if(next.has(id))next.delete(id);else next.add(id);return next;}),[]);
+ const visible=useMemo(()=>parcels.data??[],[parcels.data]);const areas=useMemo(()=>Array.from(new Map(visible.filter(p=>p.area_version_id).map(p=>[p.area_version_id!,{value:p.area_version_id!,label:p.area_code??String(p.area_version_id)}])).values()),[visible]);const exceptions=visible.filter(p=>p.exception_code).length;const assigned=visible.filter(p=>p.driver_id).length;
+ return <div className="planning-console">
+  <div className="planning-toolbar"><Space wrap><DatePicker value={date} onChange={v=>v&&setDate(v)}/><Tag color="blue">{station}</Tag><Statistic title={t('dispatch.parcels')} value={visible.length}/><Statistic title={t('dispatch.assigned')} value={assigned}/><Statistic title={t('dispatch.exceptions')} value={exceptions} valueStyle={{color:exceptions?'#cf1322':undefined}}/></Space></div>
+  {(parcels.error||shifts.error||wave.error)&&<Alert type="error" showIcon message={(parcels.error??shifts.error??wave.error)?.message}/>}
+  <div className="planning-grid"><section className="planning-map-panel"><PlanningMap station={station} parcels={visible} selected={selected} onToggle={toggle}/>
+   <div className="map-legend"><Tag color="blue">{t('dispatch.unassigned')}</Tag><Tag color="green">{t('dispatch.assigned')}</Tag><Tag color="orange">{t('dispatch.dataException')}</Tag><Tag color="red">{t('dispatch.openCase')}</Tag></div>
+  </section><aside className="planning-sidebar"><Card size="small" title={t('dispatch.batch')}>
+   {!waveId?<Form layout="vertical" onFinish={async v=>{const result=await api<{wave:{id:number}}|{id:number}>('/ops/v1/planning/waves',session,{method:'POST',body:JSON.stringify({...v,serviceDate})},station);setWaveId('wave'in result?result.wave.id:result.id);message.success(t('dispatch.waveCreated'));}}><Form.Item name="waveCode" rules={[{required:true}]}><Input placeholder={`DEMO-${station}-${serviceDate}`}/></Form.Item><Form.Item name="routeCode"><Input placeholder={t('dispatch.routeCode')}/></Form.Item><Button block type="primary" htmlType="submit">{t('dispatch.createDraft')}</Button></Form>:
+   <Space direction="vertical" style={{width:'100%'}}><Typography.Text strong>{wave.data?.wave.wave_code}</Typography.Text><Tag>{wave.data?.wave.status}</Tag><Select value={driver} onChange={setDriver} style={{width:'100%'}} placeholder={t('dispatch.driver')} options={(shifts.data??[]).filter(s=>s.availability_status==='AVAILABLE').map(s=>({value:s.driver_id,label:`${s.driver_name} · ${s.assigned_count}/${s.parcel_capacity}`}))}/><Button block disabled={!driver||!selected.size||wave.data?.wave.status!=='DRAFT'} onClick={()=>command.mutate({path:`/ops/v1/planning/waves/${waveId}/assignments`,body:{driverId:driver,parcelIds:[...selected],areaVersionIds:[],reason:'Map parcel assignment'}})}>{t('dispatch.assignSelected',{count:selected.size})}</Button><Select value={areaVersion} onChange={setAreaVersion} allowClear style={{width:'100%'}} placeholder={t('dispatch.area')} options={areas}/><Button block disabled={!driver||!areaVersion||wave.data?.wave.status!=='DRAFT'} onClick={()=>command.mutate({path:`/ops/v1/planning/waves/${waveId}/assignments`,body:{driverId:driver,parcelIds:[],areaVersionIds:[areaVersion],reason:'Whole-area assignment'}})}>{t('dispatch.assignArea')}</Button><Button block disabled={wave.data?.wave.status!=='DRAFT'} onClick={()=>command.mutate({path:`/ops/v1/planning/waves/${waveId}/freeze`,body:{reason:'Planning preflight approved'}})}>{t('dispatch.freeze')}</Button><Button block type="primary" disabled={wave.data?.wave.status!=='FROZEN'} onClick={()=>command.mutate({path:`/ops/v1/planning/waves/${waveId}/publish`,body:{reason:'Released to driver scan lists'}})}>{t('dispatch.publish')}</Button></Space>}
+  </Card><Card size="small" title={t('dispatch.capacity')}><List dataSource={shifts.data??[]} renderItem={s=><List.Item actions={[<Button size="small" key="edit" onClick={()=>saveShift.mutate({driverId:s.driver_id,availabilityStatus:'AVAILABLE',parcelCapacity:s.parcel_capacity??25})}>{t('dispatch.available')}</Button>]}><List.Item.Meta title={s.driver_name} description={<><Progress size="small" percent={s.parcel_capacity?Math.round(100*s.assigned_count/s.parcel_capacity):0}/>{s.availability_status} · {s.assigned_count}/{s.parcel_capacity??'—'}</>}/></List.Item>}/><Form layout="inline" onFinish={v=>saveShift.mutate(v)}><Form.Item name="driverId" rules={[{required:true}]}><Select style={{width:130}} options={(shifts.data??[]).map(s=>({value:s.driver_id,label:s.driver_name}))}/></Form.Item><Form.Item name="parcelCapacity" initialValue={25}><InputNumber min={1} max={1000}/></Form.Item><input type="hidden" name="availabilityStatus" value="AVAILABLE"/><Button htmlType="submit">{t('dispatch.saveShift')}</Button></Form></Card></aside></div>
+  <Card size="small" title={t('dispatch.parcelList')}><Table rowKey="parcel_id" size="small" dataSource={visible} pagination={{pageSize:12}} rowSelection={{selectedRowKeys:[...selected],onChange:keys=>setSelected(new Set(keys.map(Number)))}} onRow={row=>({onDoubleClick:()=>setFocus(row)})} columns={[{title:t('field.tracking_no'),dataIndex:'tracking_no'},{title:t('common.status'),dataIndex:'status'},{title:t('dispatch.area'),dataIndex:'area_code'},{title:t('dispatch.driver'),dataIndex:'driver_name'},{title:t('dispatch.exception'),dataIndex:'exception_code',render:v=>v?<Tag color="orange">{v}</Tag>:null}]}/></Card>
+  <Drawer open={!!focus} onClose={()=>setFocus(undefined)} title={focus?.tracking_no}>{focus&&<><List dataSource={Object.entries(focus)} renderItem={([key,value])=><List.Item><Typography.Text type="secondary">{key}</Typography.Text><Typography.Text>{String(value??'—')}</Typography.Text></List.Item>}/>{focus.driver_id&&waveId&&<Space.Compact block><Select value={driver} onChange={setDriver} style={{width:'70%'}} options={(shifts.data??[]).filter(s=>s.availability_status==='AVAILABLE').map(s=>({value:s.driver_id,label:s.driver_name}))}/><Button disabled={!driver||driver===focus.driver_id} onClick={()=>command.mutate({path:`/ops/v1/planning/waves/${waveId}/parcels/${focus.parcel_id}/reassign`,body:{driverId:driver,reason:'Operator map reassignment'}})}>{t('dispatch.reassign')}</Button></Space.Compact>}</>}</Drawer>
+ </div>;
 }

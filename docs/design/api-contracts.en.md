@@ -218,3 +218,18 @@ Every route requires an operator bearer token, `X-Station-Code`, and `X-Request-
 | `POST /ops/v1/parcels/{parcelId}/area-match` | coordinates, provider/precision, optional confidence/address, `reason` | Save geocode, spatially match a published version, and persist `areaId/areaVersionId/source` |
 
 GeoJSON may be a `FeatureCollection`, `Feature`, `Polygon`, or `MultiPolygon` and is normalized to a WGS84 `MultiPolygon`; Point/Line helpers in mixed collections are ignored. Matching chooses the highest `areaLevel`; no match must become an operator exception rather than a guessed assignment. Expected errors include `AREA.GEOJSON.INVALID`, `AREA.OVERLAP`, `AREA.STATE.INVALID`, `AREA.MATCH.NOT.FOUND`, and `AREA.COORDINATE.INVALID`.
+# R02 Map Planning APIs
+
+All endpoints require an operator bearer token and `X-Station-Code`; cross-station resource IDs return 403. Dates use `YYYY-MM-DD`, and commands should carry `X-Request-Id`.
+
+| Method and path | Input | Output/rules |
+|---|---|---|
+| `GET /ops/v1/planning/parcels` | `serviceDate`; optional `west/south/east/north/limit≤2000` | Parcel identity/state/custody/address, coordinates, area version, task/driver, and `MISSING_GEOCODE/UNMATCHED_AREA/OPEN_CASE` |
+| `GET /ops/v1/planning/shifts` | `serviceDate` | Active station drivers, availability, capacity, and assigned count across all active tasks that day |
+| `PUT /ops/v1/planning/shifts` | `driverId,serviceDate,availabilityStatus,parcelCapacity,note` | Upserts a shift; capacity is 1–1000 and driver must belong to the station |
+| `POST /ops/v1/planning/waves` | `waveCode,serviceDate,routeCode?` | Creates an empty `DRAFT`; code is unique within a station |
+| `GET /ops/v1/planning/waves/{id}` | — | Batch, driver/capacity summaries, and immutable area references |
+| `POST .../{id}/assignments` | `driverId,parcelIds[],areaVersionIds[],reason` | Parcel/whole-area assignment with transactional state, station, shift, daily capacity, and unique-active-task gates |
+| `POST .../{id}/parcels/{parcelId}/reassign` | `driverId,reason` | Draft only; retires the source item, creates the target item, and audits the move |
+| `POST .../{id}/freeze` | `reason` | Moves to `FROZEN` only after non-empty task, shift, and daily capacity preflight |
+| `POST .../{id}/publish` | `reason` | `FROZEN→PUBLISHED` only; creates expected scan lists and sets `ASSIGNED` without changing custody |

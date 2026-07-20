@@ -288,3 +288,18 @@ Body：`stationCode:string`、`waveCode:string`、`serviceDate:date`、`routeCod
 | `POST /ops/v1/parcels/{parcelId}/area-match` | `longitude`、`latitude`、`providerCode`、`precisionCode`、`confidence?`、`normalizedAddress?`、`reason` | 保存地理编码，按本站已发布区域匹配并持久化具体版本；返回 `areaId/areaVersionId/source` |
 
 GeoJSON 接受 `FeatureCollection`、`Feature`、`Polygon` 或 `MultiPolygon`，服务端统一保存为 WGS84 `MultiPolygon`；混合集合中的 Point/Line 等辅助要素忽略。点面匹配优先选择最高 `areaLevel`；无命中必须进入人工异常队列，不得猜测区域。典型错误：`AREA.GEOJSON.INVALID`、`AREA.OVERLAP`、`AREA.STATE.INVALID`、`AREA.MATCH.NOT.FOUND`、`AREA.COORDINATE.INVALID`。
+# R02 地图规划 API
+
+以下接口均要求运营 Bearer Token 和 `X-Station-Code`，资源 ID 跨站访问返回 403。日期使用 `YYYY-MM-DD`；写操作建议携带 `X-Request-Id`。
+
+| 方法与路径 | 输入 | 输出/规则 |
+|---|---|---|
+| `GET /ops/v1/planning/parcels` | `serviceDate`；可选 `west/south/east/north/limit≤2000` | 包裹 ID/追踪号/状态/custody/地址、经纬度、区域版本、任务司机和 `MISSING_GEOCODE/UNMATCHED_AREA/OPEN_CASE` |
+| `GET /ops/v1/planning/shifts` | `serviceDate` | 本站活动司机、出勤、容量和当日所有活动任务已分配数 |
+| `PUT /ops/v1/planning/shifts` | `driverId,serviceDate,availabilityStatus,parcelCapacity,note` | upsert 班次；容量 1–1000，司机必须属于本站 |
+| `POST /ops/v1/planning/waves` | `waveCode,serviceDate,routeCode?` | 创建无任务的 `DRAFT` 批次，同站编码唯一 |
+| `GET /ops/v1/planning/waves/{id}` | — | 批次、司机任务容量汇总和区域快照 |
+| `POST .../{id}/assignments` | `driverId,parcelIds[],areaVersionIds[],reason` | 支持逐件和整区；事务校验可计划状态、区域/司机站点、出勤、当日总容量和活动任务唯一 |
+| `POST .../{id}/parcels/{parcelId}/reassign` | `driverId,reason` | 仅草稿；原 item 标为 `REASSIGNED`，新任务新增活动 item 并审计 |
+| `POST .../{id}/freeze` | `reason` | 非空任务、出勤和当日总容量预检通过后进入 `FROZEN` |
+| `POST .../{id}/publish` | `reason` | 仅 `FROZEN→PUBLISHED`；生成应扫清单，包裹改为 `ASSIGNED`，custody 不变 |

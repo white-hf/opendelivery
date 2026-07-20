@@ -4,14 +4,14 @@ import { Alert, Button, Space, Typography, notification } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { parseAreaGeoJson, polygonGeoJson, type Position } from './areaGeometry';
 
-const CENTERS: Record<string, google.maps.LatLngLiteral> = {
+export const STATION_CENTERS: Record<string, google.maps.LatLngLiteral> = {
     'YHZ-01': { lat: 44.6488, lng: -63.5752 },
     'YYZ-01': { lat: 43.6532, lng: -79.3832 },
     'YVR-01': { lat: 49.2827, lng: -123.1207 },
 };
 let mapsPromise: Promise<google.maps.MapsLibrary> | undefined;
 
-function loadMaps(key: string) {
+export function loadGoogleMaps(key: string) {
     if (!mapsPromise) {
         setOptions({ key, v: 'weekly', authReferrerPolicy: 'origin' });
         mapsPromise = importLibrary('maps');
@@ -47,10 +47,10 @@ export function AreaMapEditor({ station, value, onChange, readOnly = false }: {
     useEffect(() => {
         if (!apiKey || !containerRef.current) return;
         let active = true;
-        void loadMaps(apiKey).then(({ Map }) => {
+        void loadGoogleMaps(apiKey).then(({ Map }) => {
             if (!active || !containerRef.current) return;
             const map = new Map(containerRef.current, {
-                center: CENTERS[station] ?? CENTERS['YHZ-01'], zoom: 11,
+                center: STATION_CENTERS[station] ?? STATION_CENTERS['YHZ-01'], zoom: 11,
                 mapTypeControl: false, streetViewControl: false, fullscreenControl: true,
                 gestureHandling: 'greedy', clickableIcons: false,
             });
@@ -74,7 +74,7 @@ export function AreaMapEditor({ station, value, onChange, readOnly = false }: {
 
     useEffect(() => {
         if (!mapRef.current || !mapReady) return;
-        mapRef.current.setCenter(CENTERS[station] ?? CENTERS['YHZ-01']);
+        mapRef.current.setCenter(STATION_CENTERS[station] ?? STATION_CENTERS['YHZ-01']);
         mapRef.current.setZoom(11);
     }, [mapReady, station]);
 

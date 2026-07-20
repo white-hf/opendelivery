@@ -164,3 +164,11 @@ I06 V7 adds `delivery_failure_reason` for evidence, next action, and attempt lim
 - `parcel_area_assignment` persists the selected area version, `AUTO/MANUAL` source, confidence, reason and actor so later boundary edits cannot rewrite history.
 
 Station/status B-tree indexes serve lists; spatial indexes serve point-in-polygon matching; planning queries must remain station bounded. Versions and assignments are retained historically. R07 will archive high-growth audit/event data by business date without deleting shipment custody history.
+# R02 Planning Model Addendum
+
+- `driver_shift` is the driver-day capacity snapshot. `(driver_id,service_date)` is unique; `station_id` supports isolation, `availability_status` is the attendance gate, `parcel_capacity` caps all active tasks for that day, and `note/version` supports operational context and evolution.
+- `dispatch_wave.frozen_at/frozen_by` records successful preflight. `FROZEN` prevents normal assignment/reassignment and is the only publish source state.
+- `driver_task_area` references immutable `delivery_area_version_id`. `assignment_mode` (`WHOLE_AREA/PARTIAL_AREA`) preserves whether operations assigned a complete area or split it.
+- `driver_task_item` remains the parcel-level planning fact. Its generated `active_slot` unique key prevents concurrent active tasks. Reassignment retires the source row as `REASSIGNED` instead of overwriting history.
+
+Performance indexes cover shifts by `(station_id,service_date,availability_status)` and tasks by `(station_id,service_date,status,driver_id)`; area boundaries and geocodes retain spatial indexes. Map queries always include station and, at production scale, viewport with a 2,000-point limit. Closed historical batches leave daily capacity queries but audit facts remain; date partitioning/archival is evaluated as volume grows.

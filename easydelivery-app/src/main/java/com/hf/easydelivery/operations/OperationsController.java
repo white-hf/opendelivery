@@ -17,16 +17,19 @@ public class OperationsController {
     private final DispatchOperationsService dispatch;
     private final FailureReturnService failureReturn;
     private final DeliveryAreaOperationsService deliveryAreas;
+    private final MapPlanningService planning;
 
     public OperationsController(OperationsService service, RoutingOperationsService routing,
                                 InboundOperationsService inbound, DispatchOperationsService dispatch,
-                                FailureReturnService failureReturn, DeliveryAreaOperationsService deliveryAreas) {
+                                FailureReturnService failureReturn, DeliveryAreaOperationsService deliveryAreas,
+                                MapPlanningService planning) {
         this.service = service;
         this.routing = routing;
         this.inbound = inbound;
         this.dispatch = dispatch;
         this.failureReturn = failureReturn;
         this.deliveryAreas = deliveryAreas;
+        this.planning = planning;
     }
 
     @PostMapping("/manifests/{manifestNo}/receipts")
@@ -160,6 +163,58 @@ public class OperationsController {
     public AppResponse<?> revokeWave(@PathVariable long waveId) {
         dispatch.revoke(waveId);
         return AppResponse.success("Wave revoked", null);
+    }
+
+    @GetMapping("/planning/shifts")
+    public AppResponse<?> planningShifts(@RequestParam java.time.LocalDate serviceDate) {
+        return AppResponse.success(planning.shifts(serviceDate));
+    }
+
+    @PutMapping("/planning/shifts")
+    public AppResponse<?> savePlanningShift(@RequestBody MapPlanningService.ShiftRequest body) {
+        return AppResponse.success("Driver shift saved", planning.saveShift(body));
+    }
+
+    @GetMapping("/planning/parcels")
+    public AppResponse<?> planningParcels(@RequestParam java.time.LocalDate serviceDate,
+            @RequestParam(required=false) Double west,@RequestParam(required=false) Double south,
+            @RequestParam(required=false) Double east,@RequestParam(required=false) Double north,
+            @RequestParam(defaultValue="1000") int limit) {
+        return AppResponse.success(planning.mapParcels(serviceDate,west,south,east,north,limit));
+    }
+
+    @PostMapping("/planning/waves")
+    public AppResponse<?> createPlanningWave(@RequestBody MapPlanningService.WaveRequest body) {
+        return AppResponse.success("Planning wave created", planning.createWave(body));
+    }
+
+    @GetMapping("/planning/waves/{waveId}")
+    public AppResponse<?> planningWave(@PathVariable long waveId) {
+        return AppResponse.success(planning.waveSummary(waveId));
+    }
+
+    @PostMapping("/planning/waves/{waveId}/assignments")
+    public AppResponse<?> assignPlanningWave(@PathVariable long waveId,
+            @RequestBody MapPlanningService.AssignmentRequest body, jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Parcels assigned", planning.assign(waveId,body,request));
+    }
+
+    @PostMapping("/planning/waves/{waveId}/parcels/{parcelId}/reassign")
+    public AppResponse<?> reassignPlanningParcel(@PathVariable long waveId,@PathVariable long parcelId,
+            @RequestBody MapPlanningService.ReassignRequest body, jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Parcel reassigned", planning.reassign(waveId,parcelId,body,request));
+    }
+
+    @PostMapping("/planning/waves/{waveId}/freeze")
+    public AppResponse<?> freezePlanningWave(@PathVariable long waveId,
+            @RequestBody MapPlanningService.ReasonRequest body, jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Planning wave frozen", planning.freeze(waveId,body,request));
+    }
+
+    @PostMapping("/planning/waves/{waveId}/publish")
+    public AppResponse<?> publishPlanningWave(@PathVariable long waveId,
+            @RequestBody MapPlanningService.ReasonRequest body, jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Planning wave published", planning.publish(waveId,body,request));
     }
 
     @PostMapping("/scan-sessions/{sessionId}/approve")
