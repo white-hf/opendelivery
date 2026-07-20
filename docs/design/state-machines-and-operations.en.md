@@ -1,5 +1,7 @@
 # State Machines and Operational Controls
 
+> **Migration note:** Current evolution is defined by [Operations Information Architecture and Domain Design](operations-information-architecture.en.md). Low-level constraints remain, but receipt-before-planning is no longer the standard path.
+
 ## Parcel Lifecycle
 
 Waybill routing precedes inbound: `PENDING → ROUTED`; no match becomes `UNROUTABLE`, ambiguity becomes `AMBIGUOUS`, and authorized manual resolution may reach `ROUTED`. Only current result is stored; failure creates a Case and manual assignment is audited. Only a routed waybill with an active resolved station creates that station's Manifest. No automatic station change after receipt.

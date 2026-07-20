@@ -1,4 +1,4 @@
-export const PAGE_KEYS = ['dashboard', 'manifests', 'dispatch', 'cases', 'callbacks', 'closeout'] as const;
+export const PAGE_KEYS = ['dashboard', 'areas', 'manifests', 'dispatch', 'cases', 'callbacks', 'closeout'] as const;
 export type PageKey = typeof PAGE_KEYS[number];
 
 const ROLE_PAGES: Record<string, readonly PageKey[]> = {

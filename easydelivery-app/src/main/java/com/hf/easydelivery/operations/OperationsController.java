@@ -16,15 +16,17 @@ public class OperationsController {
     private final InboundOperationsService inbound;
     private final DispatchOperationsService dispatch;
     private final FailureReturnService failureReturn;
+    private final DeliveryAreaOperationsService deliveryAreas;
 
     public OperationsController(OperationsService service, RoutingOperationsService routing,
                                 InboundOperationsService inbound, DispatchOperationsService dispatch,
-                                FailureReturnService failureReturn) {
+                                FailureReturnService failureReturn, DeliveryAreaOperationsService deliveryAreas) {
         this.service = service;
         this.routing = routing;
         this.inbound = inbound;
         this.dispatch = dispatch;
         this.failureReturn = failureReturn;
+        this.deliveryAreas = deliveryAreas;
     }
 
     @PostMapping("/manifests/{manifestNo}/receipts")
@@ -170,5 +172,37 @@ public class OperationsController {
                                         @RequestBody FailureReturnService.ReturnDecision decision,
                                         jakarta.servlet.http.HttpServletRequest request) {
         return AppResponse.success("Return handover approved", failureReturn.approveReturn(sessionId, decision, request));
+    }
+
+    @GetMapping("/delivery-areas")
+    public AppResponse<?> deliveryAreas() { return AppResponse.success(deliveryAreas.areas()); }
+
+    @GetMapping("/delivery-areas/{areaId}/versions")
+    public AppResponse<?> deliveryAreaVersions(@PathVariable long areaId) { return AppResponse.success(deliveryAreas.versions(areaId)); }
+
+    @PostMapping("/delivery-areas")
+    public AppResponse<?> createDeliveryArea(@RequestBody DeliveryAreaOperationsService.CreateRequest body,
+                                             jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Delivery area draft created",deliveryAreas.create(body,request));
+    }
+
+    @PostMapping("/delivery-areas/{areaId}/versions")
+    public AppResponse<?> createDeliveryAreaVersion(@PathVariable long areaId,
+                                                     @RequestBody DeliveryAreaOperationsService.VersionRequest body,
+                                                     jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Delivery area version created",deliveryAreas.createVersion(areaId,body,request));
+    }
+
+    @PostMapping("/delivery-areas/{areaId}/versions/{versionId}/validate")
+    public AppResponse<?> validateDeliveryArea(@PathVariable long areaId,@PathVariable long versionId,
+                                               jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Delivery area validated",deliveryAreas.validate(areaId,versionId,request));
+    }
+
+    @PostMapping("/delivery-areas/{areaId}/versions/{versionId}/publish")
+    public AppResponse<?> publishDeliveryArea(@PathVariable long areaId,@PathVariable long versionId,
+                                              @RequestBody DeliveryAreaOperationsService.PublishRequest body,
+                                              jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Delivery area published",deliveryAreas.publish(areaId,versionId,body,request));
     }
 }

@@ -1,5 +1,7 @@
 # OpenDelivery Integrated Product and Operations Specification
 
+> **Superseded:** The standard path is defined by the [Operations System Product Model](operations-system-product-model.en.md). This file remains as early requirement history.
+
 ## 1. Positioning and First Objective
 
 OpenDelivery is a last-mile fulfillment platform with a **Driver Operations subsystem** and an **Operations Management subsystem**, supported by integration, station routing, and fulfillment capabilities. Its first objective is not benchmark parity: one station in each of multiple cities must complete receiving, dispatch, handover, delivery, exception handling, callback, and closeout without querying the database.

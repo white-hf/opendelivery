@@ -1,5 +1,7 @@
 # OpenDelivery Version and Iteration Master Execution Plan
 
+> **Rebaselined:** From 2026-07-20, execution follows R01-R08 in the [Operations Model Rebaseline Plan](operations-model-rebaseline-plan.en.md). The former I07-I15 order is paused and retained as history.
+
 ## 1. Purpose, Status, and Assumptions
 
 This turns the [roadmap](../roadmap/version-roadmap.en.md) into execution. I00–I01 are complete. I02–I06 backend, database, and real-MySQL primary flows are delivered, but Operations Web and systematic automation remain unfinished DoD. From 2026-07-20, delivery is pilot-first: finish the operator UI, I07, I08, and automated gates required for five consecutive business days in three cities. I09–I15 are paused until the `0.5` gate.

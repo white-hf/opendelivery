@@ -265,3 +265,17 @@ Body：`stationCode:string`、`waveCode:string`、`serviceDate:date`、`routeCod
 ## 10. 兼容、错误与测试要求
 
 旧 `/delivery/**` 在 `0.5` 保持兼容；V2 Driver API 验证稳定后发布弃用日期。禁止复用字段改变语义；只增加可选字段或发布新版本。每个 API 必须具备成功、校验、401、403、404、状态冲突、重复幂等和并发版本测试；Integration 还需签名、防重放、乱序和契约样例测试。
+## 9. 区域配置 API（R01，CURRENT）
+
+所有接口要求运营 Bearer Token、`X-Station-Code` 和 `X-Request-Id`；仅 `ADMIN`/`SUPERVISOR` 可访问。响应使用统一 `biz_code/biz_message/biz_data` 包装。
+
+| 方法与路径 | 输入 | 输出/规则 |
+|---|---|---|
+| `GET /ops/v1/delivery-areas` | 无 | 当前站点区域及优先展示的已发布/最新版本、GeoJSON |
+| `GET /ops/v1/delivery-areas/{areaId}/versions` | path ID | 全版本、校验结果、生效时间和审批人 |
+| `POST /ops/v1/delivery-areas` | `areaCode`、`areaName`、`areaLevel?`、`geoJson`、`changeReason` | 创建区域和 V1 `DRAFT`，返回 `areaId/versionId/versionNo/status` |
+| `POST /ops/v1/delivery-areas/{areaId}/versions` | `geoJson`、`changeReason` | 为现有区域创建下一草稿版本 |
+| `POST .../{versionId}/validate` | 无 | 校验几何及同站同层重叠；成功转为 `VALIDATED` |
+| `POST .../{versionId}/publish` | `reason` | 仅发布已校验版本，原发布版本转 `RETIRED` |
+
+GeoJSON 接受 `Feature`、`Polygon` 或 `MultiPolygon`，服务端统一保存为 WGS84 `MultiPolygon`。典型错误：`AREA.GEOJSON.INVALID`、`AREA.OVERLAP`、`AREA.STATE.INVALID`、`AREA.NOT.FOUND`。

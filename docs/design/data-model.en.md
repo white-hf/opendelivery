@@ -153,3 +153,12 @@ I04 V5 adds `inbound_scan_event`; `(manifest_id, device_event_id)` makes scanner
 I05 V6 adds a generated active slot and `(task_id,session_type,active_slot)` uniqueness to `scan_session`, allowing at most one OPEN/SUBMITTED session of a type per task. `(current_station_id,status,current_custody_type,updated_at)` supports candidate inventory. Existing `driver_task_item.active_slot` keeps one Parcel in at most one active task. Publication only records assignment; load approval creates station-to-driver custody.
 
 I06 V7 adds `delivery_failure_reason` for evidence, next action, and attempt limit. Attempt gains `failure_note/next_action`; Return Session stores its resolution. RETURN reuses idempotent Scan Events, and supervisor approval is the custody boundary. Address failures only open a Case; that Case blocks dispatch without automatic rerouting.
+## 13. R01 Spatial Area Model
+
+- `delivery_area` is the stable station-scoped identity; `(station_id, area_code)` is unique and `area_level` supports nested planning granularity without organization hierarchy.
+- `delivery_area_version` stores immutable boundaries. `boundary` is an SRID 4326 `MULTIPOLYGON` with a spatial index; the GeoJSON snapshot, lifecycle, validation, reason, effective times and approvers provide traceability. Only one version per area may be `PUBLISHED`.
+- `driver_area_preference` is a dated, ranked long-term preference, not the actual daily assignment.
+- `waybill_geocode` records result status, precision, provider and an indexed point; failures retain their reason.
+- `parcel_area_assignment` persists the selected area version, `AUTO/MANUAL` source, confidence, reason and actor so later boundary edits cannot rewrite history.
+
+Station/status B-tree indexes serve lists; spatial indexes serve point-in-polygon matching; planning queries must remain station bounded. Versions and assignments are retained historically. R07 will archive high-growth audit/event data by business date without deleting shipment custody history.

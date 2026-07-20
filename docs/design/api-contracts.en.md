@@ -195,3 +195,17 @@ Candidate inventory must be at the selected station, in station custody, routed 
 ## 10. Compatibility and Tests
 
 Legacy `/delivery/**` remains through `0.5`; publish a deprecation date only after V2 validation. Never reuse a field with changed semantics. Every API tests success, validation, 401, 403, 404, state conflict, duplicate idempotency, and concurrent version. Integration additionally tests signature, replay defense, ordering, and partner contract fixtures.
+## 9. Delivery Area APIs (R01, CURRENT)
+
+Every route requires an operator bearer token, `X-Station-Code`, and `X-Request-Id`; only `ADMIN` and `SUPERVISOR` may use them. Responses use the standard `biz_code/biz_message/biz_data` envelope.
+
+| Method/path | Input | Result/rule |
+|---|---|---|
+| `GET /ops/v1/delivery-areas` | none | Station areas with the preferred published/latest version and GeoJSON |
+| `GET /ops/v1/delivery-areas/{areaId}/versions` | path ID | Complete version, validation, effective-time and approver history |
+| `POST /ops/v1/delivery-areas` | `areaCode`, `areaName`, optional `areaLevel`, `geoJson`, `changeReason` | Create area and V1 `DRAFT`; return IDs/version/status |
+| `POST /ops/v1/delivery-areas/{areaId}/versions` | `geoJson`, `changeReason` | Create the next draft version |
+| `POST .../{versionId}/validate` | none | Validate geometry and same-station/level overlap; move to `VALIDATED` |
+| `POST .../{versionId}/publish` | `reason` | Publish a validated version and retire its predecessor |
+
+GeoJSON may be a `Feature`, `Polygon`, or `MultiPolygon` and is normalized to a WGS84 `MultiPolygon`. Expected errors include `AREA.GEOJSON.INVALID`, `AREA.OVERLAP`, `AREA.STATE.INVALID`, and `AREA.NOT.FOUND`.

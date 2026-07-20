@@ -480,3 +480,12 @@ I04 V5 新增 `inbound_scan_event`，以 `(manifest_id, device_event_id)` 保证
 I05 V6 为 `scan_session` 增加活动槽生成列及 `(task_id,session_type,active_slot)` 唯一约束，保证一个任务同类型至多一个 OPEN/SUBMITTED Session；为站点库存候选查询增加 `(current_station_id,status,current_custody_type,updated_at)` 索引。`driver_task_item.active_slot` 继续保证一个 Parcel 至多属于一个活动任务。发布只改变分配状态；批准装车才产生站点到司机的 custody event。
 
 I06 V7 新增 `delivery_failure_reason` 配置失败证据、下一动作和尝试上限；Attempt 增加 `failure_note/next_action`，Return Session 增加处理结论。RETURN 复用 Scan Event 幂等事实；主管批准后才写司机到站点/上游 custody。地址异常只建 Case，开放 Case 继续阻断调度，不自动重路由。
+## 13. R01 空间区域模型
+
+- `delivery_area`：站点内稳定的区域身份；`(station_id, area_code)` 唯一，`area_level` 支持大区/小区而不引入组织层级。
+- `delivery_area_version`：不可变边界版本；`boundary` 为 SRID 4326 `MULTIPOLYGON` 并建空间索引，`geojson_snapshot` 保存导入原貌，状态为 `DRAFT/VALIDATED/PUBLISHED/RETIRED`，校验、变更原因、生效时间和审批字段支持追溯。每区域仅一个 `PUBLISHED` 版本。
+- `driver_area_preference`：长期默认司机偏好，含优先级和有效期；它不是当天实际任务分配。
+- `waybill_geocode`：地址地理编码结果、精度、提供方和坐标；`location` 建空间索引，失败仍保留状态和原因。
+- `parcel_area_assignment`：包裹匹配到具体区域版本的决策，记录 `AUTO/MANUAL`、置信度、原因和操作人；后续边界变化不改写历史。
+
+性能策略：列表使用站点/状态 B-tree 索引；点面匹配使用空间索引；规划查询禁止跨站全表扫描。区域版本和归属按历史保留，后续在 R07 按营业日期归档高增长审计/事件数据，不删除运单责任链。
