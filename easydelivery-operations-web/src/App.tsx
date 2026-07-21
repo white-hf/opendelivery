@@ -78,7 +78,9 @@ function Workspace() {
     const daily:PageKey[]=['dashboard','orders','dispatch','manifests','scanning','handover','delivery','closeout'];
     const exception:PageKey[]=['cases'];const configuration:PageKey[]=['areas','drivers','stations','callbacks'];
     const blocker=(key:PageKey)=>navigation.data?.stages.find(stage=>stage.target===key)?.blockers??0;
-    const menuItems=[{type:'group' as const,label:t('nav.group.daily'),children:daily.filter(k=>pages.includes(k)).map((key,index)=>({key,label:<span className="menu-label"><span>{index+1}</span><em>{t(`nav.${key}`)}</em>{blocker(key)>0&&<Badge count={blocker(key)} overflowCount={99}/>}</span>}))},{type:'group' as const,label:t('nav.group.exceptions'),children:exception.filter(k=>pages.includes(k)).map(key=>({key,label:t(`nav.${key}`)}))},{type:'group' as const,label:t('nav.group.configuration'),children:configuration.filter(k=>pages.includes(k)).map(key=>({key,label:t(`nav.${key}`)}))}];
+    const available=new Set<PageKey>(['dashboard','orders','dispatch','manifests','cases','areas']);
+    const item=(key:PageKey,index?:number)=>({key,disabled:!available.has(key),label:<span className="menu-label">{index!=null&&<span>{index+1}</span>}<em>{t(`nav.${key}`)}{!available.has(key)?` · ${t('common.planned')}`:''}</em>{blocker(key)>0&&available.has(key)&&<Badge count={blocker(key)} overflowCount={99}/>}</span>});
+    const menuItems=[{type:'group' as const,label:t('nav.group.daily'),children:daily.filter(k=>pages.includes(k)).map((key,index)=>item(key,index))},{type:'group' as const,label:t('nav.group.exceptions'),children:exception.filter(k=>pages.includes(k)).map(key=>item(key))},{type:'group' as const,label:t('nav.group.configuration'),children:configuration.filter(k=>pages.includes(k)).map(key=>item(key))}];
 
     return <Layout className="shell">
         <Sider>
@@ -139,7 +141,7 @@ function ReadPage({ page, station, session }: { page: PageKey; station: string; 
         enabled: Boolean(path && station),
     });
 
-    if (!path) return <Card title={t(`nav.${page}`)}>{t('common.notReady')}</Card>;
+    if (!path) return <Card title={t(`nav.${page}`)}><Alert type="info" showIcon message={t('common.planned')} description={t('common.notReady')}/></Card>;
     if (query.isLoading) return <Spin />;
     if (query.error) return <Alert type="error" message={query.error.message} />;
     const rows = Array.isArray(query.data) ? query.data as Record<string, unknown>[] : [];

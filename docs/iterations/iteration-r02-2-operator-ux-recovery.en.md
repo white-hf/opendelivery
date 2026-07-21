@@ -13,3 +13,11 @@ Operator acceptance found that Today identifies blockers but order readiness is 
 | UX05 Configuration | Driver and station master-data loops | Driver CRUD/deactivate/language/area preference; station view and controlled admin update |
 
 Every slice requires three languages, station isolation, audit, unit/API/browser tests, and bilingual summary updates.
+
+## Current delivery status
+
+- UX01 is complete: dispatch uses the proven area-map loader, renders 69 points, and opens parcel details from a point.
+- The core UX02 loop is complete: the readiness queue, map, coordinate correction, and audited area override are connected. Case creation belongs to the exception-center slice.
+- UX03 is complete: planning follows capacity readiness, map assignment, then preflight/release; the long parcel table is an on-demand drawer.
+- UX04 is complete: unfinished workspaces are locked and clearly labelled instead of opening empty pages.
+- UX05 remains: driver and station configuration workspaces.

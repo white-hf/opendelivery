@@ -9,6 +9,7 @@ test('operator follows the business-day journey into a visible parcel map', asyn
     await expect(page.getByText('Expected orders')).toBeVisible();
     await expect(page.getByText('Next actions')).toBeVisible();
     await page.getByRole('menuitem', { name: '3 Dispatch' }).click();
+    await page.getByText('2. Assign parcels', { exact: true }).click();
     await expect(page.getByLabel('Parcel planning map')).toBeVisible();
     await expect(page.getByText('Locatable 69')).toBeVisible();
     await expect(page.getByText('Displayed 69')).toBeVisible();

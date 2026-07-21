@@ -41,6 +41,18 @@ export const translations: Record<SupportedLocale, Record<string, string>> = {
         'preferences.button':'默认司机','preferences.title':'区域默认司机 — {{area}}','preferences.priority':'优先级','preferences.save':'保存偏好','preferences.success':'司机区域偏好已保存',
     },
 };
+Object.assign(translations['en-CA'], {
+    'common.planned':'Planned · unavailable',
+    'dispatch.stageCapacity':'1. Capacity readiness','dispatch.stageAssign':'2. Assign parcels','dispatch.stageRelease':'3. Preflight and release','dispatch.capacitySummary':'{{drivers}} drivers · {{capacity}} parcels','dispatch.assignmentSummary':'{{assigned}} / {{total}} assigned','dispatch.noDraft':'No draft','dispatch.manageCapacity':'Manage capacity','dispatch.openWorklist':'Open worklist','dispatch.continueAssign':'Continue to assignment','dispatch.capacityReadiness':'{{drivers}} available drivers provide {{capacity}} capacity for {{required}} ready parcels.','dispatch.activeDraft':'Active planning draft','dispatch.createPlan':'Create dispatch plan','dispatch.reviewRelease':'Review and release','dispatch.backAssign':'Back to assignment','dispatch.preflightSummary':'{{assigned}} of {{ready}} ready parcels assigned; {{exceptions}} exceptions remain outside release.','dispatch.driverTasks':'Driver task summary','dispatch.remaining':'remaining',
+});
+Object.assign(translations['fr-CA'], {
+    'common.planned':'Planifié · indisponible',
+    'dispatch.stageCapacity':'1. Capacité','dispatch.stageAssign':'2. Affectation','dispatch.stageRelease':'3. Vérification et publication','dispatch.capacitySummary':'{{drivers}} chauffeurs · {{capacity}} colis','dispatch.assignmentSummary':'{{assigned}} / {{total}} affectés','dispatch.noDraft':'Aucun brouillon','dispatch.manageCapacity':'Gérer la capacité','dispatch.openWorklist':'Ouvrir la liste','dispatch.continueAssign':'Continuer vers l’affectation','dispatch.capacityReadiness':'{{drivers}} chauffeurs offrent une capacité de {{capacity}} pour {{required}} colis prêts.','dispatch.activeDraft':'Brouillon actif','dispatch.createPlan':'Créer le plan','dispatch.reviewRelease':'Vérifier et publier','dispatch.backAssign':'Retour à l’affectation','dispatch.preflightSummary':'{{assigned}} sur {{ready}} colis prêts affectés; {{exceptions}} exceptions restent exclues.','dispatch.driverTasks':'Résumé des tâches chauffeurs','dispatch.remaining':'restants',
+});
+Object.assign(translations['zh-CN'], {
+    'common.planned':'规划中 · 暂不可用',
+    'dispatch.stageCapacity':'1. 运力准备','dispatch.stageAssign':'2. 包裹分配','dispatch.stageRelease':'3. 预检发布','dispatch.capacitySummary':'{{drivers}} 名司机 · {{capacity}} 件容量','dispatch.assignmentSummary':'已分配 {{assigned}} / {{total}}','dispatch.noDraft':'尚未创建草稿','dispatch.manageCapacity':'管理运力','dispatch.openWorklist':'打开包裹列表','dispatch.continueAssign':'进入包裹分配','dispatch.capacityReadiness':'{{drivers}} 名出勤司机提供 {{capacity}} 件容量，需要承接 {{required}} 件可规划包裹。','dispatch.activeDraft':'当前规划草稿','dispatch.createPlan':'创建派送计划','dispatch.reviewRelease':'进入预检发布','dispatch.backAssign':'返回分配','dispatch.preflightSummary':'{{ready}} 件可规划包裹中已分配 {{assigned}} 件；{{exceptions}} 件异常不进入发布。','dispatch.driverTasks':'司机任务汇总','dispatch.remaining':'剩余容量',
+});
 const resources=Object.fromEntries(SUPPORTED_LOCALES.map((locale)=>[locale,{translation:translations[locale]}]));
 const stored=localStorage.getItem('opendelivery.locale');
 const initial=SUPPORTED_LOCALES.includes(stored as SupportedLocale)?stored!:'en-CA';
