@@ -35,13 +35,16 @@ public class MapPlanningService {
         long stationId = station();
         return jdbc.queryForList("""
                 SELECT d.id driver_id,d.credential_id driver_code,d.driver_name,
-                       s.id shift_id,COALESCE(s.availability_status,'UNAVAILABLE') availability_status,
-                       s.parcel_capacity,COUNT(DISTINCT CASE WHEN t.status IN ('DRAFT','FROZEN','PUBLISHED','ACCEPTING','IN_PROGRESS') THEN ti.id END) assigned_count
-                FROM driver d LEFT JOIN driver_shift s ON s.driver_id=d.id AND s.service_date=?
+                       s.id shift_id,COALESCE(s.availability_status,'AVAILABLE') availability_status,
+                       COALESCE(s.parcel_capacity, COALESCE(st.default_capacity, 200)) parcel_capacity,
+                       COUNT(DISTINCT CASE WHEN t.status IN ('DRAFT','FROZEN','PUBLISHED','ACCEPTING','IN_PROGRESS') THEN ti.id END) assigned_count
+                FROM driver d
+                JOIN station st ON st.id = d.home_station_id
+                LEFT JOIN driver_shift s ON s.driver_id=d.id AND s.service_date=?
                 LEFT JOIN driver_task t ON t.driver_id=d.id AND t.service_date=?
                 LEFT JOIN driver_task_item ti ON ti.task_id=t.id AND ti.item_status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY')
                 WHERE d.home_station_id=? AND d.status='ACTIVE'
-                GROUP BY d.id,d.credential_id,d.driver_name,s.id,s.availability_status,s.parcel_capacity
+                GROUP BY d.id,d.credential_id,d.driver_name,s.id,s.availability_status,s.parcel_capacity,st.default_capacity
                 ORDER BY d.driver_name,d.id
                 """, serviceDate, serviceDate, stationId);
     }
@@ -71,7 +74,7 @@ public class MapPlanningService {
         String sql = """
                 SELECT p.id parcel_id,p.tracking_no,p.status,p.current_custody_type,p.promised_date,
                        w.external_waybill_no,w.recipient_name,w.address_line1,w.city,w.postal_code,
-                       ST_X(g.delivery_point) longitude,ST_Y(g.delivery_point) latitude,
+                       ST_Longitude(g.delivery_point) longitude,ST_Latitude(g.delivery_point) latitude,
                        a.area_code,av.id area_version_id,t.id task_id,t.driver_id,d.driver_name,
                        CASE WHEN g.waybill_id IS NULL THEN 'MISSING_GEOCODE'
                             WHEN paa.id IS NULL THEN 'UNMATCHED_AREA'
@@ -92,16 +95,62 @@ public class MapPlanningService {
         return jdbc.queryForList(sql, serviceDate, stationId, stationId, safeLimit);
     }
 
+    public List<Map<String, Object>> unplannedParcels(LocalDate serviceDate) {
+        long stationId = station();
+        return jdbc.queryForList("""
+                SELECT a.id AS area_id, a.area_code, a.area_name, av.id AS area_version_id, COUNT(p.id) AS unplanned_count
+                FROM parcel p
+                JOIN waybill w ON w.id = p.waybill_id
+                LEFT JOIN parcel_area_assignment paa ON paa.parcel_id = p.id AND paa.ended_at IS NULL
+                LEFT JOIN delivery_area_version av ON av.id = paa.delivery_area_version_id
+                LEFT JOIN delivery_area a ON a.id = av.delivery_area_id
+                WHERE p.current_station_id = ? AND w.resolved_station_id = ?
+                  AND p.status IN ('RECEIVED','AT_STATION','SORTED','READY_FOR_DISPATCH')
+                  AND w.routing_status IN ('ROUTED','OVERRIDDEN')
+                  AND NOT EXISTS (SELECT 1 FROM operational_case c WHERE c.parcel_id = p.id AND c.status NOT IN ('RESOLVED','CLOSED'))
+                  AND NOT EXISTS (
+                      SELECT 1 FROM driver_task_item ti JOIN driver_task t ON t.id = ti.task_id
+                      WHERE ti.parcel_id = p.id AND t.service_date = ? AND ti.item_status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY')
+                  )
+                GROUP BY a.id, a.area_code, a.area_name, av.id
+                ORDER BY a.area_code
+                """, stationId, stationId, serviceDate);
+    }
+
     @Transactional
     public Map<String, Object> createWave(WaveRequest body) {
         long stationId = station();
-        String code = required(body.waveCode(), "waveCode");
         required(body.serviceDate(), "serviceDate");
+        String code = body.waveCode();
+        if (code == null || code.isBlank()) {
+            String prefix;
+            if (body.arrivalBatchNo() != null && !body.arrivalBatchNo().isBlank()) {
+                prefix = body.arrivalBatchNo();
+            } else {
+                List<String> trips = jdbc.query("SELECT trip_no FROM arrival_trip WHERE station_id=? AND service_date=? ORDER BY id DESC LIMIT 1", (rs, n) -> rs.getString(1), stationId, body.serviceDate());
+                if (!trips.isEmpty()) {
+                    prefix = trips.get(0);
+                } else {
+                    prefix = "W" + body.serviceDate().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+                }
+            }
+            int seq = 1;
+            while (true) {
+                String candidate = prefix + "-W" + seq;
+                Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM dispatch_wave WHERE station_id=? AND wave_code=?", Integer.class, stationId, candidate);
+                if (count == null || count == 0) {
+                    code = candidate;
+                    break;
+                }
+                seq++;
+            }
+        }
+        String finalCode = code;
         GeneratedKeyHolder keys = new GeneratedKeyHolder();
         try {
             jdbc.update(c -> {
                 var ps = c.prepareStatement("INSERT INTO dispatch_wave(station_id,wave_code,service_date,route_code,status) VALUES (?,?,?,?,'DRAFT')", Statement.RETURN_GENERATED_KEYS);
-                ps.setLong(1, stationId); ps.setString(2, code); ps.setObject(3, body.serviceDate()); ps.setString(4, body.routeCode()); return ps;
+                ps.setLong(1, stationId); ps.setString(2, finalCode); ps.setObject(3, body.serviceDate()); ps.setString(4, body.routeCode()); return ps;
             }, keys);
         } catch (DataIntegrityViolationException ex) {
             throw new BizException("WAVE.CODE.EXISTS", "Wave code already exists at selected station");
@@ -113,12 +162,14 @@ public class MapPlanningService {
         Wave wave = wave(waveId, false);
         return Map.of("wave", jdbc.queryForMap("SELECT id,wave_code,service_date,route_code,status,frozen_at,published_at,version FROM dispatch_wave WHERE id=?", waveId),
                 "drivers", jdbc.queryForList("""
-                        SELECT t.id task_id,t.task_code,t.driver_id,d.driver_name,t.status,COUNT(ti.id) parcel_count,s.parcel_capacity,
-                               s.parcel_capacity-COUNT(ti.id) remaining_capacity
+                        SELECT t.id task_id,t.task_code,t.driver_id,d.driver_name,t.status,COUNT(ti.id) parcel_count,
+                               COALESCE(s.parcel_capacity, COALESCE(st.default_capacity, 200)) parcel_capacity,
+                               COALESCE(s.parcel_capacity, COALESCE(st.default_capacity, 200))-COUNT(ti.id) remaining_capacity
                         FROM driver_task t JOIN driver d ON d.id=t.driver_id
+                        JOIN station st ON st.id=d.home_station_id
                         LEFT JOIN driver_task_item ti ON ti.task_id=t.id AND ti.item_status='ASSIGNED'
                         LEFT JOIN driver_shift s ON s.driver_id=t.driver_id AND s.service_date=t.service_date
-                        WHERE t.wave_id=? GROUP BY t.id,t.task_code,t.driver_id,d.driver_name,t.status,s.parcel_capacity ORDER BY d.driver_name
+                        WHERE t.wave_id=? GROUP BY t.id,t.task_code,t.driver_id,d.driver_name,t.status,s.parcel_capacity,st.default_capacity ORDER BY d.driver_name
                         """, wave.id()),
                 "areas", jdbc.queryForList("SELECT ta.task_id,ta.delivery_area_version_id,a.area_code,ta.assignment_mode FROM driver_task_area ta JOIN delivery_area_version av ON av.id=ta.delivery_area_version_id JOIN delivery_area a ON a.id=av.delivery_area_id JOIN driver_task t ON t.id=ta.task_id WHERE t.wave_id=?", waveId));
     }
@@ -166,6 +217,76 @@ public class MapPlanningService {
     }
 
     @Transactional
+    public AssignmentResult assignDefaults(long waveId, HttpServletRequest http) {
+        Wave wave = wave(waveId, true);
+        draft(wave);
+
+        List<Map<String, Object>> prefRows = jdbc.queryForList("""
+                SELECT p.driver_id, av.id AS area_version_id
+                FROM driver_area_preference p
+                JOIN delivery_area a ON a.id = p.delivery_area_id
+                JOIN delivery_area_version av ON av.delivery_area_id = a.id AND av.status = 'PUBLISHED'
+                JOIN driver d ON d.id = p.driver_id
+                LEFT JOIN driver_shift s ON s.driver_id = d.id AND s.service_date = ?
+                WHERE a.station_id = ? AND d.home_station_id = ? AND d.status = 'ACTIVE' AND p.status = 'ACTIVE'
+                  AND COALESCE(s.availability_status, 'AVAILABLE') = 'AVAILABLE'
+                  AND (p.effective_from IS NULL OR p.effective_from <= ?)
+                  AND (p.effective_to IS NULL OR p.effective_to >= ?)
+                ORDER BY p.priority ASC, p.id ASC
+                """, wave.serviceDate(), wave.stationId(), wave.stationId(), wave.serviceDate(), wave.serviceDate());
+
+        Map<Long, List<Long>> driverAreas = new java.util.LinkedHashMap<>();
+        for (Map<String, Object> row : prefRows) {
+            long dId = ((Number) row.get("driver_id")).longValue();
+            long avId = ((Number) row.get("area_version_id")).longValue();
+            driverAreas.computeIfAbsent(dId, k -> new java.util.ArrayList<>()).add(avId);
+        }
+
+        int totalAssignedInCall = 0;
+        for (Map.Entry<Long, List<Long>> entry : driverAreas.entrySet()) {
+            long driverId = entry.getKey();
+            List<Long> areaVersionIds = entry.getValue();
+
+            Shift s = shift(driverId, wave.serviceDate(), wave.stationId(), true);
+            int currentAssigned = assignedForDriver(driverId, wave.serviceDate());
+            int remainingCapacity = s.capacity() - currentAssigned;
+            if (remainingCapacity <= 0) continue;
+
+            String inSql = String.join(",", areaVersionIds.stream().map(String::valueOf).toArray(String[]::new));
+            String querySql = """
+                    SELECT p.id FROM parcel_area_assignment paa
+                    JOIN parcel p ON p.id = paa.parcel_id
+                    JOIN waybill w ON w.id = p.waybill_id
+                    WHERE paa.delivery_area_version_id IN (%s) AND paa.ended_at IS NULL
+                      AND p.current_station_id = ? AND p.status IN ('RECEIVED','AT_STATION','SORTED','READY_FOR_DISPATCH')
+                      AND w.routing_status IN ('ROUTED','OVERRIDDEN') AND w.resolved_station_id = ?
+                      AND NOT EXISTS (SELECT 1 FROM operational_case c WHERE c.parcel_id = p.id AND c.status NOT IN ('RESOLVED','CLOSED'))
+                      AND NOT EXISTS (
+                          SELECT 1 FROM driver_task_item ti JOIN driver_task t ON t.id = ti.task_id
+                          WHERE ti.parcel_id = p.id AND t.service_date = ? AND ti.item_status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY')
+                      )
+                    LIMIT ?
+                    """.formatted(inSql);
+            List<Long> plannableParcels = jdbc.query(querySql, (rs, n) -> rs.getLong(1), wave.stationId(), wave.stationId(), wave.serviceDate(), remainingCapacity);
+
+            if (!plannableParcels.isEmpty()) {
+                long taskId = task(wave, driverId);
+                int seq = count(taskId) + 1;
+                for (Long pId : plannableParcels) {
+                    jdbc.update("INSERT INTO driver_task_item(task_id,parcel_id,stop_sequence,item_status) VALUES (?,?,?,'ASSIGNED')", taskId, pId, seq++);
+                }
+                for (Long areaVersionId : areaVersionIds) {
+                    jdbc.update("INSERT IGNORE INTO driver_task_area(task_id,delivery_area_version_id,assignment_mode,assigned_by) VALUES (?,?,'WHOLE_AREA',?)", taskId, areaVersionId, operator(http));
+                }
+                totalAssignedInCall += plannableParcels.size();
+            }
+        }
+
+        audit(http, wave.stationId(), "PLANNING_ASSIGN_DEFAULTS", waveId, "Auto assigned by driver area preferences", Map.of("assignedCount", totalAssignedInCall));
+        return new AssignmentResult(waveId, 0L, totalAssignedInCall, totalAssignedInCall, 0);
+    }
+
+    @Transactional
     public AssignmentResult reassign(long waveId, long parcelId, ReassignRequest body, HttpServletRequest http) {
         Wave wave = wave(waveId, true); draft(wave);
         String reason = required(body.reason(), "reason");
@@ -186,15 +307,20 @@ public class MapPlanningService {
         Wave wave = wave(waveId, true); draft(wave);
         String reason = required(body.reason(), "reason");
         List<Map<String,Object>> invalid = jdbc.queryForList("""
-                SELECT t.id task_id,t.driver_id,COUNT(ti.id) parcel_count,s.parcel_capacity,s.availability_status
-                FROM driver_task t LEFT JOIN driver_task_item ti ON ti.task_id=t.id AND ti.item_status='ASSIGNED'
+                SELECT t.id task_id,t.driver_id,COUNT(ti.id) parcel_count,
+                       COALESCE(s.parcel_capacity, COALESCE(st.default_capacity, 200)) parcel_capacity,
+                       COALESCE(s.availability_status, 'AVAILABLE') availability_status
+                FROM driver_task t
+                JOIN driver d ON d.id = t.driver_id
+                JOIN station st ON st.id = d.home_station_id
+                LEFT JOIN driver_task_item ti ON ti.task_id=t.id AND ti.item_status='ASSIGNED'
                 LEFT JOIN driver_shift s ON s.driver_id=t.driver_id AND s.service_date=t.service_date
-                WHERE t.wave_id=? GROUP BY t.id,t.driver_id,s.parcel_capacity,s.availability_status
-                HAVING parcel_count=0 OR parcel_capacity IS NULL OR availability_status<>'AVAILABLE'
+                WHERE t.wave_id=? GROUP BY t.id,t.driver_id,s.parcel_capacity,st.default_capacity,s.availability_status
+                HAVING parcel_count=0 OR COALESCE(s.availability_status, 'AVAILABLE') <> 'AVAILABLE'
                   OR (SELECT COUNT(*) FROM driver_task all_t JOIN driver_task_item all_i ON all_i.task_id=all_t.id
                       WHERE all_t.driver_id=t.driver_id AND all_t.service_date=t.service_date
                         AND all_t.status IN ('DRAFT','FROZEN','PUBLISHED','ACCEPTING','IN_PROGRESS')
-                        AND all_i.item_status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY'))>parcel_capacity
+                        AND all_i.item_status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY')) > COALESCE(s.parcel_capacity, COALESCE(st.default_capacity, 200))
                 """, waveId);
         Integer total = jdbc.queryForObject("SELECT COUNT(*) FROM driver_task_item ti JOIN driver_task t ON t.id=ti.task_id WHERE t.wave_id=? AND ti.item_status='ASSIGNED'", Integer.class, waveId);
         if (total == null || total == 0) throw new BizException("WAVE.EMPTY", "Wave has no assigned parcels");
@@ -232,8 +358,20 @@ public class MapPlanningService {
         access.requireStation(rows.get(0).stationId()); return rows.get(0);
     }
     private Shift shift(long driverId, LocalDate date, long stationId, boolean lock) {
-        List<Shift> rows=jdbc.query("SELECT parcel_capacity,availability_status FROM driver_shift WHERE driver_id=? AND station_id=? AND service_date=?"+(lock?" FOR UPDATE":""),(rs,n)->new Shift(rs.getInt(1),rs.getString(2)),driverId,stationId,date);
-        if(rows.isEmpty()) throw new BizException("DRIVER.SHIFT.UNAVAILABLE","Driver has no available shift for the service date");MapPlanningPolicy.available(rows.get(0).availability());return rows.get(0);
+        List<Shift> rows = jdbc.query("""
+                SELECT COALESCE(s.parcel_capacity, COALESCE(st.default_capacity, 200)) parcel_capacity,
+                       COALESCE(s.availability_status, 'AVAILABLE') availability_status
+                FROM driver d
+                JOIN station st ON st.id = d.home_station_id
+                LEFT JOIN driver_shift s ON s.driver_id = d.id AND s.service_date = ?
+                WHERE d.id = ? AND d.home_station_id = ?
+                """ + (lock ? " FOR UPDATE" : ""),
+                (rs, n) -> new Shift(rs.getInt(1), rs.getString(2)), date, driverId, stationId);
+        if (rows.isEmpty()) {
+            return new Shift(200, "AVAILABLE");
+        }
+        MapPlanningPolicy.available(rows.get(0).availability());
+        return rows.get(0);
     }
     private void ensureDriver(long id,long stationId){Integer n=jdbc.queryForObject("SELECT COUNT(*) FROM driver WHERE id=? AND home_station_id=? AND status='ACTIVE'",Integer.class,id,stationId);if(n==null||n==0)throw new BizException("DRIVER.NOT.AVAILABLE","Driver is not active at selected station");}
     private void ensureArea(long versionId,long stationId){Integer n=jdbc.queryForObject("SELECT COUNT(*) FROM delivery_area_version av JOIN delivery_area a ON a.id=av.delivery_area_id WHERE av.id=? AND a.station_id=? AND a.status='ACTIVE' AND av.status='PUBLISHED'",Integer.class,versionId,stationId);if(n==null||n==0)throw new BizException("AREA.NOT.AVAILABLE","Published area does not belong to selected station");}
@@ -249,7 +387,7 @@ public class MapPlanningService {
     private record Wave(long id,long stationId,String code,LocalDate serviceDate,String status){}
     private record Shift(int capacity,String availability){}
     public record ShiftRequest(long driverId,LocalDate serviceDate,String availabilityStatus,int parcelCapacity,String note){}
-    public record WaveRequest(String waveCode,LocalDate serviceDate,String routeCode){}
+    public record WaveRequest(String waveCode,LocalDate serviceDate,String routeCode,String arrivalBatchNo){}
     public record AssignmentRequest(long driverId,List<Long> parcelIds,List<Long> areaVersionIds,String reason){}
     public record ReassignRequest(long driverId,String reason){}
     public record ReasonRequest(String reason){}

@@ -16,6 +16,10 @@ const DispatchWorkspace = lazy(() => import('./workflows/DispatchWorkspace').the
 const ArrivalWorkspace = lazy(() => import('./workflows/ArrivalWorkspace').then((module) => ({ default: module.ArrivalWorkspace })));
 const OrderReadinessWorkspace = lazy(() => import('./workflows/OrderReadinessWorkspace').then((module) => ({ default: module.OrderReadinessWorkspace })));
 const FailedReturnWorkspace = lazy(() => import('./workflows/FailedReturnWorkspace').then((module) => ({ default: module.FailedReturnWorkspace })));
+const ScanSupervisionWorkspace = lazy(() => import('./workflows/ScanSupervisionWorkspace').then((module) => ({ default: module.ScanSupervisionWorkspace })));
+const HandoverApprovalWorkspace = lazy(() => import('./workflows/HandoverApprovalWorkspace').then((module) => ({ default: module.HandoverApprovalWorkspace })));
+const DayCloseWorkspace = lazy(() => import('./workflows/DayCloseWorkspace').then((module) => ({ default: module.DayCloseWorkspace })));
+const CaseCenterWorkspace = lazy(() => import('./workflows/CaseCenterWorkspace').then((module) => ({ default: module.CaseCenterWorkspace })));
 
 const { Header, Sider, Content } = Layout;
 
@@ -79,7 +83,7 @@ function Workspace() {
     const daily:PageKey[]=['dashboard','orders','dispatch','manifests','scanning','handover','delivery','closeout'];
     const exception:PageKey[]=['cases'];const configuration:PageKey[]=['areas','drivers','stations','callbacks'];
     const blocker=(key:PageKey)=>navigation.data?.stages.find(stage=>stage.target===key)?.blockers??0;
-    const available=new Set<PageKey>(['dashboard','orders','dispatch','manifests','cases','areas']);
+    const available=new Set<PageKey>(['dashboard','orders','dispatch','manifests','scanning','handover','delivery','closeout','cases','areas']);
     const item=(key:PageKey,index?:number)=>({key,disabled:!available.has(key),label:<span className="menu-label">{index!=null&&<span>{index+1}</span>}<em>{t(`nav.${key}`)}{!available.has(key)?` · ${t('common.planned')}`:''}</em>{blocker(key)>0&&available.has(key)&&<Badge count={blocker(key)} overflowCount={99}/>}</span>});
     const menuItems=[{type:'group' as const,label:t('nav.group.daily'),children:daily.filter(k=>pages.includes(k)).map((key,index)=>item(key,index))},{type:'group' as const,label:t('nav.group.exceptions'),children:exception.filter(k=>pages.includes(k)).map(key=>item(key))},{type:'group' as const,label:t('nav.group.configuration'),children:configuration.filter(k=>pages.includes(k)).map(key=>item(key))}];
 
@@ -100,23 +104,24 @@ function Workspace() {
                         aria-label={t('station.label')}
                         value={station}
                         onChange={changeStation}
-                        options={(stations.data ?? []).map((item) => ({
+                        options={((stations.data ?? []) as Array<{ station_code: string; station_name: string }>).map((item) => ({
                             value: item.station_code,
-                            label: item.station_code,
+                            label: `${item.station_code} - ${item.station_name}`,
                         }))}
+                        style={{ width: 220 }}
                     />
-                    <DatePicker value={dayjs(serviceDate)} onChange={value=>{if(value){const next=value.format('YYYY-MM-DD');setServiceDate(next);queryClient.removeQueries({predicate:q=>q.queryKey[0]!=='stations'});}}}/>
-                    <Select aria-label={t('locale.label')} value={i18n.language as SupportedLocale} style={{ width: 100 }}
-                        options={SUPPORTED_LOCALES.map((value) => ({ value, label: value }))}
-                        onChange={async (value: SupportedLocale) => {
-                            await changeLocale(value);
-                            await api('/ops/auth/me/locale', session!, { method: 'PUT', body: JSON.stringify({ locale: value }) });
-                        }} />
-                    <span>{session!.user.displayName}</span>
-                    <Button onClick={logout}>{t('auth.signOut')}</Button>
+                    <DatePicker value={dayjs(serviceDate)} onChange={(_, dateString) => setServiceDate(typeof dateString === 'string' ? dateString : serviceDate)} />
+                </Space>
+                <Space>
+                    <Select value={i18n.language as SupportedLocale} onChange={(value: SupportedLocale) => void changeLocale(value)}
+                        options={SUPPORTED_LOCALES.map((value) => ({ value, label: value }))} />
+                    <span>{session?.user.username}</span>
+                    <Button onClick={() => void logout()}>{t('auth.signOut')}</Button>
                 </Space>
             </Header>
-            <Content className="content"><Page page={page} station={station} serviceDate={serviceDate} filter={filter} onNavigate={navigate}/></Content>
+            <Content className="body">
+                <Page page={page} station={station} serviceDate={serviceDate} filter={filter} onNavigate={navigate}/>
+            </Content>
         </Layout>
     </Layout>;
 }
@@ -130,6 +135,10 @@ function Page({ page, station,serviceDate,filter,onNavigate }: { page: PageKey; 
     else if(page==='dashboard')content=<TodayWorkspace session={session!} station={station} serviceDate={serviceDate} onNavigate={onNavigate}/>;
     else if(page==='orders')content=<OrderReadinessWorkspace session={session!} station={station} serviceDate={serviceDate} initialFilter={filter}/>;
     else if(page==='delivery')content=<FailedReturnWorkspace session={session!} station={station} serviceDate={serviceDate}/>;
+    else if(page==='scanning')content=<ScanSupervisionWorkspace session={session!} station={station} serviceDate={serviceDate}/>;
+    else if(page==='handover')content=<HandoverApprovalWorkspace session={session!} station={station} serviceDate={serviceDate}/>;
+    else if(page==='closeout')content=<DayCloseWorkspace session={session!} station={station} serviceDate={serviceDate}/>;
+    else if(page==='cases')content=<CaseCenterWorkspace session={session!} station={station}/>;
     else content = <ReadPage page={page} station={station} session={session!} />;
     return <Suspense fallback={<Spin />}>{content}</Suspense>;
 }
