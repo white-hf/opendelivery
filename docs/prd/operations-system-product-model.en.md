@@ -4,6 +4,8 @@
 
 The Operations System is the city-station last-mile control plane, not a generic WMS, map editor, or database console. It closes the loop across upstream orders, geographic planning, physical arrival, driver pickup, custody, delivery, returns, and daily sign-off. The first outcome is five consecutive business days in YHZ, YYZ, and YVR under a one-city/one-station model; optimization, real-time dispatch, inter-station transfer, and organization hierarchy are excluded.
 
+Operations and the driver product are planned independently. The Driver App/API performs the authenticated driver's scans, delivery, and return; Operations prepares plans, observes driver events, approves custody transfer, and resolves exceptions. It never scans on behalf of a driver. Shared domain facts do not imply shared client permissions.
+
 The model separates commercial `Waybill/Parcel`, low-change `Station Service Area`, versioned GeoJSON `Delivery Area`, long-term `Driver Area Preference`, daily `Driver Shift`, pre-arrival `Dispatch Batch/Driver Task`, physical `Inbound Trip/Handling Unit`, immutable `Load Scan Event`, cross-task `Batch Reconciliation`, `Custody Event`, delivery/POD/return records, and Case/audit history.
 
 ```mermaid

@@ -1,6 +1,6 @@
 # OpenDelivery Version and Iteration Master Execution Plan
 
-> **Rebaselined:** From 2026-07-20, execution follows R01-R08 in the [Operations Model Rebaseline Plan](operations-model-rebaseline-plan.en.md). The former I07-I15 order is paused and retained as history.
+> **Rebaselined:** From 2026-07-21, driver execution and Operations are separate product streams. Future priority, numbering, and joint gates follow the [Two-Product Execution Plan](two-product-execution-plan.en.md); former I07-I15 sequencing remains historical.
 
 ## 1. Purpose, Status, and Assumptions
 

@@ -9,9 +9,9 @@ The operations review established pre-arrival order/area/capacity planning follo
 | R02 | Pre-arrival map planning | geocode, clusters, drawer, shifts, assignment, freeze/release |
 | R02.1 | Operations control tower | journey navigation, Today, drill-down, action queue, map observability |
 | R03 | Physical arrival | trips, handling units, aggregation observations |
-| R04 | Own-driver scans | expected lists, rejected scans, damage, submit, idempotency |
-| R05 | Reconciliation/handover | progress, cross-task recompute, custody transaction, reassignment |
-| R06 | Delivery return | POD, retry, RETURN approval, return-then-assign, timeline |
+| D01-D04 | Driver product | own tasks, scans, delivery, and return through Driver App/API |
+| O04-O05 | Scan supervision/handover | Operations observes scan facts, resolves discrepancies, and approves custody |
+| O06 | Delivery/return supervision | Operations monitors delivery and approves return custody |
 | R07 | Closeout/automation | reconciliation, drilldown, sign-off, one-command evidence |
 | R08 | Five-day pilot | runbook, training, on-call, reports, defects, gate |
 
@@ -26,3 +26,5 @@ R01 experience-acceptance slice: the area editor must fit the viewport, place ma
 R01 area lifecycle closure: map is the primary area-workspace view and the list selects/filters it. Operators can create, view map/version detail, modify metadata and boundary into a new draft, validate, publish, safely deactivate, and reactivate. `areaCode` is immutable after creation. Delete means audited logical deactivation; historical areas/versions are never physically removed. Inactive areas do not match new parcels and reactivation restores use of the retained published version. Every mutation requires a reason and audits actor, station, before/after state, and request ID.
 
 Publication uses `ST_Intersects` for boundary-inclusive point matching and `ST_Intersects AND NOT ST_Touches` to reject same-level area overlap while allowing a shared edge. Planning records reference immutable published versions so later edits cannot rewrite history.
+
+From 2026-07-21, iteration numbering and boundaries follow the [two-product execution plan](two-product-execution-plan.en.md). “Driver scan” in Operations means a supervision workspace only; Operations cannot scan on behalf of a driver.
