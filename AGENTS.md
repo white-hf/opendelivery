@@ -1,5 +1,7 @@
 # Repository Guidelines
 
+> 开发 agent 入职导读（阅读地图/架构/约束/并行规则）：`docs/agent-onboarding.md`（[EN](docs/agent-onboarding.en.md)）。
+
 ## Project Structure & Module Organization
 
 This Java 17/Spring Boot 3.3 service is a Maven multi-module monolith:
@@ -30,6 +32,10 @@ Database changes require a new Flyway migration and `DB_PASSWORD='<secret>' scri
 ## Coding Style & Naming Conventions
 
 Use four-space indentation, braces on the declaration line, and packages rooted at `com.hf.easydelivery`. Use `PascalCase` for classes, `camelCase` for methods and variables, and `UPPER_SNAKE_CASE` for constants. Keep controllers thin; place reusable DTOs, stores, repositories, and cross-cutting behavior in `easydelivery-common`. Preserve request-field names from the Android API contract. No formatter or linter is configured, so match nearby code.
+
+## Data Access & Persistence
+
+Persistence follows `docs/design/persistence-architecture.md` (ADR): Spring Data JPA for entity lifecycle (command side); `JdbcTemplate`/native SQL only for set-based `INSERT…SELECT`, dialect upserts, spatial functions, and reporting queries, each with an escape-hatch comment. Flyway is the only schema source (`spring.jpa.hibernate.ddl-auto=none`); entities reference related rows by id (no association navigation); `version` columns map to `@Version`; locked reads use repository `@Lock(PESSIMISTIC_WRITE)` methods. New contexts place entities and repositories in `<context>.<subdomain>.persistence` and migrate per the ADR playbook — the T01 arrival domain (`operations/arrival/persistence/`, `PhysicalArrivalService`) is the reference implementation.
 
 ## Testing Guidelines
 

@@ -1,9 +1,10 @@
 package com.hf.easydelivery.operations;
 
 import com.hf.easydelivery.common.response.AppResponse;
+import com.hf.easydelivery.operations.station.RoutingOperationsService;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
 import org.springframework.context.annotation.Profile;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -13,75 +14,36 @@ import java.util.List;
 public class OperationsController {
     private final OperationsService service;
     private final RoutingOperationsService routing;
-    private final InboundOperationsService inbound;
     private final DispatchOperationsService dispatch;
     private final FailedParcelReturnService failedReturns;
     private final DeliveryAreaOperationsService deliveryAreas;
     private final MapPlanningService planning;
     private final ControlTowerService controlTower;
-    private final PhysicalArrivalService physicalArrival;
+    private final DeliverySupervisionService supervision;
+    private final DayCloseOperationsService dayClose;
+    private final ConfigCaseOperationsService configCase;
 
     public OperationsController(OperationsService service, RoutingOperationsService routing,
-                                InboundOperationsService inbound, DispatchOperationsService dispatch,
+                                DispatchOperationsService dispatch,
                                 FailedParcelReturnService failedReturns, DeliveryAreaOperationsService deliveryAreas,
                                 MapPlanningService planning, ControlTowerService controlTower,
-                                PhysicalArrivalService physicalArrival) {
+                                DeliverySupervisionService supervision, DayCloseOperationsService dayClose,
+                                ConfigCaseOperationsService configCase) {
         this.service = service;
         this.routing = routing;
-        this.inbound = inbound;
         this.dispatch = dispatch;
         this.failedReturns = failedReturns;
         this.deliveryAreas = deliveryAreas;
         this.planning = planning;
         this.controlTower = controlTower;
-        this.physicalArrival = physicalArrival;
-    }
-
-    @GetMapping("/arrival-trips")
-    public AppResponse<?> arrivalTrips(@RequestParam java.time.LocalDate serviceDate) {
-        return AppResponse.success(physicalArrival.trips(serviceDate));
-    }
-
-    @PostMapping("/arrival-trips")
-    public AppResponse<?> createArrivalTrip(@RequestBody PhysicalArrivalService.TripRequest body,
-                                             jakarta.servlet.http.HttpServletRequest request) {
-        return AppResponse.success("Arrival trip created", physicalArrival.createTrip(body, request));
-    }
-
-    @GetMapping("/arrival-trips/{tripId}")
-    public AppResponse<?> arrivalTrip(@PathVariable long tripId) {
-        return AppResponse.success(physicalArrival.detail(tripId));
-    }
-
-    @PostMapping("/arrival-trips/{tripId}/state")
-    public AppResponse<?> moveArrivalTrip(@PathVariable long tripId,
-            @RequestBody PhysicalArrivalService.StateRequest body, jakarta.servlet.http.HttpServletRequest request) {
-        return AppResponse.success("Arrival trip updated", physicalArrival.moveTrip(tripId, body, request));
-    }
-
-    @PostMapping("/arrival-trips/{tripId}/handling-units")
-    public AppResponse<?> createHandlingUnit(@PathVariable long tripId,
-            @RequestBody PhysicalArrivalService.UnitRequest body, jakarta.servlet.http.HttpServletRequest request) {
-        return AppResponse.success("Handling unit created", physicalArrival.createUnit(tripId, body, request));
-    }
-
-    @PostMapping("/handling-units/{unitId}/state")
-    public AppResponse<?> moveHandlingUnit(@PathVariable long unitId,
-            @RequestBody PhysicalArrivalService.StateRequest body, jakarta.servlet.http.HttpServletRequest request) {
-        return AppResponse.success("Handling unit updated", physicalArrival.moveUnit(unitId, body, request));
+        this.supervision = supervision;
+        this.dayClose = dayClose;
+        this.configCase = configCase;
     }
 
     @GetMapping("/control-tower")
     public AppResponse<?> controlTower(@RequestParam java.time.LocalDate serviceDate) {
         return AppResponse.success(controlTower.snapshot(serviceDate));
-    }
-
-    @PostMapping("/manifests/{manifestNo}/receipts")
-    public AppResponse<OperationsService.ReceiptResult> receive(
-            @RequestHeader(value = "X-Ops-Api-Key", required = false) String apiKey,
-            @PathVariable String manifestNo,
-            @Valid @RequestBody ManifestReceiptRequest request) {
-        return AppResponse.success("Parcel received", service.receive(manifestNo, request));
     }
 
     @PostMapping("/waves")
@@ -137,45 +99,6 @@ public class OperationsController {
         return AppResponse.success("Routing overridden", routing.override(waybillId, request));
     }
 
-    @GetMapping("/manifests")
-    public AppResponse<?> manifests(@RequestParam(required = false) String status,
-                                    @RequestParam(defaultValue = "50") int limit,
-                                    @RequestParam(defaultValue = "0") long afterId) {
-        return AppResponse.success(inbound.manifests(status, limit, afterId));
-    }
-
-    @GetMapping("/manifests/{manifestId}")
-    public AppResponse<?> manifest(@PathVariable long manifestId) {
-        return AppResponse.success(inbound.detail(manifestId));
-    }
-
-    @PostMapping("/manifests/{manifestId}/start")
-    public AppResponse<?> startManifest(@PathVariable long manifestId) {
-        return AppResponse.success("Receiving started", inbound.start(manifestId));
-    }
-
-    @PostMapping("/manifests/{manifestId}/scan-events")
-    public AppResponse<?> scanManifest(@PathVariable long manifestId,
-                                       @RequestBody InboundOperationsService.ScanRequest request,
-                                       jakarta.servlet.http.HttpServletRequest httpRequest) {
-        return AppResponse.success("Scan classified", inbound.scan(manifestId, request, httpRequest));
-    }
-
-    @PostMapping("/manifests/{manifestId}/discrepancies/{itemId}/decisions")
-    public AppResponse<?> decideDiscrepancy(@PathVariable long manifestId, @PathVariable long itemId,
-                                            @RequestBody InboundOperationsService.DecisionRequest request,
-                                            jakarta.servlet.http.HttpServletRequest httpRequest) {
-        inbound.resolveDiscrepancy(manifestId, itemId, request, httpRequest);
-        return AppResponse.success("Discrepancy resolved", null);
-    }
-
-    @PostMapping("/manifests/{manifestId}/close")
-    public AppResponse<?> closeManifest(@PathVariable long manifestId,
-                                        @RequestBody InboundOperationsService.CloseRequest request,
-                                        jakarta.servlet.http.HttpServletRequest httpRequest) {
-        return AppResponse.success("Manifest closed", inbound.close(manifestId, request, httpRequest));
-    }
-
     @GetMapping("/dispatch/candidates")
     public AppResponse<?> dispatchCandidates(@RequestParam(defaultValue = "50") int limit,
                                              @RequestParam(defaultValue = "0") long afterId) {
@@ -200,7 +123,8 @@ public class OperationsController {
 
     @PostMapping("/dispatch/waves/{waveId}/publish")
     public AppResponse<?> publishWave(@PathVariable long waveId, jakarta.servlet.http.HttpServletRequest request) {
-        return AppResponse.success("Wave published", dispatch.publish(waveId, request));
+        dispatch.publish(waveId, request);
+        return AppResponse.success("Wave published", null);
     }
 
     @PostMapping("/dispatch/waves/{waveId}/revoke")
@@ -237,10 +161,20 @@ public class OperationsController {
         return AppResponse.success(planning.waveSummary(waveId));
     }
 
+    @GetMapping("/planning/unplanned")
+    public AppResponse<?> unplannedParcels(@RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate serviceDate) {
+        return AppResponse.success(planning.unplannedParcels(serviceDate));
+    }
+
     @PostMapping("/planning/waves/{waveId}/assignments")
     public AppResponse<?> assignPlanningWave(@PathVariable long waveId,
             @RequestBody MapPlanningService.AssignmentRequest body, jakarta.servlet.http.HttpServletRequest request) {
         return AppResponse.success("Parcels assigned", planning.assign(waveId,body,request));
+    }
+
+    @PostMapping("/planning/waves/{waveId}/assign-defaults")
+    public AppResponse<?> assignDefaultsPlanningWave(@PathVariable long waveId, jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Default parcel assignments applied", planning.assignDefaults(waveId, request));
     }
 
     @PostMapping("/planning/waves/{waveId}/parcels/{parcelId}/reassign")
@@ -264,6 +198,71 @@ public class OperationsController {
     @PostMapping("/scan-sessions/{sessionId}/approve")
     public AppResponse<?> approveLoad(@PathVariable long sessionId, jakarta.servlet.http.HttpServletRequest request) {
         return AppResponse.success("Load handover approved", dispatch.approveLoad(sessionId, request));
+    }
+
+    @PostMapping("/scan-sessions/{sessionId}/reject")
+    public AppResponse<?> rejectLoad(@PathVariable long sessionId, @RequestBody(required=false) MapPlanningService.ReasonRequest body, jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Load handover rejected to reopen", dispatch.rejectSession(sessionId, body, request));
+    }
+
+    @GetMapping("/outbox")
+    public AppResponse<?> outboxEvents(@RequestParam(required=false) String status, @RequestParam(defaultValue="50") int limit) {
+        return AppResponse.success(configCase.listOutboxEvents(status, limit));
+    }
+
+    @PostMapping("/outbox/{eventId}/replay")
+    public AppResponse<?> replayOutboxEvent(@PathVariable long eventId, jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Outbox event replayed", configCase.replayOutboxEvent(eventId, request));
+    }
+
+    @PostMapping("/cases/{caseId}/actions")
+    public AppResponse<?> addCaseAction(@PathVariable long caseId,
+            @RequestBody ConfigCaseOperationsService.CaseActionRequest body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Case action logged", configCase.addCaseAction(caseId, body, request));
+    }
+
+    @GetMapping("/audit-logs")
+    public AppResponse<?> auditLogs(@RequestParam(required=false) String resourceType,
+            @RequestParam(required=false) String resourceId,
+            @RequestParam(defaultValue="50") int limit) {
+        return AppResponse.success(configCase.listAuditLogs(resourceType, resourceId, limit));
+    }
+
+    @GetMapping("/day-close")
+    public AppResponse<?> dayClose(@RequestParam java.time.LocalDate serviceDate) {
+        return AppResponse.success(dayClose.getReconciliation(serviceDate));
+    }
+
+    @PostMapping("/day-close/recalculate")
+    public AppResponse<?> recalculateDayClose(@RequestParam java.time.LocalDate serviceDate, jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Day close recalculated", dayClose.recalculate(serviceDate, request));
+    }
+
+    @PostMapping("/day-close/sign")
+    public AppResponse<?> signDayClose(@RequestParam java.time.LocalDate serviceDate,
+            @RequestBody(required=false) DayCloseOperationsService.SignOffRequest body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Day close signed off", dayClose.signOff(serviceDate, body, request));
+    }
+
+    @GetMapping("/delivery-monitor")
+    public AppResponse<?> deliveryMonitor(@RequestParam java.time.LocalDate serviceDate) {
+        return AppResponse.success(supervision.monitor(serviceDate));
+    }
+
+    @PostMapping("/delivery-monitor/parcels/{parcelId}/approve-hold")
+    public AppResponse<?> approveDeliveryHold(@PathVariable long parcelId,
+            @RequestBody(required=false) DeliverySupervisionService.HoldRequest body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Driver hold approved", supervision.approveHold(parcelId, body, request));
+    }
+
+    @PostMapping("/delivery-monitor/parcels/{parcelId}/redispatch")
+    public AppResponse<?> redispatchParcel(@PathVariable long parcelId,
+            @RequestBody DeliverySupervisionService.RedispatchRequest body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Parcel redispatched", supervision.redispatch(parcelId, body, request));
     }
 
     @GetMapping("/failed-returns")
@@ -294,6 +293,13 @@ public class OperationsController {
             @RequestBody DeliveryAreaOperationsService.DriverPreferenceRequest body,
             jakarta.servlet.http.HttpServletRequest request) {
         return AppResponse.success("Driver area preference saved",deliveryAreas.saveDriverPreference(areaId,body,request));
+    }
+
+    @PostMapping("/parcels/area-recompute")
+    public AppResponse<?> recomputeParcelAreas(
+            @RequestBody(required = false) DeliveryAreaOperationsService.AreaRecomputeRequest body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Parcel areas recomputed", deliveryAreas.recomputeAreas(body, request));
     }
 
     @PostMapping("/parcels/{parcelId}/area-match")

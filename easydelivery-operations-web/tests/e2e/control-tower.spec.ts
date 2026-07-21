@@ -47,5 +47,5 @@ test('operator can reach physical arrivals without an empty workspace', async ({
     await page.getByRole('menuitem', { name: /4 Manifests/ }).click();
     await expect(page.getByText('Physical arrivals')).toBeVisible();
     await expect(page.getByText('Arrival records physical containers only. Driver custody changes after scan review and approval.')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Create expected trip' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Create arrival batch' })).toBeVisible();
 });

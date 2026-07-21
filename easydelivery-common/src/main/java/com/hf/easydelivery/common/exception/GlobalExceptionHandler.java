@@ -76,10 +76,12 @@ public class GlobalExceptionHandler {
         return AppResponse.fail("UPLOAD.LIMIT.EXCEEDED", "File size exceeds maximum upload limit");
     }
 
-    @ExceptionHandler(Exception.class)
+    @ExceptionHandler(Throwable.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public AppResponse<Void> handleGeneralException(Exception ex) {
-        log.error("Unhandled System Exception", ex);
-        return AppResponse.fail("SYSTEM.ERROR", "An unexpected system error occurred. Please try again later.");
+    public AppResponse<Void> handleGeneralException(Throwable ex) {
+        System.err.println("=== UNHANDLED SYSTEM THROWABLE ===");
+        ex.printStackTrace(System.err);
+        log.error("Unhandled System Exception/Error", ex);
+        return AppResponse.fail("SYSTEM.ERROR", "An unexpected system error occurred: " + ex.getMessage());
     }
 }

@@ -182,10 +182,12 @@ erDiagram
 | `current_location_code` | 分区、笼车、车辆等位置编码 |
 | `route_code` | 人工或规划线路 |
 | `promised_date` | 承诺配送日期 |
+| `upstream_unit_no` | 上游声明的板/笼标签（V13 新增，可空）；只记录声明事实，不影响状态与 custody |
+| `current_area_version_id` | 当前所属区域版本（V13 新增，可空）；活动归属的反范式投影，随归属事件在同一事务内更新 |
 | `version` | 状态命令乐观锁 |
 | `created_at/updated_at` | 创建/最后状态变化时间 |
 
-索引 `(current_station_id,status,updated_at)` 支持库存队列；`(route_code,promised_date)` 支持建波次。`current_*` 是事件投影，修改必须同时追加对应事件。
+索引 `(current_station_id,status,updated_at)` 支持库存队列；`(route_code,promised_date)` 支持建波次；V13 的 `(upstream_unit_no,current_station_id)` 支持按上游板/笼标签的全局统计与站级查找，`(current_station_id,current_area_version_id)` 支持区域填充与未分区筛查。`parcel_area_assignment` 保存归属历史，`current_*`（含 `current_area_version_id`）是事件投影，修改必须同时追加对应事件并在同一事务内同步投影。
 
 ### 4.5 `parcel_status_event`
 

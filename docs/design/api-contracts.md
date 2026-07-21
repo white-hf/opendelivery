@@ -162,14 +162,17 @@ Header：当前 `X-Upstream-Api-Key`；目标 Partner HMAC。Body：
 | `routingHint.stationCode` | string | 否 | 上游可选提示；系统验证但不直接信任 |
 | `externalManifestNo` | string | 否 | 到站清单号 |
 | `trackingNumbers` | string[] | 是 | 至少一件，值非空 |
+| `handlingUnits` | object[] | 否 | 运单级板/笼声明：`externalUnitNo`（必填）、`unitType`（可选，`PALLET/CAGE/BAG/LOOSE`）、`trackingNumbers`（该板件清单） |
 
 示例：
 
 ```json
-{"externalEventId":"evt-100","externalWaybillNo":"wb-100","recipientName":"Alex","addressLine1":"10 Main St","city":"Halifax","province":"NS","postalCode":"B3H1A1","countryCode":"CA","serviceCode":"STANDARD","trackingNumbers":["PKG-100-A","PKG-100-B"]}
+{"externalEventId":"evt-100","externalWaybillNo":"wb-100","recipientName":"Alex","addressLine1":"10 Main St","city":"Halifax","province":"NS","postalCode":"B3H1A1","countryCode":"CA","serviceCode":"STANDARD","trackingNumbers":["PKG-100-A","PKG-100-B"],"handlingUnits":[{"externalUnitNo":"PLT-YHZ-0001","unitType":"PALLET","trackingNumbers":["PKG-100-A","PKG-100-B"]}]}
 ```
 
 返回 `ingestionRecordId:long`、`duplicate:boolean`、`parcelCount:int`、`routingStatus`、`stationCode?` 和 `routingReasonCode`。上游不需要提供内部站点；`targetStationCode` 仅为可选提示。系统标准化地址并匹配服务范围。`ROUTED` 后才建立目标 Manifest；`UNROUTABLE/AMBIGUOUS` 创建 Case。重复 event ID 返回首次记录且不重复建单。同一幂等键不同报文的冲突检测仍是后续增强项。
+
+`handlingUnits` 只把上游声明的板/笼标签落到 `parcel.upstream_unit_no`（V13），不创建 Trip 或 Handling Unit、不改变包裹状态与 custody。`trackingNumbers` 是包裹真值；unit 清单与其不一致时以 `trackingNumbers` 为准，差异仅体现在到仓关联与异常计数。运营在到站登记同名 Handling Unit 时，系统自动关联本站同标签包裹（`link_source='UPSTREAM'`）；若 Unit 先于包裹到达，ingestion 时立即关联。跨站包裹永不关联。
 
 ## 8. Operations API（CURRENT）
 
@@ -184,6 +187,21 @@ Body：`stationCode:string`、`waveCode:string`、`serviceDate:date`、`routeCod
 ### `GET /ops/v1/cases`
 
 返回当前站点开放 Case，字段为 `caseNo,caseType,priority,status,ownerType,ownerId,slaDueAt`。分页与完整筛选在后续迭代补齐。
+
+### 到仓实物（R03，CURRENT）
+
+均强制站点上下文与运营角色；所有写操作记录审计并幂等。
+
+| Method/path | 输入 | 结果 |
+|---|---|---|
+| `GET /ops/v1/arrival-trips?serviceDate=` | 营业日 | 本站批次列表，含 unit 数、预计/已关联件数 |
+| `POST /ops/v1/arrival-trips` | externalTripNo?,vehiclePlate?,sealNo?,expectedAt?,note? | 创建到仓批次；批次号缺省自动生成（`{stationCode}-{yyyyMMdd}-{seq}`），同站唯一；同时默认生成 10 个 PALLET 单元 |
+| `GET /ops/v1/arrival-trips/{tripId}` | — | 批次详情 + 每个 Unit 的 `declared/linked/scanned/exception_piece_count`、`driver_count`、`wave_count` 与 parcel 明细、未关联声明清单；聚合恒等于明细汇总 |
+| `POST /ops/v1/arrival-trips/{tripId}/state` | targetStatus,reason? | `EXPECTED→ARRIVED→UNLOADING→READY_FOR_SCAN→CLOSED`，异常 `CANCELLED`；非法跳转 409 |
+| `POST /ops/v1/arrival-trips/{tripId}/handling-units` | externalUnitNo,unitType,expectedPieceCount?,trackingNumbers?,reason? | 增补板/笼/袋；同站标签唯一；同时自动关联本站 `upstream_unit_no` 相同的包裹；手输追踪号须为本站包裹，否则 409 |
+| `POST /ops/v1/handling-units/{unitId}/area-fill` | areaVersionIds[],reason? | 把所选已发布区域当前包裹批量关联到 Unit（`AREA_PLAN`）；跨站/未发布区域 409；重复调用幂等 |
+| `POST /ops/v1/handling-units/{unitId}/state` | targetStatus,reason? | `EXPECTED→ARRIVED→OPENED→CLEARED`；非法跳转 409 |
+| `POST /ops/v1/parcels/area-recompute` | parcelIds?（缺省本站当日未匹配） | 按匹配顺序批量重算区域归属并记录来源 |
 
 ## 9. MOV 新增 API 目录（PLANNED）
 
@@ -236,6 +254,9 @@ Body：`stationCode:string`、`waveCode:string`、`serviceDate:date`、`routeCod
 | `POST /delivery/ext/scan` | tracking_no,scan_batch_id,device_event_id | 本人幂等装车扫描 |
 | `PUT /delivery/ext/scan/batch/{id}` | status=`SUBMITTED` | 司机提交；不得自批 |
 | `POST /ops/v1/scan-sessions/{id}/approve` | — | 主管批准并转移 custody |
+| `GET /ops/v1/scan-supervision` | serviceDate, waveId? | 波次→任务→司机三级扫描进度汇总（应扫、有效、错扫、未知、重复、多扫、漏扫、未提交 session 数） |
+| `GET /ops/v1/scan-sessions` | taskId?, status?, serviceDate? | 司机扫描会话列表（状态、时间、事件数、设备冲突数） |
+| `GET /ops/v1/scan-sessions/{sessionId}/events` | — | 单 Session 详细扫描事实与分类事件列表（含错扫的正确任务提示） |
 
 候选库存要求本站、站点 custody、已成功路由、无阻断 Case。活动任务唯一索引阻止同件重复分配。发布后仍由站点保管；只有主管批准已提交的装车 Session 后，Parcel 和 Task Item 才进入 `OUT_FOR_DELIVERY`，并逐件写 custody、状态事件和 outbox。
 

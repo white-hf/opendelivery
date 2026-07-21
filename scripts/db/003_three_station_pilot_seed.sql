@@ -22,14 +22,14 @@ WHERE NOT EXISTS (
 
 INSERT INTO driver (home_station_id,credential_id,password_hash,driver_name,status)
 SELECT s.id,LOWER(CONCAT('pilot.driver.',LEFT(s.station_code,3))),
-       '$2a$10$8QOXb3qUhBVIecy5luJH6emzRfxlrxbCjc2YnUPqeb/RqKQReHH3.',
+       '$2a$10$x98JYz3ZgYUzuFZbhj1u5.AEbJieTEyYuChW3/dg4bO7iQ8n2pO02',
        CONCAT(s.city,' Pilot Driver'),'ACTIVE'
 FROM station s WHERE s.station_code IN ('YHZ-01','YYZ-01','YVR-01')
   AND NOT EXISTS (SELECT 1 FROM driver d WHERE d.home_station_id=s.id AND d.status='ACTIVE');
 
 INSERT INTO operator_user (username,password_hash,display_name,default_station_id,status)
 SELECT CONCAT(role_seed.prefix,'.',LOWER(LEFT(s.station_code,3))),
-       '$2a$10$8QOXb3qUhBVIecy5luJH6emzRfxlrxbCjc2YnUPqeb/RqKQReHH3.',
+       '$2a$10$x98JYz3ZgYUzuFZbhj1u5.AEbJieTEyYuChW3/dg4bO7iQ8n2pO02',
        CONCAT(s.city,' ',role_seed.label),s.id,'ACTIVE'
 FROM station s CROSS JOIN (
     SELECT 'inbound' prefix,'Inbound' label UNION ALL SELECT 'dispatch','Dispatcher'

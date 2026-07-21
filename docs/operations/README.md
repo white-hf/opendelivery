@@ -11,9 +11,10 @@
 | 信息架构 | [运营信息架构与领域设计](../design/operations-information-architecture.md) |
 | 技术设计 | [运营 Web 技术设计](../design/operations-web-technical-design.md) |
 | 当前计划 | [双产品执行计划](../iterations/two-product-execution-plan.md) |
-| 当前迭代 | [R02.2 体验修复](../iterations/iteration-r02-2-operator-ux-recovery.md)、[O03/R03 到仓实物](../iterations/iteration-r03-arrival-units.md) |
+| 当前迭代 | [R02.2 体验修复](../iterations/iteration-r02-2-operator-ux-recovery.md)、[O03/R03 到仓实物](../iterations/iteration-r03-arrival-units.md)、[R03-C 到仓关联收尾](iterations/iteration-r03-c-unit-linkage.md)、[R04 派送规划效率](iterations/iteration-r04-planning-efficiency.md) |
+| 迭代队列 | [O04 扫描监督](iterations/iteration-o04-scan-supervision.md)、[O05 交接审批](iterations/iteration-o05-handover-approval.md)、[O06 派送与回仓监督](iterations/iteration-o06-delivery-return-supervision.md)、[O07 日终关站](iterations/iteration-o07-day-close.md)、[O08 配置与异常中心](iterations/iteration-o08-config-case-center.md) |
 | 退库闭环 | [失败包裹退库接收](iterations/failed-parcel-return-receipt.md) |
-| 当前总结 | [R03 执行总结](../summaries/iteration-r03-summary.md) |
+| 当前总结 | [R03 执行总结](../summaries/iteration-r03-summary.md)、[R03-C 到仓关联总结](summaries/iteration-r03-c-unit-linkage-summary.md)、[O04 扫描监督总结](summaries/iteration-o04-scan-supervision-summary.md)、[R04 派送规划总结](summaries/iteration-r04-planning-efficiency-summary.md)、[O05 交接审批总结](summaries/iteration-o05-handover-approval-summary.md)、[O06 派送与回仓监督总结](summaries/iteration-o06-delivery-return-supervision-summary.md)、[O07 日终关站总结](summaries/iteration-o07-day-close-summary.md)、[O08 基础配置与异常中心总结](summaries/iteration-o08-config-case-center-summary.md) |
 | 退库总结 | [失败包裹退库接收执行总结](summaries/failed-parcel-return-receipt-summary.md) |
 
 后续运营专属文档进入本目录对应分类。共享状态机、数据库和联合 E2E 由 `docs/shared/` 索引管理。

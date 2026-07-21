@@ -62,7 +62,7 @@ erDiagram
 
 ### `parcel`
 
-**Use:** current physical-piece projection. Fields: `id`; `waybill_id`; globally unique `tracking_no`; `piece_no/piece_count`; `current_station_id`; lifecycle `status`; `current_custody_type` `UPSTREAM/STATION/DRIVER/RETURN_CARRIER/UNKNOWN`; polymorphic `current_custody_id`; `current_location_code`; `route_code`; `promised_date`; `version`; `created_at/updated_at`. `(station,status,updated_at)` serves inventory; `(route,date)` serves dispatch. Current projections change only with immutable events.
+**Use:** current physical-piece projection. Fields: `id`; `waybill_id`; globally unique `tracking_no`; `piece_no/piece_count`; `current_station_id`; lifecycle `status`; `current_custody_type` `UPSTREAM/STATION/DRIVER/RETURN_CARRIER/UNKNOWN`; polymorphic `current_custody_id`; `current_location_code`; `route_code`; `promised_date`; `upstream_unit_no` (V13, nullable upstream-declared pallet/cage label; fact only, never changes status or custody); `current_area_version_id` (V13, nullable denormalized projection of the active area assignment, updated in the same transaction as the assignment event); `version`; `created_at/updated_at`. `(station,status,updated_at)` serves inventory; `(route,date)` serves dispatch; V13 adds `(upstream_unit_no, current_station_id)` for global label aggregates and station lookups, and `(current_station_id, current_area_version_id)` for area fill and unmatched screening. `parcel_area_assignment` keeps the membership history; current projections change only with immutable events.
 
 ### `parcel_status_event`
 

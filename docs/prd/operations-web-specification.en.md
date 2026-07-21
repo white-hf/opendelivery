@@ -103,6 +103,12 @@ Show inventory equation, actual inventory, variance, driver custody, open tasks,
 
 MOV provides operator list/create/disable, roles/station grants, and driver read/enable/disable. Partner/station/secret configuration remains read-only or deployment-managed to avoid premature configuration-center scope. Passwords never display; secrets never reach the browser.
 
+### 4.11 Arrival batch workbench (R03)
+
+The arrival page is organized around the batch work flow: create an arrival batch (leave the batch number blank to auto-generate it, together with about ten default PALLET units) → fill units from areas in the batch detail → review on the map and in the parcel detail → advance the arrival state. The batch list shows vehicle, seal, expected arrival, unit count, and linked/expected pieces.
+
+The batch detail drawer holds: batch fields, the state-advance action, the unit table (label, type, status, declared/linked/scanned/exception counters, driver count), a "fill from areas" entry (multi-select published areas plus reason, executed after map review), and the supplemental-unit drawer (typed tracking numbers are an occasional supplement only). Selecting a unit row drills into its parcels (tracking no, piece status, link source, task, driver); parcels declared upstream but not linked appear as a warning strip. Any disagreement between a counter and the parcel-detail rollup raises an error — aggregate always equals detail is the page acceptance gate.
+
 ## 5. Common Interaction Rules
 
 - Server-side filter/sort/cursor pagination; URL preserves filters.

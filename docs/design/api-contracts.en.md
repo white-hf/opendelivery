@@ -106,14 +106,18 @@ Current auth: `X-Upstream-Api-Key`; target: partner HMAC. Body fields:
 | `routingHint.stationCode` | string | no | optional hint; validated, never directly trusted |
 | `externalManifestNo` | string | no | inbound manifest number |
 | `trackingNumbers` | string[] | yes | at least one nonblank piece |
+| `handlingUnits` | object[] | no | per-waybill pallet/cage declaration: `externalUnitNo` (required), `unitType` (optional, `PALLET/CAGE/BAG/LOOSE`), `trackingNumbers` (pieces packed in the unit) |
 
 Response: `ingestionRecordId`, `duplicate`, `parcelCount`, `routingStatus`, `stationCode?`, and `routingReasonCode`. Upstreams need not know internal stations; `targetStationCode` is only an optional hint. Only `ROUTED` creates the station Manifest; `UNROUTABLE/AMBIGUOUS` creates a Case. Same-key/different-body conflict detection remains a later enhancement.
+
+`handlingUnits` only lands the declared label on `parcel.upstream_unit_no` (V13); it never creates trips or handling units and never changes parcel status or custody. `trackingNumbers` stays the parcel truth; disagreement with unit lists only affects arrival linkage and exception counts. When an operator registers a same-named handling unit at arrival, same-station parcels with the label auto-link (`link_source='UPSTREAM'`); if the unit exists before the parcels arrive, ingestion links them immediately. Cross-station parcels are never linked.
 
 ## 8. Operations (CURRENT)
 
 - Operations endpoints use `Authorization: Bearer <accessToken>`; a configurable legacy API-key switch exists only for migration. `POST /ops/v1/manifests/{manifestNo}/receipts`: body `trackingNumber`; response `parcelId`, `duplicate`, `status:"AT_STATION"`. Expected RECEIVED items only; duplicate receipt is idempotent.
 - `POST /ops/v1/waves`: body `stationCode`, `waveCode`, `serviceDate`, optional `routeCode`, `driverId`, nonempty `trackingNumbers`; response `waveId`, `taskId`, `parcelCount`, `status:"PUBLISHED"`. MOV splits draft and publish.
 - `GET /ops/v1/cases`: selected-station open cases with `caseNo,caseType,priority,status,ownerType,ownerId,slaDueAt`. Pagination remains planned.
+- Arrival (R03, CURRENT; station context enforced, writes audited and idempotent): `GET/POST /ops/v1/arrival-trips` (creating a batch auto-generates the batch number `{stationCode}-{yyyyMMdd}-{seq}` when omitted, plus 10 default PALLET units), `GET /ops/v1/arrival-trips/{tripId}`, `POST /ops/v1/arrival-trips/{tripId}/state` (`EXPECTED→ARRIVED→UNLOADING→READY_FOR_SCAN→CLOSED`, or `CANCELLED`), `POST /ops/v1/arrival-trips/{tripId}/handling-units` (unique label per station; auto-links same-station parcels with matching `upstream_unit_no`; operator-typed tracking numbers must belong to the station), `POST /ops/v1/handling-units/{unitId}/area-fill` (links every parcel currently in the given published areas to the unit as `AREA_PLAN`; idempotent), `POST /ops/v1/handling-units/{unitId}/state` (`EXPECTED→ARRIVED→OPENED→CLEARED`), `POST /ops/v1/parcels/area-recompute` (bulk area-membership recompute; ingestion auto-computes membership after routing). Trip detail returns per-unit `declared/linked/scanned/exception_piece_count`, `driver_count`, `wave_count`, parcel detail, and unlinked declarations; aggregates always equal the detail rollup.
 
 ## 9. MOV API Catalog (PLANNED)
 

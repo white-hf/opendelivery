@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hf.easydelivery.common.exception.BizException;
 import com.hf.easydelivery.config.OperationsAccess;
+import com.hf.easydelivery.operations.shared.AreaMembershipService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.annotation.Profile;
 import org.springframework.dao.DataAccessException;
@@ -20,9 +21,11 @@ public class DeliveryAreaOperationsService {
     private final JdbcTemplate jdbc;
     private final OperationsAccess access;
     private final ObjectMapper mapper;
+    private final AreaMembershipService areaMembership;
 
-    public DeliveryAreaOperationsService(JdbcTemplate jdbc, OperationsAccess access, ObjectMapper mapper) {
-        this.jdbc=jdbc; this.access=access; this.mapper=mapper;
+    public DeliveryAreaOperationsService(JdbcTemplate jdbc, OperationsAccess access, ObjectMapper mapper,
+                                         AreaMembershipService areaMembership) {
+        this.jdbc=jdbc; this.access=access; this.mapper=mapper; this.areaMembership=areaMembership;
     }
 
     public List<Map<String,Object>> areas() {
@@ -108,6 +111,7 @@ public class DeliveryAreaOperationsService {
                 INSERT INTO parcel_area_assignment(parcel_id,delivery_area_version_id,assignment_source,assignment_reason,assigned_by)
                 VALUES (?,?,'GEO_POLYGON',?,?)
                 """,parcelId,match.versionId(),request.reason(),operator(http));
+        jdbc.update("UPDATE parcel SET current_area_version_id=? WHERE id=?",match.versionId(),parcelId);
         audit(http,stationId,"PARCEL_AREA_MATCHED",match.areaId(),"SUCCESS",required(request.reason(),"reason"),null,
                 Map.of("parcelId",parcelId,"areaVersionId",match.versionId()));
         return new AreaMatchResult(parcelId,match.areaId(),match.versionId(),match.areaCode(),match.versionNo(),"GEO_POLYGON");
@@ -126,8 +130,39 @@ public class DeliveryAreaOperationsService {
         String reason=required(request.reason(),"reason");MatchRow area=areas.get(0);
         jdbc.update("UPDATE parcel_area_assignment SET ended_at=CURRENT_TIMESTAMP(3) WHERE parcel_id=? AND ended_at IS NULL",parcelId);
         jdbc.update("INSERT INTO parcel_area_assignment(parcel_id,delivery_area_version_id,assignment_source,assignment_reason,assigned_by) VALUES (?,?,'MANUAL_OVERRIDE',?,?)",parcelId,area.versionId(),reason,operator(http));
+        jdbc.update("UPDATE parcel SET current_area_version_id=? WHERE id=?",area.versionId(),parcelId);
         audit(http,stationId,"PARCEL_AREA_OVERRIDDEN",area.areaId(),"SUCCESS",reason,null,Map.of("parcelId",parcelId,"areaVersionId",area.versionId()));
         return new AreaMatchResult(parcelId,area.areaId(),area.versionId(),area.areaCode(),area.versionNo(),"MANUAL_OVERRIDE");
+    }
+
+    @Transactional
+    public Map<String,Object> recomputeAreas(AreaRecomputeRequest request,HttpServletRequest http) {
+        Long stationId=requireStation();
+        List<Long> parcelIds;
+        if(request!=null&&request.parcelIds()!=null&&!request.parcelIds().isEmpty()) {
+            parcelIds=request.parcelIds();
+        } else {
+            parcelIds=jdbc.query("""
+                    SELECT p.id FROM parcel p JOIN waybill_geocode g ON g.waybill_id=p.waybill_id
+                    WHERE p.current_station_id=? AND p.current_area_version_id IS NULL
+                      AND p.status NOT IN ('DELIVERED','RETURNED_TO_UPSTREAM','CANCELLED','LOST')
+                    ORDER BY p.id LIMIT 500
+                    """,(rs,n)->rs.getLong(1),stationId);
+        }
+        List<Long> own=parcelIds;
+        if(request!=null&&request.parcelIds()!=null&&!request.parcelIds().isEmpty()) {
+            Object[] args=new Object[parcelIds.size()+1];args[0]=stationId;
+            for(int i=0;i<parcelIds.size();i++) args[i+1]=parcelIds.get(i);
+            own=jdbc.query("SELECT id FROM parcel WHERE current_station_id=? AND id IN ("
+                    +String.join(",",java.util.Collections.nCopies(parcelIds.size(),"?"))+")",(rs,n)->rs.getLong(1),args);
+        }
+        int matched=0;
+        for(Long parcelId:own) {
+            if(areaMembership.matchFromGeocode(parcelId,stationId,"bulk recompute",operator(http))!=null) matched++;
+        }
+        audit(http,stationId,"PARCEL_AREA_RECOMPUTED",0L,"SUCCESS",request==null?null:request.reason(),null,
+                Map.of("requested",parcelIds.size(),"matched",matched));
+        return Map.of("requested",parcelIds.size(),"matched",matched,"unmatched",parcelIds.size()-matched);
     }
 
     @Transactional
@@ -274,5 +309,6 @@ public class DeliveryAreaOperationsService {
     public record ParcelLocationRequest(double longitude,double latitude,String providerCode,String precisionCode,
                                         java.math.BigDecimal confidence,String normalizedAddress,String reason){}
     public record ParcelAreaOverrideRequest(long areaVersionId,String reason){}
+    public record AreaRecomputeRequest(List<Long> parcelIds,String reason){}
     public record AreaMatchResult(long parcelId,long areaId,long areaVersionId,String areaCode,int versionNo,String source){}
 }

@@ -7,6 +7,9 @@
 - [数据库模型与性能](../design/data-model.md)
 - [状态机与 custody](../design/state-machines-and-operations.md)
 - [API 契约](../design/api-contracts.md)
+- [持久层架构决策（ADR）](../design/persistence-architecture.md)
+- [T01 持久层 ORM 重构迭代](iterations/iteration-t01-persistence-orm.md)（[执行总结](summaries/iteration-t01-persistence-orm-summary.md)）
+- [T02 持久层重构·接入域迭代](iterations/iteration-t02-persistence-integration.md)
 - [多语言设计](../design/internationalization-design.md)
 - [测试策略](../testing-strategy.md)
 - [发布流程](../release-process.md)

@@ -55,12 +55,16 @@ public class OperatorSessionService {
                        GROUP_CONCAT(r.role_code ORDER BY r.role_code),u.preferred_locale,s.default_locale
                 FROM operator_session os JOIN operator_user u ON u.id=os.user_id
                 LEFT JOIN station s ON s.id=u.default_station_id
-                JOIN operator_user_role ur ON ur.user_id=u.id JOIN operator_role r ON r.id=ur.role_id
+                LEFT JOIN operator_user_role ur ON ur.user_id=u.id LEFT JOIN operator_role r ON r.id=ur.role_id
                 WHERE os.access_token_hash=? AND os.revoked_at IS NULL AND os.access_expires_at>CURRENT_TIMESTAMP(3)
                   AND u.status='ACTIVE'
                 GROUP BY u.id,u.username,u.display_name,u.default_station_id,s.station_code,u.preferred_locale,s.default_locale
-                """, (rs,n)->new Principal(rs.getLong(1),rs.getString(2),rs.getString(3),
-                rs.getObject(4,Long.class),rs.getString(5),List.of(rs.getString(6).split(",")),rs.getString(7),rs.getString(8)), sha256(accessToken));
+                """, (rs,n) -> {
+                    String rolesStr = rs.getString(6);
+                    List<String> roles = (rolesStr != null && !rolesStr.isBlank()) ? List.of(rolesStr.split(",")) : List.of("OPERATOR");
+                    return new Principal(rs.getLong(1), rs.getString(2), rs.getString(3),
+                            rs.getObject(4, Long.class), rs.getString(5), roles, rs.getString(7), rs.getString(8));
+                }, sha256(accessToken));
         if (rows.isEmpty()) throw new UnauthorizedException("Operator session is invalid or expired");
         return rows.get(0);
     }

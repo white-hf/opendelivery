@@ -12,6 +12,6 @@ This is the current entry point for Operations Web and Operations API. Operation
 | Technical design | [Operations Web technical design](../design/operations-web-technical-design.en.md) |
 | Current plan | [Two-product execution plan](../iterations/two-product-execution-plan.en.md) |
 | Current iterations | [R02.2 UX recovery](../iterations/iteration-r02-2-operator-ux-recovery.en.md), [O03/R03 arrival](../iterations/iteration-r03-arrival-units.en.md) |
-| Current summary | [R03 execution summary](../summaries/iteration-r03-summary.en.md) |
+| Current summaries | [R03 execution summary](../summaries/iteration-r03-summary.en.md), [R03-C unit linkage summary](summaries/iteration-r03-c-unit-linkage-summary.en.md), [O04 scan supervision summary](summaries/iteration-o04-scan-supervision-summary.en.md), [R04 planning efficiency summary](summaries/iteration-r04-planning-efficiency-summary.en.md), [O05 handover approval summary](summaries/iteration-o05-handover-approval-summary.en.md) |
 
 Future Operations-only documents go under this product directory. `docs/shared/` indexes shared state, database, and joint E2E material.

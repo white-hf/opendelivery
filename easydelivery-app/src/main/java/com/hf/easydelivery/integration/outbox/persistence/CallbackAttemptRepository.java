@@ -1,0 +1,8 @@
+package com.hf.easydelivery.integration.outbox.persistence;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
+
+public interface CallbackAttemptRepository extends JpaRepository<CallbackAttemptEntity, Long> {
+    List<CallbackAttemptEntity> findByOutboxEventId(long outboxEventId);
+}

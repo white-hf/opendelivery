@@ -29,7 +29,7 @@ public class ControlTowerService {
         int expected=count("SELECT COUNT(*) FROM parcel WHERE current_station_id=? AND promised_date=? AND status<>'CANCELLED'",stationId,serviceDate);
         int routed=count("SELECT COUNT(*) FROM parcel p JOIN waybill w ON w.id=p.waybill_id WHERE p.current_station_id=? AND p.promised_date=? AND w.resolved_station_id=? AND w.routing_status IN ('ROUTED','OVERRIDDEN')",stationId,serviceDate,stationId);
         int geocoded=count("SELECT COUNT(*) FROM parcel p JOIN waybill_geocode g ON g.waybill_id=p.waybill_id WHERE p.current_station_id=? AND p.promised_date=?",stationId,serviceDate);
-        int areaMatched=count("SELECT COUNT(*) FROM parcel p JOIN parcel_area_assignment a ON a.parcel_id=p.id AND a.ended_at IS NULL WHERE p.current_station_id=? AND p.promised_date=?",stationId,serviceDate);
+        int areaMatched=count("SELECT COUNT(*) FROM parcel p WHERE p.current_station_id=? AND p.promised_date=? AND p.current_area_version_id IS NOT NULL",stationId,serviceDate);
         int assigned=count("SELECT COUNT(DISTINCT ti.parcel_id) FROM driver_task t JOIN driver_task_item ti ON ti.task_id=t.id AND ti.item_status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY') WHERE t.station_id=? AND t.service_date=? AND t.status IN ('DRAFT','FROZEN','PUBLISHED','ACCEPTING','IN_PROGRESS')",stationId,serviceDate);
         int arrived=count("SELECT COUNT(*) FROM parcel WHERE current_station_id=? AND promised_date=? AND current_custody_type='STATION'",stationId,serviceDate);
         int scanned=count("SELECT COUNT(DISTINCT se.parcel_id) FROM scan_event se JOIN scan_session ss ON ss.id=se.session_id JOIN driver_task t ON t.id=ss.task_id WHERE t.station_id=? AND t.service_date=? AND se.result_code='EXPECTED'",stationId,serviceDate);

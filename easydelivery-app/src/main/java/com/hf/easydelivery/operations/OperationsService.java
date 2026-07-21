@@ -2,6 +2,7 @@ package com.hf.easydelivery.operations;
 
 import com.hf.easydelivery.common.exception.BizException;
 import com.hf.easydelivery.config.OperationsAccess;
+import com.hf.easydelivery.operations.arrival.ManifestReceiptRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;

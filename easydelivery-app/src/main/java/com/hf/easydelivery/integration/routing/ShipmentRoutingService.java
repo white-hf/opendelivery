@@ -26,6 +26,7 @@ public class ShipmentRoutingService {
         } catch (BizException ex) {
             return RoutingDecision.unroutable(ex.getBizCode());
         }
+        // ESCAPE-HATCH (ADR-Persistence): Complex priority ranking query joining station_service_area and station retained via JdbcTemplate
         List<Candidate> candidates = jdbc.query("""
                 SELECT a.station_id, s.station_code, COALESCE(LENGTH(a.postal_prefix), 0) specificity, a.priority
                 FROM station_service_area a JOIN station s ON s.id=a.station_id

@@ -3,9 +3,12 @@ package com.hf.easydelivery.operations.auth;
 import com.hf.easydelivery.common.response.AppResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.annotation.Profile;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.hf.easydelivery.common.i18n.SupportedLocale;
 import org.springframework.context.i18n.LocaleContextHolder;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 
 @RestController
 @Profile("!memory")
@@ -16,8 +19,20 @@ public class OperationsAuthController {
     public OperationsAuthController(OperatorSessionService sessions) { this.sessions = sessions; }
 
     @PostMapping("/login")
-    public AppResponse<?> login(@RequestBody LoginRequest request) {
-        return AppResponse.success("Login successful", sessions.login(request.username(), request.password()));
+    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+        try {
+            return ResponseEntity.ok(AppResponse.success("Login successful", sessions.login(request.username(), request.password())));
+        } catch (Throwable t) {
+            StringWriter sw = new StringWriter();
+            t.printStackTrace(new PrintWriter(sw));
+            String trace = sw.toString();
+            System.err.println("=== DEBUG LOGIN ERROR: " + trace);
+            return ResponseEntity.status(500).body(java.util.Map.of(
+                "biz_code", "DEBUG.ERROR",
+                "biz_message", t.getMessage() != null ? t.getMessage() : t.getClass().getName(),
+                "biz_trace", trace.substring(0, Math.min(trace.length(), 2000))
+            ));
+        }
     }
 
     @PostMapping("/refresh")
