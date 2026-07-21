@@ -2,7 +2,14 @@
 
 每份核心文档均提供中文主版本和 `.en.md` 英文版本。
 
-## 当前权威规格
+## 按产品进入
+
+- [司机 App 与 Driver API](driver/README.md)
+- [Operations Web 与 Operations API](operations/README.md)
+- [共享平台、数据库与联合 E2E](shared/README.md)
+- [双产品文档与开发评审流程](document-governance.md)
+
+## 历史与共享规格
 
 - [产品与运营一体化规格](prd/product-and-operations-specification.md)：业务运作、角色、MOV 闭环和验收。
 - [MOV 必备功能解决方案](prd/mandatory-capability-solutions.md)：把运营缺口转换为可开发 Feature。
@@ -23,4 +30,4 @@
 - 总结与证据：`summaries/iteration-00-summary.md`、`summaries/iteration-01-summary.md`、`summaries/test-report.md`
 - 运行治理：`developer-workflow.md`、`testing-strategy.md`、`release-process.md`、`runbooks/`
 
-产品决策首先更新一体化规格，技术边界更新设计，实施范围更新版本/迭代计划，实际结果更新 summary。中英文必须在同一变更中同步。
+产品决策先进入对应产品中心；跨产品事实进入共享设计。所有开发强制执行“文档落地 → Review → 开发 → 测试 → Summary”，中英文必须在同一变更中同步。

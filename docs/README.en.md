@@ -2,7 +2,14 @@
 
 Every core artifact has a Chinese primary version and matching `.en.md` English version.
 
-## Current Authoritative Specifications
+## Product entry points
+
+- [Driver App and Driver API](driver/README.en.md)
+- [Operations Web and Operations API](operations/README.en.md)
+- [Shared platform, database, and joint E2E](shared/README.en.md)
+- [Two-product documentation and review workflow](document-governance.en.md)
+
+## Historical and shared specifications
 
 - [Integrated Product and Operations Specification](prd/product-and-operations-specification.en.md)
 - [MOV Mandatory Capability Solutions](prd/mandatory-capability-solutions.en.md)
@@ -23,4 +30,4 @@ Every core artifact has a Chinese primary version and matching `.en.md` English 
 - Evidence: `summaries/iteration-00-summary.en.md`, `summaries/iteration-01-summary.en.md`, `summaries/test-report.en.md`
 - Governance and runbooks: `developer-workflow.en.md`, `testing-strategy.en.md`, `release-process.en.md`, and `runbooks/`
 
-Update product decisions in the integrated specification first, technical boundaries in design, delivery scope in roadmap/iteration plans, and actual evidence in summaries. Chinese and English change together.
+Product decisions enter the relevant product hub; cross-product facts enter shared design. Every change follows document → review → implementation → validation → summary, with Chinese and English updated together.

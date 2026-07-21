@@ -12,6 +12,8 @@ This Java 17/Spring Boot 3.3 service is a Maven multi-module monolith:
 
 Production code belongs in each module's `src/main/java`; tests mirror packages under `src/test/java`. Current governed documents live in `docs/`; `doc/` contains legacy API notes. Do not edit or commit generated `target/` contents.
 
+Documentation is split by product: `docs/driver/` for Driver App/API, `docs/operations/` for Operations Web/API, and `docs/shared/` for cross-product state, data, and joint gates. Before implementing product behavior, update the relevant bilingual product/design/iteration documents and record the iteration as `REVIEWED`. Then implement, test, and add an execution summary. Follow `docs/document-governance.md`; do not combine documentation review and unreviewed feature development into one implicit step.
+
 ## Build, Test, and Development Commands
 
 Use the bundled Maven through the helper script:
