@@ -1,26 +1,19 @@
-# Driver API D01–D04 数据库闭环计划
+# Driver API D01–D03 数据库闭环计划
 
-> 文档状态：`DRAFT`。等待产品、Driver API、Android 和 Operations O05/O06 接口评审；评审完成前不进入功能开发。
+> 状态：`REVIEWED`（2026-07-21）。已确认 Driver App 的正式契约是 `/auth/**` 与 `/delivery/**`，不迁移到 `/driver/v1/**`。
 
-## 执行规则
+## 执行原则
 
-每个迭代先评审 PRD、API、状态机、迁移和测试方案，再开发。评审结论写入本文；未经 `REVIEWED` 不进入编码。旧 App 契约保持兼容，规范 V1 先并行发布，再通过指标和版本公告弃用旧接口。
+保持 Android 已使用的路径、字段和响应兼容；迭代重点是数据库闭环、本人权限、幂等、并发和自动化测试。每个切片仍须按文档评审、开发、验证、总结执行。
 
 | 迭代 | 当前基础 | 必须交付 | 验收 Gate | 状态 |
 |---|---|---|---|---|
-| D01 本人任务 | JDBC 扁平待扫/派送列表 | `/driver/v1/tasks` 摘要、明细、应扫清单；显式 taskId；本人/状态/版本门禁 | 多任务日、他人任务、撤销任务、三语言、分页 | PLANNED |
-| D02 本人扫描 | LOAD Session 与 Scan Event 已落库 | 规范 Session API、五类结果、破损、设备幂等、提交快照、离线恢复 | 正确/错任务/未知/重复/破损；提交后不可写；custody 不变 | PLANNED |
-| D03 派送/POD | Attempt、失败规则、文件落盘已有 | 规范工作列表、Attempt/POD 契约、证据门禁、重试、离线事件、存储抽象 | 必需照片/备注、hash 去重、本人权限、并发和补偿 | PLANNED |
-| D04 回仓 | RETURN Session 与运营审批已有 | 回仓应扫/扫描/提交快照、漏扫、拒绝重开、closeout | 司机提交 custody 不变；O06 批准后守恒；重复/乱序幂等 | PLANNED |
+| D01 本人任务 | `/delivery/parcels/tasks`、`/delivering` 已接 JDBC | 加固多任务日选择、本人/任务状态门禁，不改 App 契约 | 多任务日、他人任务、撤销任务、三语言 | PLANNED |
+| D02 本人扫描 | `/delivery/scan/**`、LOAD Session/Event 已落库 | 加固结果分类、破损、设备幂等、提交快照和离线恢复 | 正确/错任务/未知/重复/破损；提交后不可写 | PLANNED |
+| D03 派送/POD | `/delivery`、`/delivery/retry` 已落库 | 加固证据门禁、幂等、存储抽象及失败/重派闭环 | 必需证据、hash 去重、本人权限、并发补偿 | PLANNED |
 
-## 首轮评审顺序
-
-1. 冻结 Android 当前使用的请求/响应样例，建立兼容测试。
-2. 评审 D01/D02 API 和状态机，决定 `LOADED` 是否保留为审批前 Task Item 投影。
-3. 评审 V13 迁移：扫描结果/提交快照/版本与索引，不修改已执行 V1–V12。
-4. 评审单元、MySQL 集成、模拟 App 和 O05 联合 E2E 数据方案。
-5. 标记 D01/D02 `REVIEWED` 后才开始代码开发；每个切片单独总结和提交。
+退库不属于 Driver API 迭代。司机只负责把失败包裹实物带回仓库；运营通过退库接收功能将 `DELIVERY_FAILED` 和 DRIVER custody 转为 `RETURNED_TO_STATION` 和 STATION custody。
 
 ## 完成定义
 
-编译或旧客户端冒烟不等于完成。每个迭代必须具备中英文契约、迁移升级/回滚说明、成功与失败状态、401/403/409、幂等与并发测试、三语言测试、真实 MySQL 证据和执行总结。
+每个迭代必须具备中英文契约、成功与失败状态、401/403/409、幂等与并发测试、三语言测试、真实 MySQL 证据和执行总结。不得改写已执行的 Flyway 迁移。

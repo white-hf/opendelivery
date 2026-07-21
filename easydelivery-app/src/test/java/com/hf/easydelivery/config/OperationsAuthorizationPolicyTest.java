@@ -11,6 +11,8 @@ class OperationsAuthorizationPolicyTest {
     @Test
     void inboundCanOperateManifestsButCannotDispatch() {
         assertTrue(OperationsAuthorizationPolicy.isAllowed(List.of("INBOUND"), "POST", "/ops/v1/manifests/1/start"));
+        assertTrue(OperationsAuthorizationPolicy.isAllowed(List.of("INBOUND"), "GET", "/ops/v1/failed-returns"));
+        assertTrue(OperationsAuthorizationPolicy.isAllowed(List.of("INBOUND"), "POST", "/ops/v1/failed-returns/1/receive"));
         assertFalse(OperationsAuthorizationPolicy.isAllowed(List.of("INBOUND"), "POST", "/ops/v1/dispatch/waves"));
     }
 

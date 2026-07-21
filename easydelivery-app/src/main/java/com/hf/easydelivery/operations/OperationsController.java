@@ -15,7 +15,7 @@ public class OperationsController {
     private final RoutingOperationsService routing;
     private final InboundOperationsService inbound;
     private final DispatchOperationsService dispatch;
-    private final FailureReturnService failureReturn;
+    private final FailedParcelReturnService failedReturns;
     private final DeliveryAreaOperationsService deliveryAreas;
     private final MapPlanningService planning;
     private final ControlTowerService controlTower;
@@ -23,14 +23,14 @@ public class OperationsController {
 
     public OperationsController(OperationsService service, RoutingOperationsService routing,
                                 InboundOperationsService inbound, DispatchOperationsService dispatch,
-                                FailureReturnService failureReturn, DeliveryAreaOperationsService deliveryAreas,
+                                FailedParcelReturnService failedReturns, DeliveryAreaOperationsService deliveryAreas,
                                 MapPlanningService planning, ControlTowerService controlTower,
                                 PhysicalArrivalService physicalArrival) {
         this.service = service;
         this.routing = routing;
         this.inbound = inbound;
         this.dispatch = dispatch;
-        this.failureReturn = failureReturn;
+        this.failedReturns = failedReturns;
         this.deliveryAreas = deliveryAreas;
         this.planning = planning;
         this.controlTower = controlTower;
@@ -266,11 +266,16 @@ public class OperationsController {
         return AppResponse.success("Load handover approved", dispatch.approveLoad(sessionId, request));
     }
 
-    @PostMapping("/return-sessions/{sessionId}/decision")
-    public AppResponse<?> approveReturn(@PathVariable long sessionId,
-                                        @RequestBody FailureReturnService.ReturnDecision decision,
-                                        jakarta.servlet.http.HttpServletRequest request) {
-        return AppResponse.success("Return handover approved", failureReturn.approveReturn(sessionId, decision, request));
+    @GetMapping("/failed-returns")
+    public AppResponse<?> failedReturns(@RequestParam java.time.LocalDate serviceDate) {
+        return AppResponse.success(failedReturns.pending(serviceDate));
+    }
+
+    @PostMapping("/failed-returns/{parcelId}/receive")
+    public AppResponse<?> receiveFailedReturn(@PathVariable long parcelId,
+            @RequestBody FailedParcelReturnService.ReceiptRequest body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Failed parcel returned to station", failedReturns.receive(parcelId, body, request));
     }
 
     @GetMapping("/delivery-areas")

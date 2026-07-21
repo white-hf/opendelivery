@@ -4,7 +4,7 @@ export type PageKey = typeof PAGE_KEYS[number];
 const ROLE_PAGES: Record<string, readonly PageKey[]> = {
     ADMIN: PAGE_KEYS,
     SUPERVISOR: PAGE_KEYS,
-    INBOUND: ['dashboard','orders','manifests','scanning','handover','closeout','cases'],
+    INBOUND: ['dashboard','orders','manifests','scanning','handover','delivery','closeout','cases'],
     DISPATCHER: ['dashboard','orders','dispatch','delivery','closeout','cases','areas','drivers'],
 };
 

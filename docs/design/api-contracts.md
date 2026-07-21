@@ -239,17 +239,14 @@ Body：`stationCode:string`、`waveCode:string`、`serviceDate:date`、`routeCod
 
 候选库存要求本站、站点 custody、已成功路由、无阻断 Case。活动任务唯一索引阻止同件重复分配。发布后仍由站点保管；只有主管批准已提交的装车 Session 后，Parcel 和 Task Item 才进入 `OUT_FOR_DELIVERY`，并逐件写 custody、状态事件和 outbox。
 
-### 9.5 失败与回站（I06，CURRENT）
+### 9.5 失败与退库（CURRENT）
 
 | Method/Path | 输入 | 输出/副作用 |
 |---|---|---|
-| `GET /driver/v1/failure-reasons` | — | 原因、照片/备注要求、下一动作、上限 |
-| `POST /driver/v1/task-items/{id}/attempts` | outcome,reasonCode,note,photoEvidence,location,idempotencyKey | 幂等 Attempt |
-| `GET /driver/v1/tasks/{id}/closeout` | — | 本人任务状态统计和可关闭标志 |
-| `POST /driver/v1/tasks/{id}/return-sessions` | — | 创建本人 RETURN session |
-| `POST /driver/v1/return-sessions/{id}/events` | trackingNo,deviceEventId | 本人幂等回站扫描 |
-| `POST /driver/v1/return-sessions/{id}/submit` | — | 提交站点审核 |
-| `POST /ops/v1/return-sessions/{id}/decision` | action,reason | custody 回站及重派/退上游 |
+| `POST /delivery` | 既有 multipart 契约，`delivery_result=0/1` | 妥投或失败；失败后 custody 仍为 DRIVER |
+| `POST /delivery/retry` | 既有 App 契约 | 将本人失败任务恢复为派送中 |
+| `GET /ops/v1/failed-returns` | serviceDate | 当前站点待退库的失败包裹 |
+| `POST /ops/v1/failed-returns/{parcelId}/receive` | reasonCode,note | 运营确认实物入库，状态转 `RETURNED_TO_STATION`，custody 转 STATION |
 
 ### 9.6 Case、回传和日终（I07–I08）
 

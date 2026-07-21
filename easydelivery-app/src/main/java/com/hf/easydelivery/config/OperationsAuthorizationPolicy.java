@@ -11,7 +11,7 @@ final class OperationsAuthorizationPolicy {
         boolean read = "GET".equals(method);
         boolean commonRead = read && (path.endsWith("/stations") || path.contains("/cases")
                 || path.endsWith("/readiness") || path.contains("/control-tower"));
-        return roles.contains("INBOUND") && (path.contains("/manifests") || path.contains("/arrival-trips") || path.contains("/handling-units") || commonRead)
+        return roles.contains("INBOUND") && (path.contains("/manifests") || path.contains("/arrival-trips") || path.contains("/handling-units") || path.contains("/failed-returns") || commonRead)
                 || roles.contains("DISPATCHER") && (path.contains("/waves")
                 || path.contains("/dispatch/") || path.contains("/planning/")
                 || read && path.contains("/delivery-areas")
