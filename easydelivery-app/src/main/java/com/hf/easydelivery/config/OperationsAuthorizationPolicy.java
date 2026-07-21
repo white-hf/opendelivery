@@ -13,6 +13,8 @@ final class OperationsAuthorizationPolicy {
                 || path.endsWith("/readiness") || path.contains("/control-tower"));
         return roles.contains("INBOUND") && (path.contains("/manifests") || commonRead)
                 || roles.contains("DISPATCHER") && (path.contains("/waves")
-                || path.contains("/dispatch/") || commonRead);
+                || path.contains("/dispatch/") || path.contains("/planning/")
+                || read && path.contains("/delivery-areas")
+                || path.matches(".*/parcels/[^/]+/area-(match|override)$") || commonRead);
     }
 }

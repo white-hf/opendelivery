@@ -14,6 +14,7 @@ import { TodayWorkspace } from './workflows/TodayWorkspace';
 const AreaWorkspace = lazy(() => import('./workflows/AreaWorkspace').then((module) => ({ default: module.AreaWorkspace })));
 const DispatchWorkspace = lazy(() => import('./workflows/DispatchWorkspace').then((module) => ({ default: module.DispatchWorkspace })));
 const ManifestWorkspace = lazy(() => import('./workflows/ManifestWorkspace').then((module) => ({ default: module.ManifestWorkspace })));
+const OrderReadinessWorkspace = lazy(() => import('./workflows/OrderReadinessWorkspace').then((module) => ({ default: module.OrderReadinessWorkspace })));
 
 const { Header, Sider, Content } = Layout;
 
@@ -124,6 +125,7 @@ function Page({ page, station,serviceDate,filter,onNavigate }: { page: PageKey; 
     else if (page === 'manifests') content = <ManifestWorkspace session={session!} station={station} />;
     else if (page === 'dispatch') content = <DispatchWorkspace key={`${station}-${serviceDate}-${filter}`} session={session!} station={station} initialDate={serviceDate} initialFilter={filter}/>;
     else if(page==='dashboard')content=<TodayWorkspace session={session!} station={station} serviceDate={serviceDate} onNavigate={onNavigate}/>;
+    else if(page==='orders')content=<OrderReadinessWorkspace session={session!} station={station} serviceDate={serviceDate} initialFilter={filter}/>;
     else content = <ReadPage page={page} station={station} session={session!} />;
     return <Suspense fallback={<Spin />}>{content}</Suspense>;
 }

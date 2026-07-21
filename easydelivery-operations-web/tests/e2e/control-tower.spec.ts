@@ -14,6 +14,10 @@ test('operator follows the business-day journey into a visible parcel map', asyn
     await expect(page.getByText('Displayed 69')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Fit all' })).toBeEnabled({ timeout: 15_000 });
     await expect(page.locator('.planning-map .gm-style')).toBeVisible({ timeout: 15_000 });
+    const parcelMarkers=page.locator('.planning-map [title^="DEMO-R02-YHZ"]');
+    expect(await parcelMarkers.count()).toBeGreaterThan(0);
+    await page.locator('.planning-map [title="DEMO-R02-YHZ-00067"]').click({ force: true });
+    await expect(page.getByText('parcel_id', { exact: true })).toBeVisible();
     await page.screenshot({ path: 'artifacts/control-tower-map.png', fullPage: true });
 });
 

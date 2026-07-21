@@ -114,6 +114,23 @@ public class DeliveryAreaOperationsService {
     }
 
     @Transactional
+    public AreaMatchResult overrideParcelArea(long parcelId,ParcelAreaOverrideRequest request,HttpServletRequest http) {
+        Long stationId=requireStation();
+        List<ParcelRow> parcels=jdbc.query("SELECT id,waybill_id FROM parcel WHERE id=? AND current_station_id=? FOR UPDATE",(rs,n)->new ParcelRow(rs.getLong(1),rs.getLong(2)),parcelId,stationId);
+        if(parcels.isEmpty())throw new BizException("PARCEL.NOT.FOUND","Parcel not found at selected station");
+        List<MatchRow> areas=jdbc.query("""
+                SELECT a.id,av.id,a.area_code,av.version_no FROM delivery_area_version av JOIN delivery_area a ON a.id=av.delivery_area_id
+                WHERE av.id=? AND a.station_id=? AND a.status='ACTIVE' AND av.status='PUBLISHED'
+                """,(rs,n)->new MatchRow(rs.getLong(1),rs.getLong(2),rs.getString(3),rs.getInt(4)),request.areaVersionId(),stationId);
+        if(areas.isEmpty())throw new BizException("AREA.NOT.AVAILABLE","Published area does not belong to selected station");
+        String reason=required(request.reason(),"reason");MatchRow area=areas.get(0);
+        jdbc.update("UPDATE parcel_area_assignment SET ended_at=CURRENT_TIMESTAMP(3) WHERE parcel_id=? AND ended_at IS NULL",parcelId);
+        jdbc.update("INSERT INTO parcel_area_assignment(parcel_id,delivery_area_version_id,assignment_source,assignment_reason,assigned_by) VALUES (?,?,'MANUAL_OVERRIDE',?,?)",parcelId,area.versionId(),reason,operator(http));
+        audit(http,stationId,"PARCEL_AREA_OVERRIDDEN",area.areaId(),"SUCCESS",reason,null,Map.of("parcelId",parcelId,"areaVersionId",area.versionId()));
+        return new AreaMatchResult(parcelId,area.areaId(),area.versionId(),area.areaCode(),area.versionNo(),"MANUAL_OVERRIDE");
+    }
+
+    @Transactional
     public VersionResult create(CreateRequest request,HttpServletRequest http) {
         Long stationId=requireStation();
         String code=required(request.areaCode(),"areaCode").toUpperCase();
@@ -256,5 +273,6 @@ public class DeliveryAreaOperationsService {
                                           java.time.LocalDate effectiveTo,String reason){}
     public record ParcelLocationRequest(double longitude,double latitude,String providerCode,String precisionCode,
                                         java.math.BigDecimal confidence,String normalizedAddress,String reason){}
+    public record ParcelAreaOverrideRequest(long areaVersionId,String reason){}
     public record AreaMatchResult(long parcelId,long areaId,long areaVersionId,String areaCode,int versionNo,String source){}
 }

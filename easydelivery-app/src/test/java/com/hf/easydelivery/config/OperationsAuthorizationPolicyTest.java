@@ -22,6 +22,15 @@ class OperationsAuthorizationPolicyTest {
     }
 
     @Test
+    void dispatcherCanResolveOrderReadinessWithoutBroadAreaMutationAccess() {
+        assertTrue(OperationsAuthorizationPolicy.isAllowed(List.of("DISPATCHER"), "GET", "/ops/v1/planning/parcels"));
+        assertTrue(OperationsAuthorizationPolicy.isAllowed(List.of("DISPATCHER"), "GET", "/ops/v1/delivery-areas"));
+        assertTrue(OperationsAuthorizationPolicy.isAllowed(List.of("DISPATCHER"), "POST", "/ops/v1/parcels/42/area-match"));
+        assertTrue(OperationsAuthorizationPolicy.isAllowed(List.of("DISPATCHER"), "POST", "/ops/v1/parcels/42/area-override"));
+        assertFalse(OperationsAuthorizationPolicy.isAllowed(List.of("DISPATCHER"), "POST", "/ops/v1/delivery-areas"));
+    }
+
+    @Test
     void sharedReadViewsDoNotGrantMutationAccess() {
         assertTrue(OperationsAuthorizationPolicy.isAllowed(List.of("INBOUND"), "GET", "/ops/v1/cases"));
         assertFalse(OperationsAuthorizationPolicy.isAllowed(List.of("INBOUND"), "POST", "/ops/v1/cases/1/resolve"));

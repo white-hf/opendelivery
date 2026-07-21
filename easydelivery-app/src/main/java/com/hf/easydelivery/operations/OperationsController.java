@@ -261,6 +261,13 @@ public class OperationsController {
         return AppResponse.success("Parcel matched to delivery area",deliveryAreas.matchParcel(parcelId,body,request));
     }
 
+    @PostMapping("/parcels/{parcelId}/area-override")
+    public AppResponse<?> overrideParcelArea(@PathVariable long parcelId,
+            @RequestBody DeliveryAreaOperationsService.ParcelAreaOverrideRequest body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Parcel area overridden",deliveryAreas.overrideParcelArea(parcelId,body,request));
+    }
+
     @PostMapping("/delivery-areas")
     public AppResponse<?> createDeliveryArea(@RequestBody DeliveryAreaOperationsService.CreateRequest body,
                                              jakarta.servlet.http.HttpServletRequest request) {
