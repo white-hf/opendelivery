@@ -19,11 +19,13 @@ public class OperationsController {
     private final DeliveryAreaOperationsService deliveryAreas;
     private final MapPlanningService planning;
     private final ControlTowerService controlTower;
+    private final PhysicalArrivalService physicalArrival;
 
     public OperationsController(OperationsService service, RoutingOperationsService routing,
                                 InboundOperationsService inbound, DispatchOperationsService dispatch,
                                 FailureReturnService failureReturn, DeliveryAreaOperationsService deliveryAreas,
-                                MapPlanningService planning, ControlTowerService controlTower) {
+                                MapPlanningService planning, ControlTowerService controlTower,
+                                PhysicalArrivalService physicalArrival) {
         this.service = service;
         this.routing = routing;
         this.inbound = inbound;
@@ -32,6 +34,41 @@ public class OperationsController {
         this.deliveryAreas = deliveryAreas;
         this.planning = planning;
         this.controlTower = controlTower;
+        this.physicalArrival = physicalArrival;
+    }
+
+    @GetMapping("/arrival-trips")
+    public AppResponse<?> arrivalTrips(@RequestParam java.time.LocalDate serviceDate) {
+        return AppResponse.success(physicalArrival.trips(serviceDate));
+    }
+
+    @PostMapping("/arrival-trips")
+    public AppResponse<?> createArrivalTrip(@RequestBody PhysicalArrivalService.TripRequest body,
+                                             jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Arrival trip created", physicalArrival.createTrip(body, request));
+    }
+
+    @GetMapping("/arrival-trips/{tripId}")
+    public AppResponse<?> arrivalTrip(@PathVariable long tripId) {
+        return AppResponse.success(physicalArrival.detail(tripId));
+    }
+
+    @PostMapping("/arrival-trips/{tripId}/state")
+    public AppResponse<?> moveArrivalTrip(@PathVariable long tripId,
+            @RequestBody PhysicalArrivalService.StateRequest body, jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Arrival trip updated", physicalArrival.moveTrip(tripId, body, request));
+    }
+
+    @PostMapping("/arrival-trips/{tripId}/handling-units")
+    public AppResponse<?> createHandlingUnit(@PathVariable long tripId,
+            @RequestBody PhysicalArrivalService.UnitRequest body, jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Handling unit created", physicalArrival.createUnit(tripId, body, request));
+    }
+
+    @PostMapping("/handling-units/{unitId}/state")
+    public AppResponse<?> moveHandlingUnit(@PathVariable long unitId,
+            @RequestBody PhysicalArrivalService.StateRequest body, jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Handling unit updated", physicalArrival.moveUnit(unitId, body, request));
     }
 
     @GetMapping("/control-tower")
