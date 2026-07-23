@@ -27,11 +27,11 @@
 
     <modules>
         <module>easydelivery-common</module>
-        <module>easydelivery-auth</module>
-        <module>easydelivery-delivery</module>
-        <module>easydelivery-scan</module>
-        <module>easydelivery-driver-api</module>
-        <module>easydelivery-ops-api</module>
+        <module>driver/easydelivery-auth</module>
+        <module>driver/easydelivery-delivery</module>
+        <module>driver/easydelivery-scan</module>
+        <module>driver/easydelivery-driver-api</module>
+        <module>operations/easydelivery-ops-api</module>
         <module>easydelivery-app</module>
     </modules>
 

@@ -8,11 +8,11 @@
         <groupId>com.hf.easydelivery</groupId>
         <artifactId>easydelivery-backend</artifactId>
         <version>1.0.0</version>
-        <relativePath>../pom.xml</relativePath>
+        <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>easydelivery-scan</artifactId>
-    <name>easydelivery-scan</name>
+    <artifactId>easydelivery-delivery</artifactId>
+    <name>easydelivery-delivery</name>
 
     <dependencies>
         <dependency>

@@ -8,14 +8,13 @@
         <groupId>com.hf.easydelivery</groupId>
         <artifactId>easydelivery-backend</artifactId>
         <version>1.0.0</version>
-        <relativePath>../pom.xml</relativePath>
+        <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>easydelivery-auth</artifactId>
-    <name>easydelivery-auth</name>
+    <artifactId>easydelivery-scan</artifactId>
+    <name>easydelivery-scan</name>
 
     <dependencies>
-        <!-- Dependency on common module for DTOs and DataStore -->
         <dependency>
             <groupId>com.hf.easydelivery</groupId>
             <artifactId>easydelivery-common</artifactId>

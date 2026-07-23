@@ -22,19 +22,19 @@ case "$1" in
     ;;
   run-driver)
     echo "=== Starting Driver API Service (Port 9000) ==="
-    if [ ! -f easydelivery-driver-api/target/easydelivery-driver-api-1.0.0.jar ]; then
+    if [ ! -f driver/easydelivery-driver-api/target/easydelivery-driver-api-1.0.0.jar ]; then
       echo "Driver API JAR not found! Building first..."
       $MVN_BIN clean package -DskipTests
     fi
-    java -jar easydelivery-driver-api/target/easydelivery-driver-api-1.0.0.jar
+    java -jar driver/easydelivery-driver-api/target/easydelivery-driver-api-1.0.0.jar
     ;;
   run-ops)
     echo "=== Starting Operations API Service (Port 9001) ==="
-    if [ ! -f easydelivery-ops-api/target/easydelivery-ops-api-1.0.0.jar ]; then
+    if [ ! -f operations/easydelivery-ops-api/target/easydelivery-ops-api-1.0.0.jar ]; then
       echo "Operations API JAR not found! Building first..."
       $MVN_BIN clean package -DskipTests
     fi
-    java -jar easydelivery-ops-api/target/easydelivery-ops-api-1.0.0.jar
+    java -jar operations/easydelivery-ops-api/target/easydelivery-ops-api-1.0.0.jar
     ;;
   docker-build)
     echo "=== Building Docker Image ==="
