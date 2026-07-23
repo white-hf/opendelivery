@@ -150,6 +150,7 @@ public class JdbcDeliveryOperations implements DeliveryOperations {
         if (batchId == null) return new ParcelScanResult(null, "SCAN.BATCH.REQUIRED", "scan_batch_id is required");
         ScanBatch batch = getBatch(batchId);
         if (batch == null) return new ParcelScanResult(null, "SCAN.BATCH.NOT.FOUND", "Scan batch not found");
+        if (batch.getStatus() != 1) return new ParcelScanResult(null, "SCAN.BATCH.LOCKED", "Scan batch is submitted and locked");
         DeliveringListData parcel = getParcelByTrackingNo(trackingNo);
         if (parcel == null) {
             insertScanEvent(batchId, null, trackingNo, "UNKNOWN", deviceEventId);
@@ -228,7 +229,9 @@ public class JdbcDeliveryOperations implements DeliveryOperations {
     @Transactional
     public long recordDelivery(long orderId, int authenticatedDriverId, int deliveryResult, Integer failedReason,
                                String recipientName, double latitude, double longitude, String idempotencyKey) {
-        String stableKey = idempotencyKey == null || idempotencyKey.isBlank() ? "legacy-delivery-" + UUID.randomUUID() : idempotencyKey;
+        String stableKey = (idempotencyKey != null && !idempotencyKey.isBlank())
+                ? idempotencyKey
+                : "delivery-" + orderId + "-" + authenticatedDriverId + "-" + deliveryResult + (deliveryResult == 0 ? "" : "-" + failedReason);
         List<Long> existingAttempts = jdbc.query("SELECT id FROM delivery_attempt WHERE driver_id=? AND idempotency_key=?",
                 (rs, n) -> rs.getLong(1), authenticatedDriverId, stableKey);
         if (!existingAttempts.isEmpty()) return existingAttempts.get(0);

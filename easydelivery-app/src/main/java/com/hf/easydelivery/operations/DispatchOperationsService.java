@@ -49,7 +49,13 @@ public class DispatchOperationsService {
 
     public List<Map<String, Object>> activeDrivers() {
         long stationId = requireStationContext();
-        return jdbc.queryForList("SELECT id driver_id,driver_name,phone FROM driver WHERE home_station_id=? AND status='ACTIVE' ORDER BY driver_name", stationId);
+        return jdbc.queryForList("""
+                SELECT id, id driver_id, credential_id driver_code, credential_id, driver_name,
+                       driver_name display_name, phone
+                FROM driver
+                WHERE home_station_id=? AND status='ACTIVE'
+                ORDER BY driver_name
+                """, stationId);
     }
 
     public List<Map<String, Object>> waves(int limit, long afterId) {

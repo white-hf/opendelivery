@@ -152,11 +152,16 @@ public class PhysicalArrivalService {
 
     @Transactional public Map<String,Object> areaFill(long unitId,AreaFillRequest body,HttpServletRequest http){
         HandlingUnitEntity unit=unitForUpdate(unitId);
-        if(body.areaVersionIds()==null||body.areaVersionIds().isEmpty())throw new BizException("PARAM.INVALID","areaVersionIds is required");
+        if(body.areaVersionIds()==null||body.areaVersionIds().isEmpty()){
+            jdbc.update("DELETE FROM handling_unit_parcel WHERE handling_unit_id=? AND link_source='AREA_PLAN'", unit.getId());
+            audit(http,unit.getStationId(),"HANDLING_UNIT_AREA_CLEARED","HANDLING_UNIT",unit.getId(),body.reason(),Map.of("cleared",true));
+            return detail(unit.getTripId());
+        }
         for(Long versionId:body.areaVersionIds()){
             Integer n=jdbc.queryForObject("SELECT COUNT(*) FROM delivery_area_version av JOIN delivery_area a ON a.id=av.delivery_area_id WHERE av.id=? AND a.station_id=? AND a.status='ACTIVE' AND av.status='PUBLISHED'",Integer.class,versionId,unit.getStationId());
             if(n==null||n==0)throw new BizException("AREA.NOT.AVAILABLE","Published area does not belong to selected station");
         }
+        jdbc.update("DELETE FROM handling_unit_parcel WHERE handling_unit_id=? AND link_source='AREA_PLAN'", unit.getId());
         int linked=0;
         for(Long versionId:body.areaVersionIds()){
             // Escape hatch (ADR): set-based INSERT…SELECT over the denormalized area projection

@@ -18,6 +18,8 @@ application-local.properties
 logs/
 pod-data/
 uploads/
+data/
+**/data/
 
 # Frontend output (planned operations Web)
 node_modules/

@@ -103,6 +103,17 @@ CALL seed_r02_experience();
 DROP PROCEDURE seed_r02_experience;
 DROP TEMPORARY TABLE r02_city;
 
+-- Seed driver area preferences to support automatic "一键指派默认司机" functionality in R02
+INSERT INTO driver_area_preference(driver_id, delivery_area_id, priority, status, created_by)
+SELECT d.id, a.id, 1, 'ACTIVE', 'SYSTEM-SEED'
+FROM driver d
+JOIN station s ON s.id = d.home_station_id
+JOIN delivery_area a ON a.station_id = s.id
+WHERE d.credential_id LIKE 'demo.%.driver_'
+  AND a.area_code LIKE 'DEMO-R02-%'
+  AND CAST(RIGHT(d.credential_id, 1) AS UNSIGNED) = CAST(RIGHT(a.area_code, 1) AS UNSIGNED)
+ON DUPLICATE KEY UPDATE priority=VALUES(priority), status='ACTIVE';
+
 SELECT s.station_code,COUNT(DISTINCT d.id) demo_drivers,COUNT(DISTINCT p.id) demo_parcels,
        COUNT(DISTINCT g.waybill_id) geocoded,COUNT(DISTINCT paa.parcel_id) area_matched
 FROM station s LEFT JOIN driver d ON d.home_station_id=s.id AND d.credential_id LIKE 'demo.%'

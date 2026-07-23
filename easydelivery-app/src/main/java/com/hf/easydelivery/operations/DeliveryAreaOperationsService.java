@@ -33,12 +33,15 @@ public class DeliveryAreaOperationsService {
         return jdbc.queryForList("""
                 SELECT a.id,a.area_code,a.area_name,a.area_level,a.status,
                        v.id version_id,v.version_no,v.status version_status,
-                       ST_AsGeoJSON(v.boundary) geo_json,v.effective_from,v.effective_to
+                       ST_AsGeoJSON(v.boundary) geo_json,v.effective_from,v.effective_to,
+                       p.driver_id AS primary_driver_id, d.driver_name AS primary_driver_name
                 FROM delivery_area a LEFT JOIN delivery_area_version v ON v.id=(
                   SELECT candidate.id FROM delivery_area_version candidate
                   WHERE candidate.delivery_area_id=a.id
                   ORDER BY candidate.version_no DESC LIMIT 1
                 )
+                LEFT JOIN driver_area_preference p ON p.delivery_area_id=a.id AND p.status='ACTIVE'
+                LEFT JOIN driver d ON d.id=p.driver_id
                 WHERE a.station_id=? ORDER BY a.area_level,a.area_code
                 """,stationId);
     }
@@ -78,6 +81,14 @@ public class DeliveryAreaOperationsService {
         audit(http,area.stationId(),"DRIVER_AREA_PREFERENCE_SAVED",areaId,"SUCCESS",required(request.reason(),"reason"),null,
                 Map.of("driverId",request.driverId(),"priority",request.priority()==null?100:request.priority()));
         return Map.of("areaId",areaId,"driverId",request.driverId(),"status","ACTIVE");
+    }
+
+    @Transactional
+    public Map<String,Object> deleteDriverPreference(long areaId, long preferenceId, HttpServletRequest http) {
+        AreaRow area = area(areaId, true);
+        jdbc.update("UPDATE driver_area_preference SET status='INACTIVE', updated_at=CURRENT_TIMESTAMP(3) WHERE id=? AND delivery_area_id=?", preferenceId, areaId);
+        audit(http, area.stationId(), "DRIVER_AREA_PREFERENCE_DELETED", areaId, "SUCCESS", "Deactivated driver preference", null, Map.of("preferenceId", preferenceId));
+        return Map.of("areaId", areaId, "preferenceId", preferenceId, "status", "INACTIVE");
     }
 
     @Transactional
@@ -169,12 +180,30 @@ public class DeliveryAreaOperationsService {
     public VersionResult create(CreateRequest request,HttpServletRequest http) {
         Long stationId=requireStation();
         String code=required(request.areaCode(),"areaCode").toUpperCase();
+        List<Long> driverIds = request.driverIds();
+        if ((driverIds == null || driverIds.isEmpty()) && request.primaryDriverId() != null) {
+            driverIds = List.of(request.primaryDriverId());
+        }
+        if (driverIds == null || driverIds.isEmpty()) {
+            throw new BizException("AREA.DRIVER.REQUIRED", "新增区域必须指定至少一名责任司机");
+        }
+
         jdbc.update("INSERT INTO delivery_area(station_id,area_code,area_name,area_level) VALUES (?,?,?,?)",
                 stationId,code,required(request.areaName(),"areaName"),request.areaLevel()==null?1:request.areaLevel());
         long areaId=jdbc.queryForObject("SELECT LAST_INSERT_ID()",Long.class);
         long versionId=insertVersion(areaId,1,request.geoJson(),request.changeReason(),operator(http));
+
+        for (int i = 0; i < driverIds.size(); i++) {
+            Long driverId = driverIds.get(i);
+            jdbc.update("""
+                    INSERT INTO driver_area_preference(driver_id,delivery_area_id,priority,status,created_by)
+                    VALUES (?, ?, ?, 'ACTIVE', ?)
+                    ON DUPLICATE KEY UPDATE priority=VALUES(priority),status='ACTIVE',created_by=VALUES(created_by)
+                    """, driverId, areaId, i + 1, operator(http));
+        }
+
         audit(http,stationId,"DELIVERY_AREA_CREATED",areaId,"SUCCESS",request.changeReason(),null,
-                Map.of("areaCode",code,"versionId",versionId));
+                Map.of("areaCode",code,"versionId",versionId,"driverIds",driverIds));
         return new VersionResult(areaId,versionId,1,"DRAFT");
     }
 
@@ -194,14 +223,33 @@ public class DeliveryAreaOperationsService {
         String reason=required(request.changeReason(),"changeReason");
         Integer level=request.areaLevel()==null?1:request.areaLevel();
         if(level<1||level>9) throw new BizException("PARAM.INVALID","areaLevel must be between 1 and 9");
+        List<Long> driverIds = request.driverIds();
+        if ((driverIds == null || driverIds.isEmpty()) && request.primaryDriverId() != null) {
+            driverIds = List.of(request.primaryDriverId());
+        }
+        if (driverIds == null || driverIds.isEmpty()) {
+            throw new BizException("AREA.DRIVER.REQUIRED", "修改区域必须指定至少一名责任司机");
+        }
+
         Map<String,Object> before=jdbc.queryForMap("SELECT area_name,area_level,status FROM delivery_area WHERE id=?",areaId);
         if(!"ACTIVE".equals(before.get("status"))) state("Inactive delivery area must be reactivated before editing");
         jdbc.update("UPDATE delivery_area SET area_name=?,area_level=?,version=version+1 WHERE id=?",
                 required(request.areaName(),"areaName"),level,areaId);
         Integer next=jdbc.queryForObject("SELECT COALESCE(MAX(version_no),0)+1 FROM delivery_area_version WHERE delivery_area_id=?",Integer.class,areaId);
         long versionId=insertVersion(areaId,next,request.geoJson(),reason,operator(http));
+
+        jdbc.update("UPDATE driver_area_preference SET status='INACTIVE' WHERE delivery_area_id=? AND status='ACTIVE'", areaId);
+        for (int i = 0; i < driverIds.size(); i++) {
+            Long driverId = driverIds.get(i);
+            jdbc.update("""
+                    INSERT INTO driver_area_preference(driver_id,delivery_area_id,priority,status,created_by)
+                    VALUES (?, ?, ?, 'ACTIVE', ?)
+                    ON DUPLICATE KEY UPDATE priority=VALUES(priority),status='ACTIVE',created_by=VALUES(created_by)
+                    """, driverId, areaId, i + 1, operator(http));
+        }
+
         audit(http,area.stationId(),"DELIVERY_AREA_UPDATED",areaId,"SUCCESS",reason,before,
-                Map.of("areaName",request.areaName(),"areaLevel",level,"versionId",versionId));
+                Map.of("areaName",request.areaName(),"areaLevel",level,"versionId",versionId,"driverIds",driverIds));
         return new VersionResult(areaId,versionId,next,"DRAFT");
     }
 
@@ -297,9 +345,9 @@ public class DeliveryAreaOperationsService {
     private record VersionRow(long id,int versionNo,String status,Long previousPublishedId){}
     private record ParcelRow(long id,long waybillId){}
     private record MatchRow(long areaId,long versionId,String areaCode,int versionNo){}
-    public record CreateRequest(String areaCode,String areaName,Integer areaLevel,JsonNode geoJson,String changeReason){}
+    public record CreateRequest(String areaCode,String areaName,Integer areaLevel,Long primaryDriverId,List<Long> driverIds,JsonNode geoJson,String changeReason){}
     public record VersionRequest(JsonNode geoJson,String changeReason){}
-    public record UpdateRequest(String areaName,Integer areaLevel,JsonNode geoJson,String changeReason){}
+    public record UpdateRequest(String areaName,Integer areaLevel,Long primaryDriverId,List<Long> driverIds,JsonNode geoJson,String changeReason){}
     public record StateChangeRequest(String reason){}
     public record PublishRequest(String reason){}
     public record VersionResult(long areaId,long versionId,int versionNo,String status){}

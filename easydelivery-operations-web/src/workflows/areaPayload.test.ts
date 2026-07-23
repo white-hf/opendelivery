@@ -4,15 +4,15 @@ import { areaPayload } from './areaPayload';
 describe('areaPayload', () => {
     it('normalizes operator input and parses GeoJSON', () => {
         expect(areaPayload({
-            areaCode: ' dt-01 ', areaName: ' Downtown ', geoJson: '{"type":"Polygon","coordinates":[[[0,0],[1,0],[0,0]]]}',
+            areaCode: ' dt-01 ', areaName: ' Downtown ', driverIds: [101, 102], geoJson: '{"type":"Polygon","coordinates":[[[0,0],[1,0],[0,0]]]}',
             changeReason: ' Initial boundary ',
         })).toEqual({
-            areaCode: 'DT-01', areaName: 'Downtown', areaLevel: 1,
+            areaCode: 'DT-01', areaName: 'Downtown', areaLevel: 1, driverIds: [101, 102],
             geoJson: { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [0, 0]]] }, changeReason: 'Initial boundary',
         });
     });
 
     it('rejects malformed GeoJSON before sending it', () => {
-        expect(() => areaPayload({ areaCode: 'A', areaName: 'A', geoJson: '{', changeReason: 'test' })).toThrow();
+        expect(() => areaPayload({ areaCode: 'A', areaName: 'A', driverIds: [101], geoJson: '{', changeReason: 'test' })).toThrow();
     });
 });

@@ -147,8 +147,9 @@ public class OperationsController {
     public AppResponse<?> planningParcels(@RequestParam java.time.LocalDate serviceDate,
             @RequestParam(required=false) Double west,@RequestParam(required=false) Double south,
             @RequestParam(required=false) Double east,@RequestParam(required=false) Double north,
+            @RequestParam(required=false) Long waveId,
             @RequestParam(defaultValue="1000") int limit) {
-        return AppResponse.success(planning.mapParcels(serviceDate,west,south,east,north,limit));
+        return AppResponse.success(planning.mapParcels(serviceDate,west,south,east,north,limit,waveId));
     }
 
     @PostMapping("/planning/waves")
@@ -293,6 +294,13 @@ public class OperationsController {
             @RequestBody DeliveryAreaOperationsService.DriverPreferenceRequest body,
             jakarta.servlet.http.HttpServletRequest request) {
         return AppResponse.success("Driver area preference saved",deliveryAreas.saveDriverPreference(areaId,body,request));
+    }
+
+    @DeleteMapping("/delivery-areas/{areaId}/driver-preferences/{preferenceId}")
+    public AppResponse<?> deleteDeliveryAreaDriverPreference(@PathVariable long areaId,
+            @PathVariable long preferenceId,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Driver area preference deleted",deliveryAreas.deleteDriverPreference(areaId,preferenceId,request));
     }
 
     @PostMapping("/parcels/area-recompute")

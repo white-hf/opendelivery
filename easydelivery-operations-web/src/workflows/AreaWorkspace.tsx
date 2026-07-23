@@ -11,9 +11,10 @@ import { areaGeoJsonSummary, parseAreaGeoJson } from './areaGeometry';
 type AreaRow = {
     id: number; area_code: string; area_name: string; area_level: number; status: string;
     version_id?: number; version_no?: number; version_status?: string; geo_json?: string;
+    primary_driver_id?: number; primary_driver_name?: string;
 };
 type PreferenceRow = { id: number; driver_id: number; driver_code: string; driver_name: string; priority: number; status: string };
-type DriverRow = { id: number; driver_code: string; display_name: string };
+type DriverRow = { id?: number; driver_id?: number; driver_code?: string; credential_id?: string; display_name?: string; driver_name?: string };
 type VersionRow = { id: number; version_no: number; status: string; change_reason: string; created_at: string; geo_json: string };
 
 export function AreaWorkspace({ session, station }: { session: Session; station: string }) {
@@ -88,7 +89,17 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
             { method: 'POST', body: JSON.stringify(values) }, station),
         onSuccess: async () => {
             notice.success({ message: t('preferences.success'), placement: 'topRight', duration: 4 }); preferenceForm.resetFields();
-            await preferences.refetch();
+            await Promise.all([preferences.refetch(), cache.invalidateQueries({ queryKey: ['areas', station] })]);
+        },
+        onError: (caught) => notice.error({ message: t('common.operationFailed'), description: caught.message, placement: 'topRight', duration: 6 }),
+    });
+    const deletePreference = useMutation({
+        mutationFn: (preferenceId: number) => api(
+            `/ops/v1/delivery-areas/${preferenceArea!.id}/driver-preferences/${preferenceId}`, session,
+            { method: 'DELETE' }, station),
+        onSuccess: async () => {
+            notice.success({ message: '解绑司机成功', placement: 'topRight', duration: 4 });
+            await Promise.all([preferences.refetch(), cache.invalidateQueries({ queryKey: ['areas', station] })]);
         },
         onError: (caught) => notice.error({ message: t('common.operationFailed'), description: caught.message, placement: 'topRight', duration: 6 }),
     });
@@ -122,6 +133,7 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                 onRow={(row) => ({ onClick: () => setSelectedArea(row) })}
                 columns={[
                     { title: t('areas.code'), dataIndex: 'area_code' }, { title: t('areas.name'), dataIndex: 'area_name' },
+                    { title: '责任司机', render: (_, row) => row.primary_driver_name ? <Tag color="blue">{row.primary_driver_name}</Tag> : <Tag color="red">无责任司机</Tag> },
                     { title: t('areas.level'), dataIndex: 'area_level' },
                     { title: t('areas.version'), render: (_, row) => row.version_no ?? t('areas.draft') },
                     { title: t('common.status'), render: (_, row) => { const status=row.version_status ?? row.status; return <Tag>{t(`status.${status}`, { defaultValue: status })}</Tag>; } },
@@ -130,6 +142,7 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                         {row.status === 'ACTIVE' && <Button size="small" onClick={(event) => {
                             event.stopPropagation(); setEditingArea(row); form.setFieldsValue({
                                 areaCode: row.area_code, areaName: row.area_name, areaLevel: row.area_level,
+                                driverIds: row.primary_driver_id ? [row.primary_driver_id] : [],
                                 geoJson: row.geo_json ?? '', changeReason: '',
                             }); setOpen(true);
                         }}>{t('common.edit')}</Button>}
@@ -166,6 +179,16 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                 <div className="area-metadata">
                     <Form.Item name="areaCode" label={t('areas.code')} rules={[{ required: true, whitespace: true }]}><Input placeholder="DT-01" disabled={Boolean(editingArea)} /></Form.Item>
                     <Form.Item name="areaName" label={t('areas.name')} rules={[{ required: true, whitespace: true }]}><Input placeholder="Downtown core" /></Form.Item>
+                    <Form.Item name="driverIds" label="责任司机（可多选，排首位为主责任人）" rules={[{ required: true, type: 'array', min: 1, message: '新增或修改区域时必须选择至少一名责任司机' }]}>
+                        <Select
+                            mode="multiple"
+                            placeholder="选择负责该小区的司机（支持多选）"
+                            options={(drivers.data ?? []).map((driver) => ({
+                                value: driver.driver_id ?? driver.id!,
+                                label: driver.driver_name ?? driver.display_name ?? driver.driver_code ?? String(driver.driver_id ?? driver.id)
+                            }))}
+                        />
+                    </Form.Item>
                     <Form.Item name="areaLevel" label={t('areas.level')} rules={[{ required: true }]}><InputNumber min={1} max={9} style={{ width: '100%' }} /></Form.Item>
                 </div>
                 <div className="area-editor-grid">
@@ -232,7 +255,10 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
             onCancel={() => setPreferenceArea(undefined)} destroyOnHidden>
             <Form form={preferenceForm} layout="vertical" initialValues={{ priority: 100 }} onFinish={savePreference.mutate}>
                 <Form.Item name="driverId" label={t('dispatch.driver')} rules={[{ required: true }]}>
-                    <Select options={(drivers.data ?? []).map((driver) => ({ value: driver.id, label: driver.display_name ?? driver.driver_code }))} />
+                    <Select options={(drivers.data ?? []).map((driver) => ({
+                        value: driver.driver_id ?? driver.id!,
+                        label: driver.driver_name ?? driver.display_name ?? driver.driver_code ?? String(driver.driver_id ?? driver.id)
+                    }))} />
                 </Form.Item>
                 <Form.Item name="priority" label={t('preferences.priority')} rules={[{ required: true }]}>
                     <InputNumber min={1} max={1000} style={{ width: '100%' }} />
@@ -245,6 +271,11 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                     { title: t('dispatch.driver'), render: (_, row) => row.driver_name ?? row.driver_code },
                     { title: t('preferences.priority'), dataIndex: 'priority' },
                     { title: t('common.status'), dataIndex: 'status' },
+                    { title: t('common.action'), render: (_, row) => (
+                        <Button size="small" danger onClick={() => deletePreference.mutate(row.id)} loading={deletePreference.isPending}>
+                            解绑/删除
+                        </Button>
+                    ) },
                 ]} />
         </Modal>
     </Space>;

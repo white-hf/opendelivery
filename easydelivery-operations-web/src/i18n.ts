@@ -57,6 +57,7 @@ Object.assign(translations['zh-CN'], {
     'returns.title':'失败包裹退库接收','returns.help':'仅在司机已将实物交回仓库后确认；确认将责任从司机转移到本站库存。','returns.pending':'{{count}} 件待退库','returns.failureReason':'失败原因','returns.failedAt':'失败时间','returns.receive':'确认退库','returns.empty':'当前没有等待实物交回的失败包裹','returns.confirmTitle':'确认仓库收到实物','returns.physicalCheck':'请核对包裹实物及追踪标签确已到场','returns.reasonCode':'退库原因码','returns.note':'退库备注','returns.confirm':'确认已退回本站','returns.received':'包裹已进入本站退库库存','field.task_code':'任务',
     'common.planned':'规划中 · 暂不可用',
     'arrival.title':'到仓实物','arrival.tab':'卡车与板/笼','arrival.legacyManifest':'上游清单差异','arrival.boundary':'到达登记只确认实物容器进入本站；司机责任在扫描核对并审批后才转移。','arrival.create':'创建到仓批次','arrival.tripNo':'到仓批次号','arrival.vehicle':'车牌','arrival.seal':'封签号','arrival.expected':'预计到达','arrival.units':'实物单元','arrival.pieces':'包裹','arrival.detail':'到仓详情','arrival.addUnit':'新增板/笼','arrival.moveTo':'推进至','arrival.unitNo':'板/笼标签','arrival.unitType':'单元类型','arrival.coverage':'计划覆盖','arrival.drivers':'司机','arrival.expectedPieces':'预计件数','arrival.trackingList':'包裹追踪号（每行一个）','arrival.saved':'到仓记录已保存','arrival.declared':'预计','arrival.linked':'已关联','arrival.scanned':'已扫','arrival.exception':'异常','arrival.areaFill':'按区域填充','arrival.areaFillHelp':'把所选区域内当前包裹全部关联到该板/笼；请先在地图上核对后再执行。','arrival.selectAreas':'派送区域','arrival.unlinked':'上游声明但未关联','arrival.autoHint':'留空则自动生成批次号','arrival.parcels':'包裹明细','arrival.linkSource':'来源','arrival.task':'任务','arrival.driver':'司机','arrival.mismatch':'合计与明细不一致，请刷新并上报',
+    'orders.activeWave':'当前排程波次','orders.noWave':'无排程波次','orders.searchPlaceholder':'按运单号精准检索 ( tracking_no )...','orders.geographicZoning':'选择区域','orders.hideQueue':'隐藏待办列表','orders.showQueue':'显示待办列表','orders.selectedZone':'当前选定区域','orders.clickZoneDetail':'请在地图上点击具体区域查看其网点包裹详情'
 });
 Object.assign(translations['en-CA'], {
     'supervision.title': 'Scan supervision',
@@ -79,6 +80,26 @@ Object.assign(translations['en-CA'], {
     'supervision.resultCode': 'Result',
     'supervision.scannedAt': 'Scanned at',
     'supervision.correctTaskHint': 'Correct task hint',
+});
+Object.assign(translations['en-CA'], {
+    'orders.activeWave':'Active Dispatch Wave',
+    'orders.noWave':'No Active Wave',
+    'orders.searchPlaceholder':'Search by exact tracking label (tracking_no)...',
+    'orders.geographicZoning':'Select Region',
+    'orders.hideQueue':'Hide Queue List',
+    'orders.showQueue':'Show Queue List',
+    'orders.selectedZone':'Selected Region',
+    'orders.clickZoneDetail':'Click on a specific region boundary on the map to list and zoom into its detailed parcel markers.'
+});
+Object.assign(translations['fr-CA'], {
+    'orders.activeWave':'Vague active',
+    'orders.noWave':'Aucune vague active',
+    'orders.searchPlaceholder':'Rechercher par numéro de suivi exact...',
+    'orders.geographicZoning':'Choisir la région',
+    'orders.hideQueue':'Masquer la liste',
+    'orders.showQueue':'Afficher la liste',
+    'orders.selectedZone':'Région sélectionnée',
+    'orders.clickZoneDetail':'Cliquez sur une région sur la carte pour voir les colis.'
 });
 Object.assign(translations['fr-CA'], {
     'supervision.title': 'Suivi des scans',

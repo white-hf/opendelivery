@@ -167,6 +167,11 @@ public class MemoryDataStore implements DeliveryOperations {
 
     @Override
     public ParcelScanResult scanParcel(String trackingNo, Long batchId, String deviceEventId) {
+        if (batchId != null) {
+            DeliveryOperations.ScanBatch batch = batches.get(batchId);
+            if (batch == null) return new ParcelScanResult(null, "SCAN.BATCH.NOT.FOUND", "Scan batch not found");
+            if (batch.getStatus() != 1) return new ParcelScanResult(null, "SCAN.BATCH.LOCKED", "Scan batch is submitted and locked");
+        }
         DeliveringListData parcel = getParcelByTrackingNo(trackingNo);
         if (parcel == null) return new ParcelScanResult(null, "SCAN.NOT.FOUND", "Parcel not found: " + trackingNo);
         if (parcel.getScan_status() == 1) return new ParcelScanResult(null, "SCAN.ALREADY.SCANNED", "Parcel already scanned in another batch");
@@ -202,7 +207,9 @@ public class MemoryDataStore implements DeliveryOperations {
     @Override
     public DeliveryOperations.ScanBatch reviewBatch(long batchId, String status) {
         DeliveryOperations.ScanBatch batch = batches.get(batchId);
-        if (batch != null && "APPROVED".equalsIgnoreCase(status)) batch.setStatus(2);
+        if (batch != null && ("SUBMITTED".equalsIgnoreCase(status) || "APPROVED".equalsIgnoreCase(status))) {
+            batch.setStatus(2);
+        }
         return batch;
     }
 }

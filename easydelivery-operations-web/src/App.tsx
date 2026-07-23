@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react';
 import {
-    Alert, Badge, Button, Card, DatePicker, Form, Input, Layout, Menu, Select, Space, Spin, Table, Typography,
+    Alert, Badge, Button, Card, DatePicker, Form, Input, Layout, Menu, Select, Space, Spin, Table, Typography, App as AntdApp
 } from 'antd';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Session } from './api/client';
@@ -25,7 +25,11 @@ const { Header, Sider, Content } = Layout;
 
 export function App() {
     const auth = useAuth();
-    return auth.session ? <Workspace /> : <Login />;
+    return (
+        <AntdApp>
+            {auth.session ? <Workspace /> : <Login />}
+        </AntdApp>
+    );
 }
 
 function Login() {

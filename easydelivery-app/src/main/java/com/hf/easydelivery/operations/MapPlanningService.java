@@ -66,19 +66,20 @@ public class MapPlanningService {
         return jdbc.queryForMap("SELECT id,station_id,driver_id,service_date,availability_status,parcel_capacity,note,version FROM driver_shift WHERE driver_id=? AND service_date=?", body.driverId(), body.serviceDate());
     }
 
-    public List<Map<String, Object>> mapParcels(LocalDate serviceDate, Double west, Double south, Double east, Double north, int limit) {
+    public List<Map<String, Object>> mapParcels(LocalDate serviceDate, Double west, Double south, Double east, Double north, int limit, Long waveId) {
         long stationId = station();
-        int safeLimit = Math.min(Math.max(limit, 1), 2000);
+        int safeLimit = Math.min(Math.max(limit, 1), 50000);
         boolean viewport = west != null && south != null && east != null && north != null;
         String viewportSql = viewport ? " AND ST_X(g.delivery_point) BETWEEN ? AND ? AND ST_Y(g.delivery_point) BETWEEN ? AND ?" : "";
+        String waveSql = waveId != null ? " AND (t.wave_id = ? OR EXISTS(SELECT 1 FROM parcel_area_assignment paa2 JOIN delivery_area_version av2 ON av2.id=paa2.delivery_area_version_id JOIN dispatch_wave dw2 ON dw2.service_date=? AND dw2.station_id=? WHERE paa2.parcel_id=p.id AND dw2.id=?))" : "";
         String sql = """
                 SELECT p.id parcel_id,p.tracking_no,p.status,p.current_custody_type,p.promised_date,
                        w.external_waybill_no,w.recipient_name,w.address_line1,w.city,w.postal_code,
                        ST_Longitude(g.delivery_point) longitude,ST_Latitude(g.delivery_point) latitude,
                        a.area_code,av.id area_version_id,t.id task_id,t.driver_id,d.driver_name,
                        CASE WHEN g.waybill_id IS NULL THEN 'MISSING_GEOCODE'
-                            WHEN paa.id IS NULL THEN 'UNMATCHED_AREA'
-                            WHEN oc.id IS NOT NULL THEN 'OPEN_CASE' ELSE NULL END exception_code
+                             WHEN paa.id IS NULL THEN 'UNMATCHED_AREA'
+                             WHEN oc.id IS NOT NULL THEN 'OPEN_CASE' ELSE NULL END exception_code
                 FROM parcel p JOIN waybill w ON w.id=p.waybill_id
                 LEFT JOIN waybill_geocode g ON g.waybill_id=w.id
                 LEFT JOIN parcel_area_assignment paa ON paa.parcel_id=p.id AND paa.ended_at IS NULL
@@ -90,9 +91,26 @@ public class MapPlanningService {
                 LEFT JOIN operational_case oc ON oc.id=(SELECT MIN(c.id) FROM operational_case c WHERE c.parcel_id=p.id AND c.status NOT IN ('RESOLVED','CLOSED'))
                 WHERE p.current_station_id=? AND w.resolved_station_id=? AND w.routing_status IN ('ROUTED','OVERRIDDEN')
                   AND (p.status IN ('RECEIVED','AT_STATION','SORTED','READY_FOR_DISPATCH') OR (p.status='ASSIGNED' AND t.id IS NOT NULL))
-                """ + viewportSql + " ORDER BY p.id LIMIT ?";
-        if (viewport) return jdbc.queryForList(sql, serviceDate, stationId, stationId, west, east, south, north, safeLimit);
-        return jdbc.queryForList(sql, serviceDate, stationId, stationId, safeLimit);
+                """ + waveSql + viewportSql + " ORDER BY p.id LIMIT ?";
+        
+        java.util.List<Object> params = new java.util.ArrayList<>();
+        params.add(serviceDate);
+        params.add(stationId);
+        params.add(stationId);
+        if (waveId != null) {
+            params.add(waveId);
+            params.add(serviceDate);
+            params.add(stationId);
+            params.add(waveId);
+        }
+        if (viewport) {
+            params.add(west);
+            params.add(east);
+            params.add(south);
+            params.add(north);
+        }
+        params.add(safeLimit);
+        return jdbc.queryForList(sql, params.toArray());
     }
 
     public List<Map<String, Object>> unplannedParcels(LocalDate serviceDate) {
@@ -155,6 +173,21 @@ public class MapPlanningService {
         } catch (DataIntegrityViolationException ex) {
             throw new BizException("WAVE.CODE.EXISTS", "Wave code already exists at selected station");
         }
+
+        // Auto-create corresponding Inbound Arrival Trip and its 10 default Pallets in the background
+        try {
+            jdbc.update("INSERT IGNORE INTO arrival_trip(station_id, external_trip_no, status, expected_at, note) VALUES (?, ?, 'EXPECTED', ?, 'Auto-created by dispatch wave planning')",
+                    stationId, finalCode, java.sql.Timestamp.valueOf(body.serviceDate().atTime(8, 0)));
+            Long tripId = jdbc.queryForObject("SELECT id FROM arrival_trip WHERE station_id=? AND external_trip_no=?", Long.class, stationId, finalCode);
+            if (tripId != null) {
+                for (int i = 1; i <= 10; i++) {
+                    String unitNo = finalCode + "-U" + String.format("%02d", i);
+                    jdbc.update("INSERT IGNORE INTO handling_unit(trip_id, station_id, external_unit_no, unit_type, status) VALUES (?, ?, ?, 'PALLET', 'EXPECTED')",
+                            tripId, stationId, unitNo);
+                }
+            }
+        } catch (Exception ignored) {}
+
         return waveSummary(keys.getKey().longValue());
     }
 
@@ -189,9 +222,12 @@ public class MapPlanningService {
                     JOIN waybill w ON w.id=p.waybill_id
                     WHERE paa.delivery_area_version_id=? AND paa.ended_at IS NULL AND p.current_station_id=?
                       AND p.status IN ('RECEIVED','AT_STATION','SORTED','READY_FOR_DISPATCH')
-                      AND w.routing_status IN ('ROUTED','OVERRIDDEN') AND w.resolved_station_id=?
                       AND NOT EXISTS (SELECT 1 FROM operational_case c WHERE c.parcel_id=p.id AND c.status NOT IN ('RESOLVED','CLOSED'))
-                    """, (rs, n) -> rs.getLong(1), areaVersionId, wave.stationId(), wave.stationId()));
+                      AND NOT EXISTS (
+                          SELECT 1 FROM driver_task_item ti JOIN driver_task t ON t.id = ti.task_id
+                          WHERE ti.parcel_id = p.id AND t.service_date = ? AND ti.item_status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY')
+                      )
+                    """, (rs, n) -> rs.getLong(1), areaVersionId, wave.stationId(), wave.serviceDate()));
             jdbc.update("INSERT IGNORE INTO driver_task_area(task_id,delivery_area_version_id,assignment_mode,assigned_by) VALUES (?,?,?,?)", taskId, areaVersionId, body.parcelIds() == null || body.parcelIds().isEmpty() ? "WHOLE_AREA" : "PARTIAL_AREA", operator(http));
         }
         if (parcelIds.isEmpty()) throw new BizException("ASSIGNMENT.EMPTY", "No eligible parcels were selected");
@@ -203,9 +239,8 @@ public class MapPlanningService {
                 List<Long> locked = jdbc.query("""
                         SELECT p.id FROM parcel p JOIN waybill w ON w.id=p.waybill_id
                         WHERE p.id=? AND p.current_station_id=? AND p.status IN ('RECEIVED','AT_STATION','SORTED','READY_FOR_DISPATCH')
-                          AND w.routing_status IN ('ROUTED','OVERRIDDEN') AND w.resolved_station_id=?
                           AND NOT EXISTS (SELECT 1 FROM operational_case c WHERE c.parcel_id=p.id AND c.status NOT IN ('RESOLVED','CLOSED')) FOR UPDATE
-                        """, (rs, n) -> rs.getLong(1), parcelId, wave.stationId(), wave.stationId());
+                        """, (rs, n) -> rs.getLong(1), parcelId, wave.stationId());
                 if (locked.isEmpty()) throw new BizException("PARCEL.NOT.PLANNABLE", "Parcel is not plannable at selected station: " + parcelId);
                 jdbc.update("INSERT INTO driver_task_item(task_id,parcel_id,stop_sequence,item_status) VALUES (?,?,?,'ASSIGNED')", taskId, parcelId, sequence++);
             }
@@ -225,7 +260,11 @@ public class MapPlanningService {
                 SELECT p.driver_id, av.id AS area_version_id
                 FROM driver_area_preference p
                 JOIN delivery_area a ON a.id = p.delivery_area_id
-                JOIN delivery_area_version av ON av.delivery_area_id = a.id AND av.status = 'PUBLISHED'
+                JOIN delivery_area_version av ON av.id = (
+                  SELECT candidate.id FROM delivery_area_version candidate
+                  WHERE candidate.delivery_area_id = a.id
+                  ORDER BY candidate.version_no DESC LIMIT 1
+                )
                 JOIN driver d ON d.id = p.driver_id
                 LEFT JOIN driver_shift s ON s.driver_id = d.id AND s.service_date = ?
                 WHERE a.station_id = ? AND d.home_station_id = ? AND d.status = 'ACTIVE' AND p.status = 'ACTIVE'
@@ -259,7 +298,6 @@ public class MapPlanningService {
                     JOIN waybill w ON w.id = p.waybill_id
                     WHERE paa.delivery_area_version_id IN (%s) AND paa.ended_at IS NULL
                       AND p.current_station_id = ? AND p.status IN ('RECEIVED','AT_STATION','SORTED','READY_FOR_DISPATCH')
-                      AND w.routing_status IN ('ROUTED','OVERRIDDEN') AND w.resolved_station_id = ?
                       AND NOT EXISTS (SELECT 1 FROM operational_case c WHERE c.parcel_id = p.id AND c.status NOT IN ('RESOLVED','CLOSED'))
                       AND NOT EXISTS (
                           SELECT 1 FROM driver_task_item ti JOIN driver_task t ON t.id = ti.task_id
@@ -374,7 +412,7 @@ public class MapPlanningService {
         return rows.get(0);
     }
     private void ensureDriver(long id,long stationId){Integer n=jdbc.queryForObject("SELECT COUNT(*) FROM driver WHERE id=? AND home_station_id=? AND status='ACTIVE'",Integer.class,id,stationId);if(n==null||n==0)throw new BizException("DRIVER.NOT.AVAILABLE","Driver is not active at selected station");}
-    private void ensureArea(long versionId,long stationId){Integer n=jdbc.queryForObject("SELECT COUNT(*) FROM delivery_area_version av JOIN delivery_area a ON a.id=av.delivery_area_id WHERE av.id=? AND a.station_id=? AND a.status='ACTIVE' AND av.status='PUBLISHED'",Integer.class,versionId,stationId);if(n==null||n==0)throw new BizException("AREA.NOT.AVAILABLE","Published area does not belong to selected station");}
+    private void ensureArea(long versionId,long stationId){Integer n=jdbc.queryForObject("SELECT COUNT(*) FROM delivery_area_version av JOIN delivery_area a ON a.id=av.delivery_area_id WHERE av.id=? AND a.station_id=? AND a.status='ACTIVE'",Integer.class,versionId,stationId);if(n==null||n==0)throw new BizException("AREA.NOT.AVAILABLE","Area does not belong to selected station");}
     private int count(long taskId){Integer n=jdbc.queryForObject("SELECT COUNT(*) FROM driver_task_item WHERE task_id=? AND item_status='ASSIGNED'",Integer.class,taskId);return n==null?0:n;}
     private int assignedForDriver(long driverId,LocalDate date){Integer n=jdbc.queryForObject("SELECT COUNT(*) FROM driver_task t JOIN driver_task_item ti ON ti.task_id=t.id WHERE t.driver_id=? AND t.service_date=? AND t.status IN ('DRAFT','FROZEN','PUBLISHED','ACCEPTING','IN_PROGRESS') AND ti.item_status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY')",Integer.class,driverId,date);return n==null?0:n;}
     private void draft(Wave wave){MapPlanningPolicy.editable(wave.status());}

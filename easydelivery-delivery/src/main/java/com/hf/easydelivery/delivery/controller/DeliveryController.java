@@ -59,10 +59,15 @@ public class DeliveryController {
             @RequestParam(value = "pod_images[]", required = false) MultipartFile[] files,
             HttpServletRequest request) {
         
-        log.info("Received POD upload: orderId={}, result={}, lat={}, lng={}, filesCount={}",
-                orderId, deliveryResult, latitude, longitude, files != null ? files.length : 0);
-
         int authenticatedDriverId = (Integer) request.getAttribute("driverId");
+
+        if (deliveryResult == 0 && (files == null || files.length == 0)) {
+            return AppResponse.fail("POD.EVIDENCE.REQUIRED", "POD photo evidence is required for successful delivery");
+        }
+        if (deliveryResult != 0 && failedReason == null) {
+            return AppResponse.fail("PARAM.INVALID", "Failed reason is required for failed delivery attempts");
+        }
+
         long attemptId = dataStore.recordDelivery(orderId, authenticatedDriverId, deliveryResult, failedReason, recipientName, latitude, longitude, idempotencyKey);
 
         if (files != null) {
