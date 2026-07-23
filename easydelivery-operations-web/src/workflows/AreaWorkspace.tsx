@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Alert, Button, Card, Form, Input, InputNumber, Modal, Select, Space, Table, Tag, Typography, Upload, notification } from 'antd';
-import { UploadOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Form, Input, Modal, Select, Space, Table, Tag, Tooltip, Upload, notification } from 'antd';
+import { UploadOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Session } from '../api/client';
 import { areaPayload, type AreaForm } from './areaPayload';
@@ -108,59 +108,63 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
     return <Space direction="vertical" size="middle" style={{ width: '100%' }}>
         {noticeContext}
         {displayedError && <Alert type="error" message={displayedError.message} />}
-        <Card title={t('areas.title')} extra={<Button type="primary" onClick={() => {
-            setEditingArea(undefined); form.resetFields(); form.setFieldValue('areaLevel', 1); setOpen(true);
-        }}>{t('areas.add')}</Button>}>
-            <Typography.Paragraph type="secondary">
-                {t('areas.help')}
-            </Typography.Paragraph>
-            <div className="area-console">
-                <div className="area-console-map">
-                    <AreaMapEditor station={station} value={overviewGeoJson} readOnly />
-                </div>
-                <div className="area-console-list">
-                    <Typography.Title level={5}>{t('areas.list')}</Typography.Title>
-                    <Button size="small" disabled={!selectedArea} onClick={() => setSelectedArea(undefined)}>{t('areas.showAll')}</Button>
-                    {(list.data ?? []).map((row) => <button type="button" key={row.id}
-                        className={`area-list-item ${selectedArea?.id === row.id ? 'selected' : ''}`}
-                        onClick={() => setSelectedArea(row)}>
-                        <span><strong>{row.area_code}</strong><small>{row.area_name}</small></span>
-                        <Tag color={row.status === 'ACTIVE' ? 'green' : 'default'}>{t(`status.${row.status}`, { defaultValue: row.status })}</Tag>
-                    </button>)}
-                </div>
+        <Card title={t('areas.title')} extra={
+            <Space>
+                {selectedArea && <Button size="small" onClick={() => setSelectedArea(undefined)}>查看全部区域地图</Button>}
+                <Button type="primary" onClick={() => {
+                    setEditingArea(undefined); form.resetFields(); form.setFieldValue('areaLevel', 1); setOpen(true);
+                }}>{t('areas.add')}</Button>
+            </Space>
+        }>
+            <div className="area-map-container" style={{ marginBottom: 16 }}>
+                <AreaMapEditor station={station} value={overviewGeoJson} readOnly />
             </div>
-            <Table<AreaRow> rowKey="id" dataSource={list.data ?? []} loading={list.isLoading} pagination={false}
-                onRow={(row) => ({ onClick: () => setSelectedArea(row) })}
+            <Table<AreaRow>
+                rowKey="id"
+                dataSource={list.data ?? []}
+                loading={list.isLoading}
+                pagination={false}
+                rowClassName={(row) => selectedArea?.id === row.id ? 'area-table-row-selected' : 'area-table-row'}
+                onRow={(row) => ({
+                    onMouseEnter: () => setSelectedArea(row),
+                    onClick: () => setSelectedArea(row),
+                })}
                 columns={[
-                    { title: t('areas.code'), dataIndex: 'area_code' }, { title: t('areas.name'), dataIndex: 'area_name' },
+                    { title: t('areas.code'), dataIndex: 'area_code', width: 140 },
+                    { title: t('areas.name'), dataIndex: 'area_name', width: 220 },
                     { title: '责任司机', render: (_, row) => row.primary_driver_name ? <Tag color="blue">{row.primary_driver_name}</Tag> : <Tag color="red">无责任司机</Tag> },
-                    { title: t('areas.level'), dataIndex: 'area_level' },
-                    { title: t('areas.version'), render: (_, row) => row.version_no ?? t('areas.draft') },
-                    { title: t('common.status'), render: (_, row) => { const status=row.version_status ?? row.status; return <Tag>{t(`status.${status}`, { defaultValue: status })}</Tag>; } },
-                    { title: t('common.action'), render: (_, row) => <Space>
-                        <Button size="small" onClick={(event) => { event.stopPropagation(); setViewingArea(row); }}>{t('common.view')}</Button>
-                        {row.status === 'ACTIVE' && <Button size="small" onClick={(event) => {
-                            event.stopPropagation(); setEditingArea(row); form.setFieldsValue({
-                                areaCode: row.area_code, areaName: row.area_name, areaLevel: row.area_level,
-                                driverIds: row.primary_driver_id ? [row.primary_driver_id] : [],
-                                geoJson: row.geo_json ?? '', changeReason: '',
-                            }); setOpen(true);
+                    { title: t('common.status'), render: (_, row) => <Tag color={row.status === 'ACTIVE' ? 'green' : 'default'}>{row.status === 'ACTIVE' ? '启用中' : '已停用'}</Tag>, width: 100 },
+                    { title: t('common.action'), render: (_, row) => <Space onClick={(e) => e.stopPropagation()}>
+                        <Button size="small" onClick={() => setViewingArea(row)}>{t('common.view')}</Button>
+                        {row.status === 'ACTIVE' && <Button size="small" onClick={async () => {
+                            setEditingArea(row);
+                            try {
+                                const prefs = await api<PreferenceRow[]>(`/ops/v1/delivery-areas/${row.id}/driver-preferences`, session, {}, station);
+                                const activePrefs = (prefs ?? []).filter((p) => p.status === 'ACTIVE').sort((a, b) => a.priority - b.priority);
+                                const initialDriverIds = activePrefs.length > 0 ? activePrefs.map((p) => p.driver_id) : (row.primary_driver_id ? [row.primary_driver_id] : []);
+                                form.setFieldsValue({
+                                    areaCode: row.area_code, areaName: row.area_name, areaLevel: row.area_level,
+                                    driverIds: initialDriverIds,
+                                    geoJson: row.geo_json ?? '', changeReason: '',
+                                });
+                            } catch {
+                                form.setFieldsValue({
+                                    areaCode: row.area_code, areaName: row.area_name, areaLevel: row.area_level,
+                                    driverIds: row.primary_driver_id ? [row.primary_driver_id] : [],
+                                    geoJson: row.geo_json ?? '', changeReason: '',
+                                });
+                            }
+                            setOpen(true);
                         }}>{t('common.edit')}</Button>}
-                        <Button size="small" onClick={() => setPreferenceArea(row)}>{t('preferences.button')}</Button>
-                        {row.version_status === 'DRAFT' && <Button size="small" onClick={() => action.mutate({
-                            path: `/ops/v1/delivery-areas/${row.id}/versions/${row.version_id}/validate`,
-                        })}>{t('areas.validate')}</Button>}
-                        {row.version_status === 'VALIDATED' && <Button size="small" type="primary" onClick={() => action.mutate({
-                            path: `/ops/v1/delivery-areas/${row.id}/versions/${row.version_id}/publish`,
-                            body: { reason: 'Approved in delivery area workspace' },
-                        })}>{t('areas.publish')}</Button>}
-                        <Button size="small" danger={row.status === 'ACTIVE'} onClick={(event) => {
-                            event.stopPropagation(); stateForm.resetFields(); setStateArea(row);
+                        <Button size="small" danger={row.status === 'ACTIVE'} onClick={() => {
+                            stateForm.resetFields(); setStateArea(row);
                         }}>{row.status === 'ACTIVE' ? t('common.delete') : t('areas.reactivate')}</Button>
                     </Space> },
-                ]} />
+                ]}
+            />
         </Card>
-        <Modal title={editingArea ? t('areas.editTitle', { code: editingArea.area_code }) : t('areas.dialog')} width={1100} open={open} onCancel={() => setOpen(false)} destroyOnHidden
+
+        <Modal title={editingArea ? t('areas.editTitle', { code: editingArea.area_code }) : t('areas.dialog')} width={650} open={open} onCancel={() => setOpen(false)} destroyOnHidden
             styles={{ body: { maxHeight: 'calc(100vh - 210px)', overflowY: 'auto' } }}
             footer={[
                 <Button key="cancel" onClick={() => setOpen(false)}>{t('common.cancel')}</Button>,
@@ -171,60 +175,92 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                     const payload=areaPayload(values);
                     action.mutate(editingArea ? {
                         path: `/ops/v1/delivery-areas/${editingArea.id}`, method: 'PUT',
-                        body: { areaName: payload.areaName, areaLevel: payload.areaLevel, geoJson: payload.geoJson, changeReason: payload.changeReason },
+                        body: { areaName: payload.areaName, areaLevel: payload.areaLevel, driverIds: payload.driverIds, geoJson: payload.geoJson, changeReason: payload.changeReason },
                     } : { path: '/ops/v1/delivery-areas', body: payload });
                 }
                 catch { notice.error({ message: t('areas.invalidJson'), placement: 'topRight', duration: 6 }); }
             }}>
-                <div className="area-metadata">
-                    <Form.Item name="areaCode" label={t('areas.code')} rules={[{ required: true, whitespace: true }]}><Input placeholder="DT-01" disabled={Boolean(editingArea)} /></Form.Item>
-                    <Form.Item name="areaName" label={t('areas.name')} rules={[{ required: true, whitespace: true }]}><Input placeholder="Downtown core" /></Form.Item>
-                    <Form.Item name="driverIds" label="责任司机（可多选，排首位为主责任人）" rules={[{ required: true, type: 'array', min: 1, message: '新增或修改区域时必须选择至少一名责任司机' }]}>
-                        <Select
-                            mode="multiple"
-                            placeholder="选择负责该小区的司机（支持多选）"
-                            options={(drivers.data ?? []).map((driver) => ({
-                                value: driver.driver_id ?? driver.id!,
-                                label: driver.driver_name ?? driver.display_name ?? driver.driver_code ?? String(driver.driver_id ?? driver.id)
-                            }))}
-                        />
+                <Space style={{ display: 'flex' }} align="start">
+                    <Form.Item name="areaCode" label={t('areas.code')} rules={[{ required: true, whitespace: true }]} style={{ width: 160 }}>
+                        <Input placeholder="如 DT-01" disabled={Boolean(editingArea)} />
                     </Form.Item>
-                    <Form.Item name="areaLevel" label={t('areas.level')} rules={[{ required: true }]}><InputNumber min={1} max={9} style={{ width: '100%' }} /></Form.Item>
-                </div>
-                <div className="area-editor-grid">
-                    <AreaMapEditor station={station} value={geoJson} onChange={(next) => form.setFieldValue('geoJson', next)} />
-                    <div className="area-import-panel">
-                        <Upload accept=".geojson,.json,application/geo+json,application/json" showUploadList={false} beforeUpload={async (file) => {
-                            try {
-                                const text = await file.text();
-                                parseAreaGeoJson(text);
-                                const summary = areaGeoJsonSummary(text);
-                                form.setFieldValue('geoJson', text);
-                                await form.validateFields(['geoJson']);
-                                notice.success({
-                                    message: t('areas.fileLoaded', { name: file.name }),
-                                    description: t('areas.importSummary', summary), placement: 'topRight', duration: 6,
-                                });
-                            } catch {
-                                notice.error({ message: t('areas.invalidJson'), placement: 'topRight', duration: 6 });
-                            }
-                            return false;
-                        }}><Button icon={<UploadOutlined />}>{t('areas.chooseFile')}</Button></Upload>
-                        <Form.Item name="geoJson" label={t('areas.geometry')} rules={[
-                            { required: true, whitespace: true },
-                            { validator: async (_, value) => { if (value) parseAreaGeoJson(value); } },
-                        ]}><Input.TextArea rows={9} placeholder={t('areas.geoJsonPlaceholder')} /></Form.Item>
-                        <Form.Item name="changeReason" label={t('areas.reason')} rules={[{ required: true, whitespace: true }]}><Input.TextArea rows={2} /></Form.Item>
-                    </div>
-                </div>
+                    <Form.Item name="areaName" label={t('areas.name')} rules={[{ required: true, whitespace: true }]} style={{ width: 220 }}>
+                        <Input placeholder="如 市中心区域" />
+                    </Form.Item>
+                    <Form.Item name="areaLevel" hidden initialValue={1}>
+                        <Input hidden />
+                    </Form.Item>
+                </Space>
+
+                <Form.Item
+                    name="driverIds"
+                    label={
+                        <span>
+                            责任司机&nbsp;
+                            <Tooltip title="首位为主责任人，可多选添加备选司机">
+                                <QuestionCircleOutlined style={{ color: '#8c8c8c' }} />
+                            </Tooltip>
+                        </span>
+                    }
+                    rules={[{ required: true, type: 'array', min: 1, message: '请选择责任司机' }]}
+                >
+                    <Select
+                        mode="multiple"
+                        maxTagCount="responsive"
+                        popupMatchSelectWidth={false}
+                        placeholder="选择责任司机（首选为主责任人）"
+                        options={(drivers.data ?? []).map((driver) => ({
+                            value: driver.driver_id ?? driver.id!,
+                            label: driver.driver_name ?? driver.display_name ?? driver.driver_code ?? String(driver.driver_id ?? driver.id)
+                        }))}
+                    />
+                </Form.Item>
+
+                <Form.Item
+                    name="geoJson"
+                    label={
+                        <span>
+                            区域 GeoJSON 边界数据&nbsp;
+                            <Upload accept=".geojson,.json,application/geo+json,application/json" showUploadList={false} beforeUpload={async (file) => {
+                                try {
+                                    const text = await file.text();
+                                    parseAreaGeoJson(text);
+                                    const summary = areaGeoJsonSummary(text);
+                                    form.setFieldValue('geoJson', text);
+                                    await form.validateFields(['geoJson']);
+                                    notice.success({
+                                        message: t('areas.fileLoaded', { name: file.name }),
+                                        description: t('areas.importSummary', summary), placement: 'topRight', duration: 6,
+                                    });
+                                } catch {
+                                    notice.error({ message: t('areas.invalidJson'), placement: 'topRight', duration: 6 });
+                                }
+                                return false;
+                            }}>
+                                <Button size="small" icon={<UploadOutlined />}>导入文件</Button>
+                            </Upload>
+                        </span>
+                    }
+                    rules={[
+                        { required: true, whitespace: true, message: '请粘贴或导入 GeoJSON 边界数据' },
+                        { validator: async (_, value) => { if (value) parseAreaGeoJson(value); } },
+                    ]}
+                >
+                    <Input.TextArea rows={6} placeholder="请粘贴由 geojson.io 等工具导出的 GeoJSON 边界数据" />
+                </Form.Item>
+
+                <Form.Item name="changeReason" label={t('areas.reason')} rules={[{ required: true, whitespace: true, message: '请输入变更原因' }]}>
+                    <Input placeholder="简要说明新增或调整原因" />
+                </Form.Item>
             </Form>
         </Modal>
-        <Modal title={t('areas.detailTitle', { code: viewingArea?.area_code })} width={1000} open={Boolean(viewingArea)}
+
+        <Modal title={t('areas.detailTitle', { code: viewingArea?.area_code })} width={800} open={Boolean(viewingArea)}
             footer={<Button onClick={() => setViewingArea(undefined)}>{t('common.close')}</Button>}
             onCancel={() => setViewingArea(undefined)} destroyOnHidden>
             {viewingArea && <>
                 <Space wrap style={{ marginBottom: 12 }}>
-                    <Tag>{viewingArea.area_name}</Tag><Tag>{t('areas.level')}: {viewingArea.area_level}</Tag>
+                    <Tag>{viewingArea.area_name}</Tag>
                     <Tag color={viewingArea.status === 'ACTIVE' ? 'green' : 'default'}>{viewingArea.status}</Tag>
                 </Space>
                 <AreaMapEditor station={station} value={viewingArea.geo_json} readOnly />
@@ -237,6 +273,7 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                     ]} />
             </>}
         </Modal>
+
         <Modal title={stateArea?.status === 'ACTIVE' ? t('areas.deactivateTitle') : t('areas.reactivateTitle')}
             open={Boolean(stateArea)} onCancel={() => setStateArea(undefined)} destroyOnHidden
             footer={[
@@ -251,6 +288,7 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                 </Form.Item>
             </Form>
         </Modal>
+
         <Modal title={t('preferences.title', { area: preferenceArea?.area_code })} open={Boolean(preferenceArea)} footer={null}
             onCancel={() => setPreferenceArea(undefined)} destroyOnHidden>
             <Form form={preferenceForm} layout="vertical" initialValues={{ priority: 100 }} onFinish={savePreference.mutate}>
@@ -261,7 +299,7 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                     }))} />
                 </Form.Item>
                 <Form.Item name="priority" label={t('preferences.priority')} rules={[{ required: true }]}>
-                    <InputNumber min={1} max={1000} style={{ width: '100%' }} />
+                    <Input placeholder="优先级数值（1为最高）" />
                 </Form.Item>
                 <Form.Item name="reason" label={t('common.reason')} rules={[{ required: true, whitespace: true }]}><Input.TextArea rows={2} /></Form.Item>
                 <Button htmlType="submit" type="primary" loading={savePreference.isPending}>{t('preferences.save')}</Button>

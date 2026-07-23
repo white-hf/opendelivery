@@ -384,6 +384,8 @@ erDiagram
 | `version` | 并发领取/处理版本 |
 | `created_at/updated_at/resolved_at/closed_at` | 生命周期时间 |
 
+> 核心索引：`uk_case_no (case_no)`, `idx_case_queue (status, owner_type, owner_id, sla_due_at)`, `idx_case_parcel_status (parcel_id, status)`。
+
 ### 6.4 `case_action`
 
 **场景**：不可变的 Case 处理历史。

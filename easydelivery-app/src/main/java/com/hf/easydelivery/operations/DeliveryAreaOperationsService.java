@@ -34,14 +34,19 @@ public class DeliveryAreaOperationsService {
                 SELECT a.id,a.area_code,a.area_name,a.area_level,a.status,
                        v.id version_id,v.version_no,v.status version_status,
                        ST_AsGeoJSON(v.boundary) geo_json,v.effective_from,v.effective_to,
-                       p.driver_id AS primary_driver_id, d.driver_name AS primary_driver_name
+                       p.driver_names AS primary_driver_name
                 FROM delivery_area a LEFT JOIN delivery_area_version v ON v.id=(
                   SELECT candidate.id FROM delivery_area_version candidate
                   WHERE candidate.delivery_area_id=a.id
                   ORDER BY candidate.version_no DESC LIMIT 1
                 )
-                LEFT JOIN driver_area_preference p ON p.delivery_area_id=a.id AND p.status='ACTIVE'
-                LEFT JOIN driver d ON d.id=p.driver_id
+                LEFT JOIN (
+                  SELECT delivery_area_id, GROUP_CONCAT(d.driver_name ORDER BY pref.priority ASC SEPARATOR ', ') AS driver_names
+                  FROM driver_area_preference pref
+                  JOIN driver d ON d.id = pref.driver_id
+                  WHERE pref.status = 'ACTIVE'
+                  GROUP BY delivery_area_id
+                ) p ON p.delivery_area_id = a.id
                 WHERE a.station_id=? ORDER BY a.area_level,a.area_code
                 """,stationId);
     }

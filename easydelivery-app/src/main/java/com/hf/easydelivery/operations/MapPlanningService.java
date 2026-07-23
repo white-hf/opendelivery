@@ -305,7 +305,7 @@ public class MapPlanningService {
                       )
                     LIMIT ?
                     """.formatted(inSql);
-            List<Long> plannableParcels = jdbc.query(querySql, (rs, n) -> rs.getLong(1), wave.stationId(), wave.stationId(), wave.serviceDate(), remainingCapacity);
+            List<Long> plannableParcels = jdbc.query(querySql, (rs, n) -> rs.getLong(1), wave.stationId(), wave.serviceDate(), remainingCapacity);
 
             if (!plannableParcels.isEmpty()) {
                 long taskId = task(wave, driverId);

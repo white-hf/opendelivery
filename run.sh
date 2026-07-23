@@ -9,16 +9,32 @@ case "$1" in
     $MVN_BIN test
     ;;
   build)
-    echo "=== Compiling and Packaging ==="
+    echo "=== Compiling and Packaging All Services ==="
     $MVN_BIN clean package -DskipTests
     ;;
   run)
-    echo "=== Starting Spring Boot Backend (Local JVM) ==="
+    echo "=== Starting Spring Boot Backend (Monolith Monolithic Mode: Port 9000) ==="
     if [ ! -f easydelivery-app/target/easydelivery-app-1.0.0.jar ]; then
       echo "Executable JAR not found! Building first..."
       $MVN_BIN clean package -DskipTests
     fi
     java -jar easydelivery-app/target/easydelivery-app-1.0.0.jar
+    ;;
+  run-driver)
+    echo "=== Starting Driver API Service (Port 9000) ==="
+    if [ ! -f easydelivery-driver-api/target/easydelivery-driver-api-1.0.0.jar ]; then
+      echo "Driver API JAR not found! Building first..."
+      $MVN_BIN clean package -DskipTests
+    fi
+    java -jar easydelivery-driver-api/target/easydelivery-driver-api-1.0.0.jar
+    ;;
+  run-ops)
+    echo "=== Starting Operations API Service (Port 9001) ==="
+    if [ ! -f easydelivery-ops-api/target/easydelivery-ops-api-1.0.0.jar ]; then
+      echo "Operations API JAR not found! Building first..."
+      $MVN_BIN clean package -DskipTests
+    fi
+    java -jar easydelivery-ops-api/target/easydelivery-ops-api-1.0.0.jar
     ;;
   docker-build)
     echo "=== Building Docker Image ==="
@@ -39,10 +55,12 @@ case "$1" in
     docker-compose down
     ;;
   *)
-    echo "Usage: ./run.sh {test|build|run|docker-build|docker-up|docker-down}"
+    echo "Usage: ./run.sh {test|build|run|run-driver|run-ops|docker-build|docker-up|docker-down}"
     echo "  test         - Execute JUnit 5 Unit Tests"
-    echo "  build        - Compile and package local JAR"
-    echo "  run          - Start local backend on port 9000"
+    echo "  build        - Compile and package local JARs"
+    echo "  run          - Start local monolith backend (port 9000)"
+    echo "  run-driver   - Start Driver API service (port 9000)"
+    echo "  run-ops      - Start Operations API service (port 9001)"
     echo "  docker-build - Package JAR and compile Docker Image"
     echo "  docker-up    - Run containerized service in background"
     echo "  docker-down  - Stop containerized service"

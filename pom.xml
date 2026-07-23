@@ -10,7 +10,7 @@
     <packaging>pom</packaging>
 
     <name>easydelivery-backend</name>
-    <description>Monolith Multi-module Demo Backend for EasyDelivery Android App</description>
+    <description>EasyDelivery Backend Monorepo with Decoupled Services</description>
 
     <parent>
         <groupId>org.springframework.boot</groupId>
@@ -30,6 +30,8 @@
         <module>easydelivery-auth</module>
         <module>easydelivery-delivery</module>
         <module>easydelivery-scan</module>
+        <module>easydelivery-driver-api</module>
+        <module>easydelivery-ops-api</module>
         <module>easydelivery-app</module>
     </modules>
 
