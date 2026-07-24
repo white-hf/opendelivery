@@ -31,29 +31,25 @@ SELECT d.home_station_id,d.id,CURRENT_DATE,
 FROM driver d WHERE d.credential_id LIKE 'demo.%.driver_'
 ON DUPLICATE KEY UPDATE availability_status=VALUES(availability_status),parcel_capacity=VALUES(parcel_capacity),note=VALUES(note);
 
-INSERT INTO delivery_area(station_id,area_code,area_name,area_level,status)
-SELECT s.id,CONCAT('DEMO-R02-',LEFT(c.station_code,3),'-A',n.n),
- CONCAT(ELT(n.n,'Downtown West','Downtown East','North Residential','South Residential'),' · Demo'),1,'ACTIVE'
-FROM r02_city c JOIN station s ON s.station_code=c.station_code
-CROSS JOIN (SELECT 1 n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4) n
-WHERE 1=1
-ON DUPLICATE KEY UPDATE area_name=VALUES(area_name),status='ACTIVE';
-
-INSERT INTO delivery_area_version(delivery_area_id,version_no,status,boundary,geojson_snapshot,effective_from,validation_json,change_reason,approved_at)
-SELECT a.id,1,'PUBLISHED',
- ST_GeomFromText(CONCAT('MULTIPOLYGON(((',
-   c.center_lng + IF(n.n IN (1,3),-0.030,0.000),' ',c.center_lat + IF(n.n IN (1,2),0.000,-0.025),',',
-   c.center_lng + IF(n.n IN (1,3),0.000,0.030),' ',c.center_lat + IF(n.n IN (1,2),0.000,-0.025),',',
-   c.center_lng + IF(n.n IN (1,3),0.000,0.030),' ',c.center_lat + IF(n.n IN (1,2),0.025,0.000),',',
-   c.center_lng + IF(n.n IN (1,3),-0.030,0.000),' ',c.center_lat + IF(n.n IN (1,2),0.025,0.000),',',
-   c.center_lng + IF(n.n IN (1,3),-0.030,0.000),' ',c.center_lat + IF(n.n IN (1,2),0.000,-0.025),')))'),4326,'axis-order=long-lat'),
- JSON_OBJECT('type','MultiPolygon','properties',JSON_OBJECT('fixture','DEMO-R02')),
- CURRENT_TIMESTAMP(3),JSON_OBJECT('valid',true),'R02 experience fixture',CURRENT_TIMESTAMP(3)
-FROM r02_city c JOIN station s ON s.station_code=c.station_code
-JOIN delivery_area a ON a.station_id=s.id
-JOIN (SELECT 1 n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4) n
-  ON a.area_code=CONCAT('DEMO-R02-',LEFT(c.station_code,3),'-A',n.n)
-WHERE NOT EXISTS (SELECT 1 FROM delivery_area_version v WHERE v.delivery_area_id=a.id);
+INSERT INTO delivery_area(station_id,area_code,area_name,area_level,status,boundary,geojson_snapshot)
+SELECT src.station_id, src.area_code, src.area_name, src.area_level, src.status, src.boundary, src.geojson_snapshot
+FROM (
+    SELECT s.id AS station_id,
+           CONCAT('DEMO-R02-',LEFT(c.station_code,3),'-A',n.n) AS area_code,
+           CONCAT(ELT(n.n,'Downtown West','Downtown East','North Residential','South Residential'),' · Demo') AS area_name,
+           1 AS area_level,
+           'ACTIVE' AS status,
+           ST_GeomFromText(CONCAT('MULTIPOLYGON(((',
+             c.center_lng + IF(n.n IN (1,3),-0.030,0.000),' ',c.center_lat + IF(n.n IN (1,2),0.000,-0.025),',',
+             c.center_lng + IF(n.n IN (1,3),0.000,0.030),' ',c.center_lat + IF(n.n IN (1,2),0.000,-0.025),',',
+             c.center_lng + IF(n.n IN (1,3),0.000,0.030),' ',c.center_lat + IF(n.n IN (1,2),0.025,0.000),',',
+             c.center_lng + IF(n.n IN (1,3),-0.030,0.000),' ',c.center_lat + IF(n.n IN (1,2),0.025,0.000),',',
+             c.center_lng + IF(n.n IN (1,3),-0.030,0.000),' ',c.center_lat + IF(n.n IN (1,2),0.000,-0.025),')))'),4326,'axis-order=long-lat') AS boundary,
+           JSON_OBJECT('type','MultiPolygon','properties',JSON_OBJECT('fixture','DEMO-R02')) AS geojson_snapshot
+    FROM r02_city c JOIN station s ON s.station_code=c.station_code
+    CROSS JOIN (SELECT 1 n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4) n
+) src
+ON DUPLICATE KEY UPDATE area_name=src.area_name, status='ACTIVE', boundary=src.boundary, geojson_snapshot=src.geojson_snapshot;
 
 DROP PROCEDURE IF EXISTS seed_r02_experience;
 DELIMITER //
@@ -86,11 +82,10 @@ BEGIN
         VALUES(v_waybill,ST_GeomFromText(CONCAT('POINT(',v_lng + IF(MOD(i,24)=23,0.060,-0.028 + MOD(i*13,57)/1000),' ',v_lat -0.023 + MOD(i*17,47)/1000,')'),4326,'axis-order=long-lat'),'DEMO_GEOCODER','ROOFTOP',0.9700,'R02 normalized demo address',CURRENT_TIMESTAMP(3))
         ON DUPLICATE KEY UPDATE confidence=VALUES(confidence),geocoded_at=VALUES(geocoded_at);
         IF MOD(i,24)<>23 AND NOT EXISTS(SELECT 1 FROM parcel_area_assignment WHERE parcel_id=v_parcel AND ended_at IS NULL) THEN
-          INSERT INTO parcel_area_assignment(parcel_id,delivery_area_version_id,assignment_source,assignment_reason)
-          SELECT v_parcel,av.id,'GEO_POLYGON','R02 fixture spatial match'
-          FROM delivery_area_version av JOIN delivery_area a ON a.id=av.delivery_area_id
-          JOIN waybill_geocode g ON g.waybill_id=v_waybill
-          WHERE a.station_id=v_station AND av.status='PUBLISHED' AND ST_Intersects(av.boundary,g.delivery_point) LIMIT 1;
+          INSERT INTO parcel_area_assignment(parcel_id,delivery_area_id,assignment_source,assignment_reason)
+          SELECT v_parcel,a.id,'GEO_POLYGON','R02 fixture spatial match'
+          FROM delivery_area a JOIN waybill_geocode g ON g.waybill_id=v_waybill
+          WHERE a.station_id=v_station AND a.status='ACTIVE' AND ST_Intersects(a.boundary,g.delivery_point) LIMIT 1;
         END IF;
       END IF;
       SET i=i+1;
@@ -105,7 +100,7 @@ DROP TEMPORARY TABLE r02_city;
 
 -- Seed driver area preferences to support automatic "一键指派默认司机" functionality in R02
 INSERT INTO driver_area_preference(driver_id, delivery_area_id, priority, status, created_by)
-SELECT d.id, a.id, 1, 'ACTIVE', 'SYSTEM-SEED'
+SELECT d.id, a.id, 1, 'ACTIVE', NULL
 FROM driver d
 JOIN station s ON s.id = d.home_station_id
 JOIN delivery_area a ON a.station_id = s.id

@@ -13,7 +13,11 @@ export function DispatchWorkspace({session,station,initialDate,initialFilter}:{s
  const {t}=useTranslation();const cache=useQueryClient();const serviceDate=initialDate!;const [stage,setStage]=useState(0);const [selected,setSelected]=useState<Set<number>>(new Set());const [focus,setFocus]=useState<PlanningParcel>();const [driver,setDriver]=useState<number>();const [areaVersion,setAreaVersion]=useState<number>();const [waveId,setWaveId]=useState<number>();const [capacityOpen,setCapacityOpen]=useState(false);const [listOpen,setListOpen]=useState(false);
  const [currentArea, setCurrentArea] = useState<number | undefined>(undefined);
  const [slaFilter, setSlaFilter] = useState<string>('ALL');
- const parcels=useQuery({queryKey:['planning-parcels',station,serviceDate,slaFilter],queryFn:()=>api<PlanningParcel[]>(`/ops/v1/planning/parcels?serviceDate=${serviceDate}&slaFilter=${slaFilter}&limit=2000`,session,{},station)});
+  const serviceAreasQuery = useQuery({
+    queryKey: ['delivery-areas-map', station],
+    queryFn: () => api<any[]>(`/ops/v1/delivery-areas`, session, {}, station)
+  });
+  const parcels=useQuery({queryKey:['planning-parcels',station,serviceDate,slaFilter],queryFn:()=>api<PlanningParcel[]>(`/ops/v1/planning/parcels?serviceDate=${serviceDate}&slaFilter=${slaFilter}&limit=2000`,session,{},station)});
  const shifts=useQuery({queryKey:['planning-shifts',station,serviceDate],queryFn:()=>api<Shift[]>(`/ops/v1/planning/shifts?serviceDate=${serviceDate}`,session,{},station)});
  
  // Fetch existing waves to prevent duplicate creation lockups
@@ -450,12 +454,17 @@ export function DispatchWorkspace({session,station,initialDate,initialFilter}:{s
               />
             </Space>
           </Space>
-         <Tag color={currentArea ? 'purple' : 'orange'}>
-           {currentArea ? `该区域地图包裹数: ${filteredVisibleParcels.length} 件` : `🚨 警告: 正在显示全站 ${visible.length} 件包裹 (易造成浏览器卡顿)`}
-         </Tag>
-       </div>
-
-       <PlanningMap station={station} parcels={filteredVisibleParcels} selected={selected} onToggle={toggle} onSelect={setFocus}/>
+        </div>
+      <PlanningMap
+        station={station}
+        parcels={visible}
+        serviceAreas={serviceAreasQuery.data ?? []}
+        selected={selected}
+        activeAreaId={currentArea}
+        onSelectArea={setCurrentArea}
+        onToggle={toggle}
+        onSelect={setFocus}
+      />
        
        <div className="map-legend" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
          <div>

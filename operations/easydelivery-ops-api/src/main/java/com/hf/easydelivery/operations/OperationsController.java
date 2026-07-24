@@ -48,6 +48,21 @@ public class OperationsController {
         return AppResponse.success(controlTower.snapshot(serviceDate));
     }
 
+    @GetMapping("/control-tower/on-road-supervision")
+    public AppResponse<?> onRoadSupervision(@RequestParam java.time.LocalDate serviceDate) {
+        return AppResponse.success(controlTower.onRoadSupervision(serviceDate));
+    }
+
+    @GetMapping("/control-tower/driver-capacity")
+    public AppResponse<?> driverCapacity(@RequestParam java.time.LocalDate serviceDate) {
+        return AppResponse.success(controlTower.driverCapacity(serviceDate));
+    }
+
+    @GetMapping("/control-tower/inbound-discrepancy")
+    public AppResponse<?> inboundDiscrepancy(@RequestParam java.time.LocalDate serviceDate) {
+        return AppResponse.success(controlTower.inboundDiscrepancies(serviceDate));
+    }
+
     @PostMapping("/waves")
     public AppResponse<OperationsService.WaveResult> createWave(
             @RequestHeader(value = "X-Ops-Api-Key", required = false) String apiKey,

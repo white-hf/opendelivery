@@ -38,7 +38,7 @@ function Login() {
     const [error, setError] = useState('');
 
     return <main className="login">
-        <Card title={t('app.title')}>
+        <Card title={<Space><span>{t('app.title')}</span><span style={{ fontSize: '12px', background: '#1677ff', color: '#fff', padding: '2px 8px', borderRadius: '10px' }}>v0.5.3</span></Space>}>
             <Select aria-label={t('locale.label')} value={i18n.language as SupportedLocale} style={{ width: '100%', marginBottom: 16 }}
                 onChange={(value: SupportedLocale) => void changeLocale(value)}
                 options={SUPPORTED_LOCALES.map((value) => ({ value, label: value }))} />
@@ -93,7 +93,10 @@ function Workspace() {
 
     return <Layout className="shell">
         <Sider>
-            <Typography.Title level={4} className="brand">OpenDelivery</Typography.Title>
+            <Typography.Title level={4} className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>OpenDelivery</span>
+                <span style={{ fontSize: '11px', background: '#1677ff', padding: '2px 6px', borderRadius: '4px', color: '#ffffff', fontWeight: 'bold' }}>v0.6.3</span>
+            </Typography.Title>
             <Menu
                 theme="dark"
                 selectedKeys={[page]}

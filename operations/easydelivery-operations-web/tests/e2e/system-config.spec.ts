@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test('operator can navigate to system config workbench and manage drivers', async ({ page }) => {
     await page.goto('/');
     await page.getByPlaceholder('Username').fill('opsadmin');
-    await page.getByPlaceholder('Password').fill('test');
+    await page.getByPlaceholder('Password').fill('password123');
     await page.getByRole('button', { name: 'Sign in' }).click();
     
     await expect(page.getByText('Today’s operating journey')).toBeVisible();

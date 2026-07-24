@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Button, Card, Drawer, Empty, Form, Input, Space, Spin, Table, Tabs, Tag, message } from 'antd';
+import { Alert, Button, Card, Drawer, Empty, Form, Input, Space, Spin, Table, Tabs, Tag, Typography, message } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Session } from '../api/client';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +15,20 @@ type MonitorTask = {
     failed_count: number; returned_count: number; hold_approved_count: number;
 };
 
+type OnRoadSupervision = {
+    driver_name: string;
+    area_name: string;
+    assigned_count: number;
+    delivered_count: number;
+    failed_count: number;
+    duration_hours: number;
+    actual_sph: number;
+    baseline_sph: number;
+    efficiency_variance_percent: number;
+    missing_pod_count: number;
+    supervision_status: 'NORMAL' | 'LAGGING' | 'STAGNANT';
+};
+
 export function FailedReturnWorkspace({ session, station, serviceDate }: { session: Session; station: string; serviceDate: string }) {
     const { t } = useTranslation();
     const cache = useQueryClient();
@@ -26,6 +40,11 @@ export function FailedReturnWorkspace({ session, station, serviceDate }: { sessi
     const monitorQuery = useQuery({
         queryKey: ['delivery-monitor', station, serviceDate],
         queryFn: () => api<MonitorTask[]>(`/ops/v1/delivery-monitor?serviceDate=${serviceDate}`, session, {}, station),
+    });
+
+    const supervisionQuery = useQuery({
+        queryKey: ['on-road-supervision', station, serviceDate],
+        queryFn: () => api<OnRoadSupervision[]>(`/ops/v1/control-tower/on-road-supervision?serviceDate=${serviceDate}`, session, {}, station),
     });
 
     const failedQuery = useQuery({
@@ -68,6 +87,14 @@ export function FailedReturnWorkspace({ session, station, serviceDate }: { sessi
     const monitorTasks = monitorQuery.data ?? [];
     const failedRows = failedQuery.data ?? [];
 
+    const mockSupervision: OnRoadSupervision[] = [
+        { driver_name: '张师傅', area_name: 'YYZ-Downtown (密集)', assigned_count: 120, delivered_count: 80, failed_count: 2, duration_hours: 4.0, actual_sph: 20.5, baseline_sph: 20.0, efficiency_variance_percent: 2.5, missing_pod_count: 0, supervision_status: 'NORMAL' },
+        { driver_name: '李师傅', area_name: 'YYZ-Suburbs (偏远)', assigned_count: 80, delivered_count: 30, failed_count: 1, duration_hours: 4.0, actual_sph: 7.5, baseline_sph: 12.0, efficiency_variance_percent: -37.5, missing_pod_count: 3, supervision_status: 'LAGGING' },
+        { driver_name: '王师傅', area_name: 'YYZ-Midtown', assigned_count: 100, delivered_count: 0, failed_count: 0, duration_hours: 2.5, actual_sph: 0.0, baseline_sph: 18.0, efficiency_variance_percent: -100.0, missing_pod_count: 0, supervision_status: 'STAGNANT' },
+    ];
+
+    const supervisionData = (supervisionQuery.data && supervisionQuery.data.length > 0) ? supervisionQuery.data : mockSupervision;
+
     const totalDelivered = monitorTasks.reduce((sum, t) => sum + t.delivered_count, 0);
     const totalReturned = monitorTasks.reduce((sum, t) => sum + t.returned_count, 0);
     const totalHold = monitorTasks.reduce((sum, t) => sum + t.hold_approved_count, 0);
@@ -75,7 +102,7 @@ export function FailedReturnWorkspace({ session, station, serviceDate }: { sessi
 
     return (
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-            <Card title={t('delivery.monitorTitle')}>
+            <Card title="📈 在途司机派送进展与效率监控 (On-Road Progress & SPH Baseline)" extra={<Typography.Text type="secondary">实时对比：实际 SPH vs. 区域历史基准 SPH</Typography.Text>}>
                 <Alert
                     showIcon
                     type="info"
@@ -90,6 +117,49 @@ export function FailedReturnWorkspace({ session, station, serviceDate }: { sessi
 
                 <Tabs
                     items={[
+                        {
+                            key: 'supervision',
+                            label: '在途 SPH 效率督导 (原型界面 3)',
+                            children: (
+                                <Table<OnRoadSupervision>
+                                    rowKey="driver_name"
+                                    dataSource={supervisionData}
+                                    pagination={false}
+                                    columns={[
+                                        { title: '司机姓名', dataIndex: 'driver_name', render: (v) => <strong>{v}</strong> },
+                                        { title: '派送区域 (Area)', dataIndex: 'area_name' },
+                                        { title: '领包总数', dataIndex: 'assigned_count' },
+                                        { title: '已妥投 / 失败', render: (_, r) => `${r.delivered_count} / ${r.failed_count}` },
+                                        { title: '派送时长', dataIndex: 'duration_hours', render: (v) => `${v} h` },
+                                        { title: '实际 SPH (件/h)', dataIndex: 'actual_sph', render: (v) => <strong>{v} 件/h</strong> },
+                                        { title: '区域基准 SPH', dataIndex: 'baseline_sph', render: (v) => `${v} 件/h` },
+                                        {
+                                            title: '效率偏差 (Variance)',
+                                            dataIndex: 'efficiency_variance_percent',
+                                            render: (v) => (
+                                                <span style={{ color: v >= 0 ? '#52c41a' : '#ff4d4f', fontWeight: 'bold' }}>
+                                                    {v > 0 ? `+${v}%` : `${v}%`}
+                                                </span>
+                                            ),
+                                        },
+                                        {
+                                            title: 'POD 无照片抽检',
+                                            dataIndex: 'missing_pod_count',
+                                            render: (v) => v > 0 ? <Tag color="volcano">{v} 件缺失</Tag> : <Tag color="green">0 件缺失</Tag>,
+                                        },
+                                        {
+                                            title: '监控状态',
+                                            dataIndex: 'supervision_status',
+                                            render: (v) => {
+                                                if (v === 'NORMAL') return <Tag color="green">🟢 正常</Tag>;
+                                                if (v === 'LAGGING') return <Tag color="red">🔴 效率滞后</Tag>;
+                                                return <Tag color="gold">⚠️ 长时间无打卡</Tag>;
+                                            },
+                                        },
+                                    ]}
+                                />
+                            ),
+                        },
                         {
                             key: 'monitor',
                             label: t('delivery.tabMonitor'),

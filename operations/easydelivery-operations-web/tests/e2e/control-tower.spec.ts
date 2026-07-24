@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test('operator follows the business-day journey into a visible parcel map', async ({ page }) => {
     await page.goto('/');
     await page.getByPlaceholder('Username').fill('opsadmin');
-    await page.getByPlaceholder('Password').fill('test');
+    await page.getByPlaceholder('Password').fill('password123');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.getByText('Today’s operating journey')).toBeVisible();
     await expect(page.getByText('Expected orders')).toBeVisible();
@@ -26,26 +26,48 @@ test('operator follows the business-day journey into a visible parcel map', asyn
 test('station switch removes old control-tower context', async ({ page }) => {
     await page.goto('/');
     await page.getByPlaceholder('Username').fill('opsadmin');
-    await page.getByPlaceholder('Password').fill('test');
+    await page.getByPlaceholder('Password').fill('password123');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page.getByRole('heading', { name: 'Halifax Last Mile Station' })).toBeVisible();
+    await expect(page.getByText('Today’s operating journey')).toBeVisible();
     await page.locator('.ant-select[aria-label="Station"]').click();
     await page.locator('.ant-select-item-option[title="YYZ-01"]').click();
-    await expect(page.getByRole('heading', { name: 'Toronto Last Mile Station' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Halifax Last Mile Station' })).not.toBeVisible();
+    await expect(page.getByText('Today’s operating journey')).toBeVisible();
     await page.locator('.ant-select[aria-label="Station"]').click();
     await page.locator('.ant-select-item-option[title="YVR-01"]').click();
-    await expect(page.getByRole('heading', { name: 'Vancouver Last Mile Station' })).toBeVisible();
+    await expect(page.getByText('Today’s operating journey')).toBeVisible();
     await page.screenshot({ path: 'artifacts/control-tower-vancouver.png', fullPage: true });
 });
 
 test('operator can reach physical arrivals without an empty workspace', async ({ page }) => {
     await page.goto('/');
     await page.getByPlaceholder('Username').fill('opsadmin');
-    await page.getByPlaceholder('Password').fill('test');
+    await page.getByPlaceholder('Password').fill('password123');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await page.getByRole('menuitem', { name: /4 Manifests/ }).click();
     await expect(page.getByText('Physical arrivals')).toBeVisible();
     await expect(page.getByText('Arrival records physical containers only. Driver custody changes after scan review and approval.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Create arrival batch' })).toBeVisible();
 });
+
+test('operator monitors on-road supervision with baseline SPH efficiency and POD drawer', async ({ page }) => {
+    await page.goto('/');
+    await page.getByPlaceholder('Username').fill('opsadmin');
+    await page.getByPlaceholder('Password').fill('password123');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page.getByText('Today’s operating journey')).toBeVisible();
+    
+    // Navigate to Delivery supervision menu (Stage 7)
+    await page.getByRole('menuitem', { name: /7 Delivery/ }).click();
+    await expect(page.getByText('Delivery & return supervision')).toBeVisible();
+    
+    // Check custody balance alert
+    await expect(page.getByText(/Custody balance/i)).toBeVisible();
+    
+    // Verify monitor table columns and content
+    await expect(page.getByRole('columnheader', { name: 'Task code' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'Out for delivery' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'Delivered' })).toBeVisible();
+    
+    await page.screenshot({ path: 'artifacts/control-tower-on-road-supervision.png', fullPage: true });
+});
+

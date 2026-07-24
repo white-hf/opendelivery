@@ -72,6 +72,121 @@ public class ControlTowerService {
                 new Capacity(availableDrivers,capacity,assigned,Math.max(0,capacity-assigned),shortage),exceptions,actions);
     }
 
+    public List<DriverSupervisionItem> onRoadSupervision(LocalDate serviceDate) {
+        long stationId = station();
+        String sql = """
+            SELECT d.id AS driver_id, d.name AS driver_name,
+                   COALESCE(da.area_code, 'DEFAULT') AS area_code,
+                   COUNT(ti.id) AS dispatched_count,
+                   COUNT(CASE WHEN ti.item_status = 'DELIVERED' THEN 1 END) AS delivered_count,
+                   COUNT(CASE WHEN ti.item_status = 'FAILED' THEN 1 END) AS failed_count,
+                   COUNT(att.id) AS total_attempts,
+                   MIN(att.created_at) AS first_attempt_at,
+                   MAX(att.created_at) AS last_attempt_at,
+                   COUNT(CASE WHEN ti.item_status = 'DELIVERED' AND pod.id IS NULL THEN 1 END) AS missing_pod_count
+            FROM driver d
+            JOIN driver_task t ON t.driver_id = d.id AND t.station_id = ? AND t.service_date = ?
+            JOIN driver_task_item ti ON ti.task_id = t.id
+            LEFT JOIN delivery_area da ON da.id = t.area_id
+            LEFT JOIN delivery_attempt att ON att.task_item_id = ti.id
+            LEFT JOIN proof_of_delivery pod ON pod.task_item_id = ti.id
+            GROUP BY d.id, d.name, da.area_code
+            """;
+
+        return jdbc.query(sql, (rs, rowNum) -> {
+            long driverId = rs.getLong("driver_id");
+            String driverName = rs.getString("driver_name");
+            String areaCode = rs.getString("area_code");
+            int dispatchedCount = rs.getInt("dispatched_count");
+            int deliveredCount = rs.getInt("delivered_count");
+            int failedCount = rs.getInt("failed_count");
+            int totalAttempts = rs.getInt("total_attempts");
+            int missingPodCount = rs.getInt("missing_pod_count");
+
+            java.sql.Timestamp firstAtt = rs.getTimestamp("first_attempt_at");
+            java.sql.Timestamp lastAtt = rs.getTimestamp("last_attempt_at");
+            
+            double activeHours = 0.0;
+            if (firstAtt != null) {
+                long now = System.currentTimeMillis();
+                long start = firstAtt.getTime();
+                activeHours = Math.max(0.5, Math.round((now - start) / 3600000.0 * 10.0) / 10.0);
+            }
+
+            double baselineSph = areaCode.contains("Downtown") ? 20.0 : 12.0;
+            double actualSph = ControlTowerPolicy.calculateActualSph(totalAttempts, activeHours);
+            double efficiencyVariance = ControlTowerPolicy.calculateEfficiencyVariance(actualSph, baselineSph);
+            String supervisionStatus = ControlTowerPolicy.evaluateSupervisionStatus(activeHours, totalAttempts, efficiencyVariance);
+
+            return new DriverSupervisionItem(
+                driverId, driverName, areaCode, dispatchedCount, deliveredCount, failedCount,
+                activeHours, actualSph, baselineSph, efficiencyVariance, missingPodCount, supervisionStatus
+            );
+        }, stationId, serviceDate);
+    }
+
+    public List<DriverCapacityItem> driverCapacity(LocalDate serviceDate) {
+        long stationId = station();
+        String sql = """
+            SELECT d.id AS driver_id, d.credential_id AS driver_code, d.driver_name,
+                   ds.availability_status, da.area_name AS vehicle_type,
+                   ds.parcel_capacity AS capacity_limit,
+                   COUNT(ti.id) AS assigned_count
+            FROM driver d
+            JOIN driver_shift ds ON ds.driver_id = d.id AND ds.station_id = ? AND ds.service_date = ?
+            LEFT JOIN driver_task t ON t.driver_id = d.id AND t.station_id = ? AND t.service_date = ?
+            LEFT JOIN driver_task_item ti ON ti.task_id = t.id AND ti.item_status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY','DELIVERED')
+            LEFT JOIN delivery_area da ON da.id = t.area_id
+            GROUP BY d.id, d.credential_id, d.driver_name, ds.availability_status, da.area_name, ds.parcel_capacity
+            """;
+        return jdbc.query(sql, (rs, rowNum) -> new DriverCapacityItem(
+            rs.getLong("driver_id"),
+            rs.getString("driver_code"),
+            rs.getString("driver_name"),
+            rs.getString("availability_status"),
+            rs.getString("vehicle_type") != null ? rs.getString("vehicle_type") : "VAN 标准货车",
+            rs.getInt("capacity_limit"),
+            rs.getInt("assigned_count")
+        ), stationId, serviceDate, stationId, serviceDate);
+    }
+
+    public List<InboundDiscrepancyItem> inboundDiscrepancies(LocalDate serviceDate) {
+        long stationId = station();
+        String sql = """
+            SELECT c.id AS case_id, c.case_no, c.case_type, c.status AS case_status,
+                   p.tracking_no, m.external_manifest_no AS manifest_no,
+                   c.description
+            FROM operational_case c
+            LEFT JOIN parcel p ON p.id = c.parcel_id
+            LEFT JOIN inbound_manifest_item mi ON mi.parcel_id = p.id
+            LEFT JOIN inbound_manifest m ON m.id = mi.manifest_id
+            WHERE c.station_id = ? AND c.case_type IN ('INBOUND_MISSING','WRONG_STATION','PHYSICAL_DAMAGED','INBOUND_DISCREPANCY')
+            ORDER BY c.id DESC
+            """;
+        return jdbc.query(sql, (rs, rowNum) -> {
+            String caseType = rs.getString("case_type");
+            String physicalStatus = "NOT_FOUND";
+            String discrepancyType = "HIDDEN_MISSING";
+            if ("WRONG_STATION".equalsIgnoreCase(caseType)) {
+                physicalStatus = "MIS_ROUTED";
+                discrepancyType = "WRONG_STATION";
+            } else if ("PHYSICAL_DAMAGED".equalsIgnoreCase(caseType)) {
+                physicalStatus = "DAMAGED";
+                discrepancyType = "PHYSICAL_DAMAGED";
+            }
+
+            return new InboundDiscrepancyItem(
+                String.valueOf(rs.getLong("case_id")),
+                rs.getString("tracking_no") != null ? rs.getString("tracking_no") : "TRK-CASE-" + rs.getLong("case_id"),
+                rs.getString("manifest_no") != null ? rs.getString("manifest_no") : "MNF-" + serviceDate.toString().replace("-", ""),
+                physicalStatus,
+                discrepancyType,
+                rs.getString("case_no"),
+                "RESOLVED".equalsIgnoreCase(rs.getString("case_status")) ? "RESOLVED" : "CASE_OPENED"
+            );
+        }, stationId);
+    }
+
     private Stage stage(String code,int total,int complete,int blockers,String target){return new Stage(code,ControlTowerPolicy.stageStatus(total,complete,blockers),total,complete,blockers,ControlTowerPolicy.percent(total,complete),target);}
     private Metric metric(String code,int count,String target,String filter){return new Metric(code,count,target,filter);}
     private ActionItem action(String code,int count,String severity,String target,String filter){return new ActionItem(code,count,severity,target,filter);}
@@ -85,4 +200,7 @@ public class ControlTowerService {
     public record Capacity(int availableDrivers,int total,int assigned,int remaining,int shortage){}
     public record ExceptionItem(String code,int count,String severity,String target,String filter){}
     public record ActionItem(String code,int count,String severity,String target,String filter){}
+    public record DriverSupervisionItem(long driverId, String driverName, String areaCode, int dispatchedCount, int deliveredCount, int failedCount, double activeHours, double actualSph, double baselineSph, double efficiencyVariancePercent, int missingPodCount, String supervisionStatus){}
+    public record DriverCapacityItem(long driverId, String driverCode, String driverName, String status, String vehicleType, int capacityLimit, int assignedCount){}
+    public record InboundDiscrepancyItem(String id, String trackingNo, String manifestNo, String physicalStatus, String discrepancyType, String actionCaseNo, String actionStatus){}
 }

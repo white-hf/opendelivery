@@ -45,13 +45,6 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
    queryFn: () => api<Area[]>('/ops/v1/delivery-areas', session, {}, station)
  });
 
- // Automatically select first region if available
- useEffect(() => {
-   if (areas.data && areas.data.length > 0 && !selectedZoneCode) {
-     setSelectedZoneCode(areas.data[0].area_code);
-   }
- }, [areas.data, selectedZoneCode]);
-
  const all = useMemo(() => parcels.data ?? [], [parcels.data]);
 
  // Exact Tracking No B+Tree indexed direct exact lookup
@@ -60,9 +53,9 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
    return all.filter(p => p && (p.tracking_no === searchQuery.trim() || p.tracking_no?.startsWith(searchQuery.trim())));
  }, [all, searchQuery]);
 
- // Geographic zoning selection - default first active zone selected
+ // Geographic zoning selection - default all zones if none selected
  const filteredByZone = useMemo(() => {
-   if (!selectedZoneCode) return [];
+   if (!selectedZoneCode) return filteredBySearch;
    return filteredBySearch.filter(p => p && p.area_code === selectedZoneCode);
  }, [filteredBySearch, selectedZoneCode]);
 
@@ -182,7 +175,23 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
      <div style={{ flex: 1, position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e8edf3' }}>
        {/* Big Google Map Background */}
        <div style={{ position: 'absolute', inset: 0 }}>
-         <PlanningMap station={station} parcels={visible} selected={selected} onToggle={toggle} onSelect={setFocus} />
+         <PlanningMap 
+            station={station} 
+            parcels={visible} 
+            serviceAreas={areas.data ?? []}
+            selected={selected} 
+            activeAreaId={areas.data?.find(a => a.area_code === selectedZoneCode)?.id}
+            onSelectArea={(areaId) => {
+              if (!areaId) {
+                setSelectedZoneCode(undefined);
+              } else {
+                const matched = areas.data?.find(a => Number(a.id) === Number(areaId));
+                if (matched) setSelectedZoneCode(matched.area_code);
+              }
+            }}
+            onToggle={toggle} 
+            onSelect={setFocus} 
+          />
        </div>
 
        {/* Floating Sidebar Drawer Panel */}

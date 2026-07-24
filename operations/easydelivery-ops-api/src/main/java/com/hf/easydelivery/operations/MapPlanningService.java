@@ -75,7 +75,7 @@ public class MapPlanningService {
         int safeLimit = Math.min(Math.max(limit, 1), 50000);
         boolean viewport = west != null && south != null && east != null && north != null;
         String viewportSql = viewport ? " AND ST_X(g.delivery_point) BETWEEN ? AND ? AND ST_Y(g.delivery_point) BETWEEN ? AND ?" : "";
-        String waveSql = waveId != null ? " AND (t.wave_id = ? OR EXISTS(SELECT 1 FROM parcel_area_assignment paa2 JOIN delivery_area_version av2 ON av2.id=paa2.delivery_area_version_id JOIN dispatch_wave dw2 ON dw2.service_date=? AND dw2.station_id=? WHERE paa2.parcel_id=p.id AND dw2.id=?))" : "";
+        String waveSql = waveId != null ? " AND (t.wave_id = ? OR EXISTS(SELECT 1 FROM parcel_area_assignment paa2 JOIN dispatch_wave dw2 ON dw2.service_date=? AND dw2.station_id=? WHERE paa2.parcel_id=p.id AND dw2.id=?))" : "";
         
         String slaSql = "";
         if ("TODAY_DUE".equalsIgnoreCase(slaFilter) || "EXPRESS_ONLY".equalsIgnoreCase(slaFilter)) {
@@ -88,15 +88,14 @@ public class MapPlanningService {
                 SELECT p.id parcel_id,p.tracking_no,p.status,p.current_custody_type,p.promised_date,w.service_code,
                        w.external_waybill_no,w.recipient_name,w.address_line1,w.city,w.postal_code,
                        ST_Longitude(g.delivery_point) longitude,ST_Latitude(g.delivery_point) latitude,
-                       a.area_code,av.id area_version_id,t.id task_id,t.driver_id,d.driver_name,
+                       a.area_code,a.id area_id,a.id area_version_id,t.id task_id,t.driver_id,d.driver_name,
                        CASE WHEN g.waybill_id IS NULL THEN 'MISSING_GEOCODE'
-                             WHEN paa.id IS NULL THEN 'UNMATCHED_AREA'
+                             WHEN COALESCE(p.current_area_id, paa.delivery_area_id) IS NULL THEN 'UNMATCHED_AREA'
                              WHEN oc.id IS NOT NULL THEN 'OPEN_CASE' ELSE NULL END exception_code
                 FROM parcel p JOIN waybill w ON w.id=p.waybill_id
                 LEFT JOIN waybill_geocode g ON g.waybill_id=w.id
                 LEFT JOIN parcel_area_assignment paa ON paa.parcel_id=p.id AND paa.ended_at IS NULL
-                LEFT JOIN delivery_area_version av ON av.id=paa.delivery_area_version_id
-                LEFT JOIN delivery_area a ON a.id=av.delivery_area_id
+                LEFT JOIN delivery_area a ON a.id=COALESCE(p.current_area_id, paa.delivery_area_id)
                 LEFT JOIN driver_task_item ti ON ti.parcel_id=p.id AND ti.item_status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY')
                 LEFT JOIN driver_task t ON t.id=ti.task_id AND t.service_date=?
                 LEFT JOIN driver d ON d.id=t.driver_id
@@ -131,12 +130,11 @@ public class MapPlanningService {
     public List<Map<String, Object>> unplannedParcels(LocalDate serviceDate) {
         long stationId = station();
         return jdbc.queryForList("""
-                SELECT a.id AS area_id, a.area_code, a.area_name, av.id AS area_version_id, COUNT(p.id) AS unplanned_count
+                SELECT a.id AS area_id, a.area_code, a.area_name, a.id AS area_version_id, COUNT(p.id) AS unplanned_count
                 FROM parcel p
                 JOIN waybill w ON w.id = p.waybill_id
                 LEFT JOIN parcel_area_assignment paa ON paa.parcel_id = p.id AND paa.ended_at IS NULL
-                LEFT JOIN delivery_area_version av ON av.id = paa.delivery_area_version_id
-                LEFT JOIN delivery_area a ON a.id = av.delivery_area_id
+                LEFT JOIN delivery_area a ON a.id = paa.delivery_area_id
                 WHERE p.current_station_id = ? AND w.resolved_station_id = ?
                   AND p.status IN ('RECEIVED','AT_STATION','SORTED','READY_FOR_DISPATCH')
                   AND w.routing_status IN ('ROUTED','OVERRIDDEN')
@@ -145,7 +143,7 @@ public class MapPlanningService {
                       SELECT 1 FROM driver_task_item ti JOIN driver_task t ON t.id = ti.task_id
                       WHERE ti.parcel_id = p.id AND t.service_date = ? AND ti.item_status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY')
                   )
-                GROUP BY a.id, a.area_code, a.area_name, av.id
+                GROUP BY a.id, a.area_code, a.area_name
                 ORDER BY a.area_code
                 """, stationId, stationId, serviceDate);
     }

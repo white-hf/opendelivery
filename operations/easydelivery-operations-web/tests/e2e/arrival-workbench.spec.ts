@@ -6,7 +6,7 @@ import { expect, test } from '@playwright/test';
 test('arrival batch workbench renders with auto batch-number guidance', async ({ page }) => {
     await page.goto('/');
     await page.getByPlaceholder('Username').fill('opsadmin');
-    await page.getByPlaceholder('Password').fill('test');
+    await page.getByPlaceholder('Password').fill('password123');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await page.getByRole('menuitem', { name: '4 Manifests' }).click();
     await expect(page.getByText('Physical arrivals')).toBeVisible();
@@ -25,7 +25,7 @@ test('arrival workbench renders in zh-CN', async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('opendelivery.locale', 'zh-CN'));
     await page.goto('/');
     await page.getByPlaceholder('用户名').fill('opsadmin');
-    await page.getByPlaceholder('密码').fill('test');
+    await page.getByPlaceholder('密码').fill('password123');
     await page.getByRole('button', { name: /登\s*录/ }).click();
     await page.getByRole('menuitem', { name: '4 到货清单' }).click();
     await expect(page.getByText('到仓实物')).toBeVisible();

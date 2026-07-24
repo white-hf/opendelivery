@@ -157,22 +157,22 @@ public class PhysicalArrivalService {
             audit(http,unit.getStationId(),"HANDLING_UNIT_AREA_CLEARED","HANDLING_UNIT",unit.getId(),body.reason(),Map.of("cleared",true));
             return detail(unit.getTripId());
         }
-        for(Long versionId:body.areaVersionIds()){
-            Integer n=jdbc.queryForObject("SELECT COUNT(*) FROM delivery_area_version av JOIN delivery_area a ON a.id=av.delivery_area_id WHERE av.id=? AND a.station_id=? AND a.status='ACTIVE' AND av.status='PUBLISHED'",Integer.class,versionId,unit.getStationId());
-            if(n==null||n==0)throw new BizException("AREA.NOT.AVAILABLE","Published area does not belong to selected station");
+        for(Long areaId:body.areaVersionIds()){
+            Integer n=jdbc.queryForObject("SELECT COUNT(*) FROM delivery_area a WHERE a.id=? AND a.station_id=? AND a.status='ACTIVE'",Integer.class,areaId,unit.getStationId());
+            if(n==null||n==0)throw new BizException("AREA.NOT.AVAILABLE","Active area does not belong to selected station");
         }
         jdbc.update("DELETE FROM handling_unit_parcel WHERE handling_unit_id=? AND link_source='AREA_PLAN'", unit.getId());
         int linked=0;
-        for(Long versionId:body.areaVersionIds()){
+        for(Long areaId:body.areaVersionIds()){
             // Escape hatch (ADR): set-based INSERT…SELECT over the denormalized area projection
             linked+=jdbc.update("""
                     INSERT IGNORE INTO handling_unit_parcel(handling_unit_id,parcel_id,link_source)
                     SELECT ?,p.id,'AREA_PLAN' FROM parcel p
-                    WHERE p.current_area_version_id=? AND p.current_station_id=?
+                    WHERE p.current_area_id=? AND p.current_station_id=?
                       AND p.status NOT IN ('DELIVERED','RETURNED_TO_UPSTREAM','CANCELLED','LOST')
                       AND NOT EXISTS(SELECT 1 FROM handling_unit_parcel other JOIN handling_unit ou ON ou.id=other.handling_unit_id
                                      WHERE other.parcel_id=p.id AND ou.trip_id=? AND other.handling_unit_id<>?)
-                    """,unit.getId(),versionId,unit.getStationId(),unit.getTripId(),unit.getId());
+                    """,unit.getId(),areaId,unit.getStationId(),unit.getTripId(),unit.getId());
         }
         audit(http,unit.getStationId(),"HANDLING_UNIT_AREA_FILLED","HANDLING_UNIT",unit.getId(),body.reason(),Map.of("areaVersionIds",body.areaVersionIds(),"linkedCount",linked));
         return detail(unit.getTripId());}
