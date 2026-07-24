@@ -11,7 +11,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     "com.hf.easydelivery.auth",
     "com.hf.easydelivery.delivery",
     "com.hf.easydelivery.scan",
-    "com.hf.easydelivery.driver"
+    "com.hf.easydelivery.driver",
+    "com.hf.easydelivery.config"
 })
 @EnableScheduling
 public class DriverApiApplication {

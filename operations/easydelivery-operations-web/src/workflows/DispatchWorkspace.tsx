@@ -12,7 +12,8 @@ export function DispatchWorkspace({session,station,initialDate,initialFilter}:{s
  const { message } = App.useApp();
  const {t}=useTranslation();const cache=useQueryClient();const serviceDate=initialDate!;const [stage,setStage]=useState(0);const [selected,setSelected]=useState<Set<number>>(new Set());const [focus,setFocus]=useState<PlanningParcel>();const [driver,setDriver]=useState<number>();const [areaVersion,setAreaVersion]=useState<number>();const [waveId,setWaveId]=useState<number>();const [capacityOpen,setCapacityOpen]=useState(false);const [listOpen,setListOpen]=useState(false);
  const [currentArea, setCurrentArea] = useState<number | undefined>(undefined);
- const parcels=useQuery({queryKey:['planning-parcels',station,serviceDate],queryFn:()=>api<PlanningParcel[]>(`/ops/v1/planning/parcels?serviceDate=${serviceDate}&limit=2000`,session,{},station)});
+ const [slaFilter, setSlaFilter] = useState<string>('ALL');
+ const parcels=useQuery({queryKey:['planning-parcels',station,serviceDate,slaFilter],queryFn:()=>api<PlanningParcel[]>(`/ops/v1/planning/parcels?serviceDate=${serviceDate}&slaFilter=${slaFilter}&limit=2000`,session,{},station)});
  const shifts=useQuery({queryKey:['planning-shifts',station,serviceDate],queryFn:()=>api<Shift[]>(`/ops/v1/planning/shifts?serviceDate=${serviceDate}`,session,{},station)});
  
  // Fetch existing waves to prevent duplicate creation lockups
@@ -423,17 +424,32 @@ export function DispatchWorkspace({session,station,initialDate,initialFilter}:{s
    {stage===1&&<div className="planning-grid">
      <section className="planning-map-panel" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
        <div style={{ background: '#fff', padding: '10px', borderRadius: '8px', border: '1px solid #d0d5dd', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-         <Space>
-           <strong style={{ fontSize: '13px', color: '#344054' }}>📍 当前排程区域过滤:</strong>
-           <Select 
-             style={{ width: 220 }}
-             placeholder="展示本站全部区域包裹 (不推荐)"
-             allowClear
-             value={currentArea}
-             onChange={setCurrentArea}
-             options={areas}
-           />
-         </Space>
+          <Space wrap size="middle">
+            <Space>
+              <strong style={{ fontSize: '13px', color: '#344054' }}>📍 当前排程区域过滤:</strong>
+              <Select 
+                style={{ width: 200 }}
+                placeholder="展示本站全部区域包裹 (不推荐)"
+                allowClear
+                value={currentArea}
+                onChange={setCurrentArea}
+                options={areas}
+              />
+            </Space>
+            <Space>
+              <strong style={{ fontSize: '13px', color: '#344054' }}>⚡ SLA 时效维度:</strong>
+              <Select
+                style={{ width: 180 }}
+                value={slaFilter}
+                onChange={setSlaFilter}
+                options={[
+                  { value: 'ALL', label: '📦 全部待派包裹 (全清)' },
+                  { value: 'TODAY_DUE', label: '⚡ 仅特快件/今日到期' },
+                  { value: 'STANDARD', label: '📮 仅常规标快件' }
+                ]}
+              />
+            </Space>
+          </Space>
          <Tag color={currentArea ? 'purple' : 'orange'}>
            {currentArea ? `该区域地图包裹数: ${filteredVisibleParcels.length} 件` : `🚨 警告: 正在显示全站 ${visible.length} 件包裹 (易造成浏览器卡顿)`}
          </Tag>
@@ -444,6 +460,7 @@ export function DispatchWorkspace({session,station,initialDate,initialFilter}:{s
        <div className="map-legend" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
          <div>
            <Tag color="blue">{t('dispatch.unassigned')}</Tag>
+           <Tag color="magenta">⚡ 特快/加急件</Tag>
            <Tag color="green">{t('dispatch.assigned')}</Tag>
            <Tag color="orange">{t('dispatch.dataException')}</Tag>
          </div>

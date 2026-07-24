@@ -4,17 +4,20 @@
 
 ## Project Structure & Module Organization
 
-This Java 17/Spring Boot 3.3 service is a Maven multi-module monolith:
+This Java 17/Spring Boot 3.3 monorepo provides decoupled multi-service architectures:
 
-- `easydelivery-common`: shared DTOs, response types, exceptions, authentication helpers, repositories, and the in-memory data store.
-- `easydelivery-auth`: login, registration, and token-related endpoints.
-- `easydelivery-delivery`: parcel task and proof-of-delivery APIs.
-- `easydelivery-scan`: barcode scanning and batch workflows.
-- `easydelivery-app`: application entry point, web configuration, and `application.properties`.
+- `driver/`: Driver domain services including `easydelivery-auth`, `easydelivery-delivery`, `easydelivery-scan`, and `easydelivery-driver-api` (Port 9000).
+- `operations/`: Operations domain including `easydelivery-ops-api` (Port 9001) and `easydelivery-operations-web` (React/Vite Operations Web UI).
+- `easydelivery-common`: Shared entities, DTOs, response types, exceptions, repositories, Flyway migrations, and in-memory store.
 
 Production code belongs in each module's `src/main/java`; tests mirror packages under `src/test/java`. Current governed documents live in `docs/`; `doc/` contains legacy API notes. Do not edit or commit generated `target/` contents.
 
-Documentation is split by product: `docs/driver/` for Driver App/API, `docs/operations/` for Operations Web/API, and `docs/shared/` for cross-product state, data, and joint gates. Before implementing product behavior, update the relevant bilingual product/design/iteration documents and record the iteration as `REVIEWED`. Then implement, test, and add an execution summary. Follow `docs/document-governance.md`; do not combine documentation review and unreviewed feature development into one implicit step.
+### Documentation & PRD Governance Rules
+Documentation follows a strict two-level structure in `docs/`:
+1. **Product Requirement Documents (PRD)** (`docs/prd/`): Long-lived, authoritative system baselines (e.g. `docs/prd/operations-web-specification.md`). PRDs define overall system architecture, global features, user roles, and page specifications. When introducing or changing product capabilities, the corresponding PRD baseline in `docs/prd/` MUST be updated.
+2. **Iteration Documents** (`docs/<domain>/iterations/`): Short-lived sprint specifications (e.g. `docs/operations/iterations/iteration-r06-sla-wave-dispatch.md`). Iterations define specific sprint tasks, API deltas, boundaries, and DoD. Iteration specs are marked `REVIEWED` before coding, and updated with summaries upon completion.
+
+Do not combine PRD baseline updates, iteration specs, and code implementations into an unreviewed single step.
 
 ## Build, Test, and Development Commands
 
@@ -22,7 +25,8 @@ Use the bundled Maven through the helper script:
 
 - `./run.sh test` runs all JUnit tests across the reactor.
 - `./run.sh build` creates module JARs while skipping tests.
-- `./run.sh run` builds when necessary, then starts the API on port `9000`.
+- `./run.sh run` starts the Operations API on port `9001`.
+- `./run.sh run-driver` starts the Driver API on port `9000`.
 - `./run.sh docker-build` builds the JAR and Docker image.
 - `./run.sh docker-up` starts the container; `./run.sh docker-down` stops it.
 

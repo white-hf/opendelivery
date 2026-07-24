@@ -111,7 +111,13 @@ public class DeliveryController {
 
     private void requireSelf(Integer requestedDriverId, HttpServletRequest request) {
         Object authenticated = request.getAttribute("driverId");
-        if (!(authenticated instanceof Integer id) || !id.equals(requestedDriverId)) {
+        Integer id = null;
+        if (authenticated instanceof Integer intId) {
+            id = intId;
+        } else if (authenticated instanceof String strId) {
+            try { id = Integer.parseInt(strId); } catch (Exception ignored) {}
+        }
+        if (id == null || !id.equals(requestedDriverId)) {
             throw new UnauthorizedException("Driver cannot access another driver's tasks");
         }
     }

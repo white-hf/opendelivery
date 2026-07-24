@@ -32,7 +32,6 @@
         <module>driver/easydelivery-scan</module>
         <module>driver/easydelivery-driver-api</module>
         <module>operations/easydelivery-ops-api</module>
-        <module>easydelivery-app</module>
     </modules>
 
     <dependencyManagement>

@@ -77,9 +77,9 @@ Filters: station, expected date, status, partner, manifest number. Columns: numb
 
 Scanner-enter success gives sound/green; duplicate is yellow; wrong/unknown is red and preserves diagnostics. Decisions require reason/note. Close displays gates; unresolved items require linked Cases and supervisor carryover.
 
-### 4.5 Inventory and Waves (I05)
+### 4.5 Dispatchable Inventory & Waves (I05 / R06)
 
-Filters: promised date, route, postal code, service, status. Select current page or filtered results, maximum 500 per operation. Wave needs service date, route, driver. Draft save and publish are separate. Publish confirmation shows driver/count/errors; item failure publishes none and returns copyable/downloadable reasons. Unstarted publication can cancel; started work requires reassignment.
+Filter inventory by promised date (SLA Dimension: All / ⚡ Today Due & Express / 📮 Standard), route, postal code, service tier, status; supports batch select up to 500 parcels per batch. Creating waves requires service date, route, driver; new wave creation immediately refetches to format label `🌊 YYYYMMDD-WAVE-0X (DRAFT)` instead of showing raw auto-increment IDs. Map rendering supports distinct magenta color and ⚡ icons for express/today-due parcels. Wave details display parcel count, capacity warnings, validation errors, and version.
 
 ### 4.6 Load, Tasks, and Return (I05–I06)
 
@@ -99,9 +99,12 @@ Ingestion shows source, counts, state, duration. Callback shows partner, event, 
 
 Show inventory equation, actual inventory, variance, driver custody, open tasks, manifest discrepancy, missing POD, open Cases, and unacknowledged callbacks, all drillable. Supervisor recalculates, resolves or links Cases, then signs. Variances require per-item carryover reason and Case. Signed records are read-only; corrections create audited versions.
 
-### 4.10 Administration (I03)
+### 4.10 System Management & Configuration Workbench (I03 / R07-Config)
 
-MOV provides operator list/create/disable, roles/station grants, and driver read/enable/disable. Partner/station/secret configuration remains read-only or deployment-managed to avoid premature configuration-center scope. Passwords never display; secrets never reach the browser.
+Provides operator user management (list, create/deactivate, role/station authorization) and driver configuration tools:
+1. **Driver Management**: Supports searching driver accounts, creating new drivers, updating phone/password, and toggling status (`ACTIVE` / `INACTIVE`).
+2. **Station & Service Area Configuration**: Supports managing country, province/state, city, and postal prefix rules for the station. Service area updates directly influence automated routing for incoming parcels.
+3. **Partner Read-Only Configuration**: Partner credentials and security keys remain read-only; secrets are never displayed or transmitted to the browser.
 
 ### 4.11 Arrival batch workbench (R03)
 

@@ -13,12 +13,12 @@ case "$1" in
     $MVN_BIN clean package -DskipTests
     ;;
   run)
-    echo "=== Starting Spring Boot Backend (Monolith Monolithic Mode: Port 9000) ==="
-    if [ ! -f easydelivery-app/target/easydelivery-app-1.0.0.jar ]; then
-      echo "Executable JAR not found! Building first..."
+    echo "=== Starting Operations API Service (Port 9001) ==="
+    if [ ! -f operations/easydelivery-ops-api/target/easydelivery-ops-api-1.0.0.jar ]; then
+      echo "Operations API JAR not found! Building first..."
       $MVN_BIN clean package -DskipTests
     fi
-    java -jar easydelivery-app/target/easydelivery-app-1.0.0.jar
+    java -jar operations/easydelivery-ops-api/target/easydelivery-ops-api-1.0.0.jar
     ;;
   run-driver)
     echo "=== Starting Driver API Service (Port 9000) ==="

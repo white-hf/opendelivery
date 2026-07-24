@@ -2,9 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Empty, Space, Tag } from 'antd';
 import { loadGoogleMaps, STATION_CENTERS } from './AreaMapEditor';
 
-export type PlanningParcel={parcel_id:number;tracking_no:string;status?:string;longitude?:number;latitude?:number;exception_code?:string;driver_id?:number;driver_name?:string;area_code?:string;area_version_id?:number;[key:string]:unknown};
+export type PlanningParcel={parcel_id:number;tracking_no:string;status?:string;longitude?:number;latitude?:number;exception_code?:string;driver_id?:number;driver_name?:string;area_code?:string;area_version_id?:number;promised_date?:string;service_code?:string;[key:string]:unknown};
 
-function pointColor(parcel:PlanningParcel,selected:boolean){if(selected)return '#722ed1';if(parcel.exception_code==='OPEN_CASE')return '#cf1322';if(parcel.exception_code)return '#d46b08';if(parcel.driver_id)return '#389e0d';return '#1677ff';}
+function pointColor(parcel:PlanningParcel,selected:boolean){
+    if(selected)return '#722ed1';
+    if(parcel.exception_code==='OPEN_CASE')return '#cf1322';
+    if(parcel.exception_code)return '#d46b08';
+    if(parcel.service_code==='EXPRESS'||parcel.service_code==='SAME_DAY')return '#eb2f96'; // Magenta pink for Express
+    if(parcel.driver_id)return '#389e0d';
+    return '#1677ff';
+}
 
 export function PlanningMap({station,parcels,selected,onToggle,onSelect}:{station:string;parcels:PlanningParcel[];selected:Set<number>;onToggle:(id:number)=>void;onSelect:(parcel:PlanningParcel)=>void}){
  const node=useRef<HTMLDivElement>(null);const map=useRef<google.maps.Map|undefined>(undefined);const layer=useRef<google.maps.Data|undefined>(undefined);const click=useRef<google.maps.MapsEventListener|undefined>(undefined);const parcelRef=useRef<Map<number,PlanningParcel>>(new Map());const [ready,setReady]=useState(false);const [error,setError]=useState('');

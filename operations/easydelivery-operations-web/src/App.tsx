@@ -87,7 +87,7 @@ function Workspace() {
     const daily:PageKey[]=['dashboard','orders','dispatch','manifests','scanning','handover','delivery','closeout'];
     const exception:PageKey[]=['cases'];const configuration:PageKey[]=['areas','drivers','stations','callbacks'];
     const blocker=(key:PageKey)=>navigation.data?.stages.find(stage=>stage.target===key)?.blockers??0;
-    const available=new Set<PageKey>(['dashboard','orders','dispatch','manifests','scanning','handover','delivery','closeout','cases','areas']);
+    const available=new Set<PageKey>(['dashboard','orders','dispatch','manifests','scanning','handover','delivery','closeout','cases','areas','drivers','stations']);
     const item=(key:PageKey,index?:number)=>({key,disabled:!available.has(key),label:<span className="menu-label">{index!=null&&<span>{index+1}</span>}<em>{t(`nav.${key}`)}{!available.has(key)?` · ${t('common.planned')}`:''}</em>{blocker(key)>0&&available.has(key)&&<Badge count={blocker(key)} overflowCount={99}/>}</span>});
     const menuItems=[{type:'group' as const,label:t('nav.group.daily'),children:daily.filter(k=>pages.includes(k)).map((key,index)=>item(key,index))},{type:'group' as const,label:t('nav.group.exceptions'),children:exception.filter(k=>pages.includes(k)).map(key=>item(key))},{type:'group' as const,label:t('nav.group.configuration'),children:configuration.filter(k=>pages.includes(k)).map(key=>item(key))}];
 
@@ -111,6 +111,7 @@ function Workspace() {
                         options={((stations.data ?? []) as Array<{ station_code: string; station_name: string }>).map((item) => ({
                             value: item.station_code,
                             label: `${item.station_code} - ${item.station_name}`,
+                            title: item.station_code,
                         }))}
                         style={{ width: 220 }}
                     />
@@ -130,10 +131,13 @@ function Workspace() {
     </Layout>;
 }
 
+const SystemConfigWorkspace = lazy(() => import('./workflows/SystemConfigWorkspace').then((module) => ({ default: module.SystemConfigWorkspace })));
+
 function Page({ page, station,serviceDate,filter,onNavigate }: { page: PageKey; station: string;serviceDate:string;filter:string;onNavigate:(page:PageKey,filter?:string)=>void }) {
     const { session } = useAuth();
     let content;
     if (page === 'areas') content = <AreaWorkspace key={station} session={session!} station={station} />;
+    else if (page === 'drivers' || page === 'stations') content = <SystemConfigWorkspace key={station} session={session!} station={station} />;
     else if (page === 'manifests') content = <ArrivalWorkspace session={session!} station={station} serviceDate={serviceDate}/>;
     else if (page === 'dispatch') content = <DispatchWorkspace key={`${station}-${serviceDate}-${filter}`} session={session!} station={station} initialDate={serviceDate} initialFilter={filter}/>;
     else if(page==='dashboard')content=<TodayWorkspace session={session!} station={station} serviceDate={serviceDate} onNavigate={onNavigate}/>;

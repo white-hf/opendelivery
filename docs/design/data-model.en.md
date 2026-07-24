@@ -157,18 +157,18 @@ I05 V6 adds a generated active slot and `(task_id,session_type,active_slot)` uni
 I06 V7 adds `delivery_failure_reason` for evidence, next action, and attempt limit. Attempt gains `failure_note/next_action`; Return Session stores its resolution. RETURN reuses idempotent Scan Events, and supervisor approval is the custody boundary. Address failures only open a Case; that Case blocks dispatch without automatic rerouting.
 ## 13. R01 Spatial Area Model
 
-- `delivery_area` is the stable station-scoped identity; `(station_id, area_code)` is unique and `area_level` supports nested planning granularity without organization hierarchy.
-- `delivery_area_version` stores immutable boundaries. `boundary` is an SRID 4326 `MULTIPOLYGON` with a spatial index; the GeoJSON snapshot, lifecycle, validation, reason, effective times and approvers provide traceability. Only one version per area may be `PUBLISHED`.
+- `delivery_area` is the stable station-scoped identity; `(station_id, area_code)` is unique and `area_level` supports nested planning granularity; includes `boundary` (SRID 4326 `MULTIPOLYGON` with spatial index) and `geojson_snapshot`, directly representing the active boundary.
 - `driver_area_preference` is a dated, ranked long-term preference, not the actual daily assignment.
-- `waybill_geocode` records result status, precision, provider and an indexed point; failures retain their reason.
-- `parcel_area_assignment` persists the selected area version, `AUTO/MANUAL` source, confidence, reason and actor so later boundary edits cannot rewrite history.
+- `waybill_geocode` records result status, precision, provider and an indexed `delivery_point`; failures retain their reason.
+- `parcel_area_assignment` persists the selected area ID, `assignment_source` (`GEO_POLYGON/MANUAL_OVERRIDE`), reason and actor.
 
-Station/status B-tree indexes serve lists; spatial indexes serve point-in-polygon matching; planning queries must remain station bounded. Versions and assignments are retained historically. R07 will archive high-growth audit/event data by business date without deleting shipment custody history.
+Station/status B-tree indexes serve lists; spatial indexes on `delivery_area.boundary` serve point-in-polygon matching; planning queries must remain station bounded.
+
 # R02 Planning Model Addendum
 
 - `driver_shift` is the driver-day capacity snapshot. `(driver_id,service_date)` is unique; `station_id` supports isolation, `availability_status` is the attendance gate, `parcel_capacity` caps all active tasks for that day, and `note/version` supports operational context and evolution.
 - `dispatch_wave.frozen_at/frozen_by` records successful preflight. `FROZEN` prevents normal assignment/reassignment and is the only publish source state.
-- `driver_task_area` references immutable `delivery_area_version_id`. `assignment_mode` (`WHOLE_AREA/PARTIAL_AREA`) preserves whether operations assigned a complete area or split it.
+- `driver_task_area` references `delivery_area_id`. `assignment_mode` (`WHOLE_AREA/PARTIAL_AREA`) preserves whether operations assigned a complete area or split it.
 - `driver_task_item` remains the parcel-level planning fact. Its generated `active_slot` unique key prevents concurrent active tasks. Reassignment retires the source row as `REASSIGNED` instead of overwriting history.
 
-Performance indexes cover shifts by `(station_id,service_date,availability_status)` and tasks by `(station_id,service_date,status,driver_id)`; area boundaries and geocodes retain spatial indexes. Map queries always include station and, at production scale, viewport with a 2,000-point limit. Closed historical batches leave daily capacity queries but audit facts remain; date partitioning/archival is evaluated as volume grows.
+Performance indexes cover shifts by `(station_id,service_date,availability_status)` and tasks by `(station_id,service_date,status,driver_id)`; area boundaries retain spatial indexes. Map queries always include station and, at production scale, viewport with a 2,000-point limit. Closed historical batches leave daily capacity queries but audit facts remain; date partitioning/archival is evaluated as volume grows.

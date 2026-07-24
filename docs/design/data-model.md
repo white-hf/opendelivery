@@ -488,18 +488,18 @@ I05 V6 为 `scan_session` 增加活动槽生成列及 `(task_id,session_type,act
 I06 V7 新增 `delivery_failure_reason` 配置失败证据、下一动作和尝试上限；Attempt 增加 `failure_note/next_action`，Return Session 增加处理结论。RETURN 复用 Scan Event 幂等事实；主管批准后才写司机到站点/上游 custody。地址异常只建 Case，开放 Case 继续阻断调度，不自动重路由。
 ## 13. R01 空间区域模型
 
-- `delivery_area`：站点内稳定的区域身份；`(station_id, area_code)` 唯一，`area_level` 支持大区/小区而不引入组织层级。
-- `delivery_area_version`：不可变边界版本；`boundary` 为 SRID 4326 `MULTIPOLYGON` 并建空间索引，`geojson_snapshot` 保存导入原貌，状态为 `DRAFT/VALIDATED/PUBLISHED/RETIRED`，校验、变更原因、生效时间和审批字段支持追溯。每区域仅一个 `PUBLISHED` 版本。
+- `delivery_area`：站点内稳定的区域身份；`(station_id, area_code)` 唯一，`area_level` 支持大区/小区；内置 `boundary` (SRID 4326 `MULTIPOLYGON` 空间索引) 和 `geojson_snapshot`，直接代表当前最新地理边界。
 - `driver_area_preference`：长期默认司机偏好，含优先级和有效期；它不是当天实际任务分配。
-- `waybill_geocode`：地址地理编码结果、精度、提供方和坐标；`location` 建空间索引，失败仍保留状态和原因。
-- `parcel_area_assignment`：包裹匹配到具体区域版本的决策，记录 `AUTO/MANUAL`、置信度、原因和操作人；后续边界变化不改写历史。
+- `waybill_geocode`：地址地理编码结果、精度、提供方和坐标；`delivery_point` 建空间索引，失败仍保留状态和原因。
+- `parcel_area_assignment`：包裹匹配到具体区域的决策，记录 `assignment_source` (`GEO_POLYGON/MANUAL_OVERRIDE`)、原因和操作人；关联 `delivery_area_id`。
 
-性能策略：列表使用站点/状态 B-tree 索引；点面匹配使用空间索引；规划查询禁止跨站全表扫描。区域版本和归属按历史保留，后续在 R07 按营业日期归档高增长审计/事件数据，不删除运单责任链。
+性能策略：列表使用站点/状态 B-tree 索引；点面匹配使用 `delivery_area.boundary` 空间索引；规划查询禁止跨站全表扫描。
+
 # R02 规划模型补充
 
 - `driver_shift`：司机营业日运力快照。`(driver_id,service_date)` 唯一；`station_id` 用于站点查询和隔离；`availability_status` 是出勤门禁；`parcel_capacity` 是当日全部活动任务的硬上限；`note/version` 支持运营说明和并发演进。
 - `dispatch_wave.frozen_at/frozen_by`：记录预检通过的冻结事实。状态增加 `FROZEN`，从此禁止普通分配/改派；发布只允许从该状态执行。
-- `driver_task_area`：记录任务使用的 `delivery_area_version_id`，而不是可变区域；`assignment_mode` 区分 `WHOLE_AREA/PARTIAL_AREA`，用于复盘整区和拆分决策。
+- `driver_task_area`：记录任务使用的 `delivery_area_id`；`assignment_mode` 区分 `WHOLE_AREA/PARTIAL_AREA`，用于复盘整区和拆分决策。
 - `driver_task_item`：仍是逐件派送计划事实，生成列 `active_slot` 与唯一键阻止一个包裹同时属于两个活动任务。改派保留旧行为 `REASSIGNED`，不会覆盖历史。
 
-性能上，班次使用 `(station_id,service_date,availability_status)`，任务使用 `(station_id,service_date,status,driver_id)`；区域版本和地理点保留 Spatial Index。地图查询必须带站点，生产大数据量时带视口并限制 2,000 点；历史批次关闭后不参与当日容量统计，长期数据按营业日归档/分区评估，而不删除审计事实。
+性能上，班次使用 `(station_id,service_date,availability_status)`，任务使用 `(station_id,service_date,status,driver_id)`；区域保留 Spatial Index。地图查询必须带站点，生产大数据量时带视口并限制 2,000 点；历史批次关闭后不参与当日容量统计，长期数据按营业日归档/分区评估，而不删除审计事实。

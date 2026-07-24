@@ -154,7 +154,7 @@ public class JdbcDeliveryOperations implements DeliveryOperations {
         DeliveringListData parcel = getParcelByTrackingNo(trackingNo);
         if (parcel == null) {
             insertScanEvent(batchId, null, trackingNo, "UNKNOWN", deviceEventId);
-            incrementScanCounts(batchId, true);
+            incrementScanCounts(batchId, "UNKNOWN");
             return new ParcelScanResult(null, "SCAN.NOT.FOUND", "Parcel not found: " + trackingNo);
         }
         String stableDeviceEventId = deviceEventId == null || deviceEventId.isBlank() ? UUID.randomUUID().toString() : deviceEventId;
@@ -172,7 +172,7 @@ public class JdbcDeliveryOperations implements DeliveryOperations {
                 """, batchId, parcel.getOrder_id());
         String result = updated > 0 ? "EXPECTED" : "WRONG_TASK";
         insertScanEvent(batchId, parcel.getOrder_id(), trackingNo, result, stableDeviceEventId);
-        incrementScanCounts(batchId, updated == 0);
+        incrementScanCounts(batchId, result);
         if (updated == 0) return new ParcelScanResult(null, "SCAN.WRONG.TASK", "Parcel is not assigned to this task");
         parcel.setScan_status(1);
         return new ParcelScanResult(parcel, null, null);
@@ -308,11 +308,31 @@ public class JdbcDeliveryOperations implements DeliveryOperations {
                 deviceEventId == null || deviceEventId.isBlank() ? UUID.randomUUID().toString() : deviceEventId, result);
     }
 
-    private void incrementScanCounts(long batchId, boolean discrepancy) {
-        jdbc.update("""
-                UPDATE scan_session SET scanned_count=scanned_count+1,
-                    discrepancy_count=discrepancy_count+? WHERE id=?
-                """, discrepancy ? 1 : 0, batchId);
+    private void incrementScanCounts(long batchId, String resultCode) {
+        if ("EXPECTED".equals(resultCode)) {
+            jdbc.update("""
+                    UPDATE scan_session 
+                    SET scanned_count = scanned_count + 1,
+                        valid_count = valid_count + 1
+                    WHERE id = ?
+                    """, batchId);
+        } else if ("UNKNOWN".equals(resultCode)) {
+            jdbc.update("""
+                    UPDATE scan_session 
+                    SET scanned_count = scanned_count + 1,
+                        unknown_count = unknown_count + 1,
+                        discrepancy_count = discrepancy_count + 1
+                    WHERE id = ?
+                    """, batchId);
+        } else if ("EXTRA".equals(resultCode) || "WRONG_TASK".equals(resultCode)) {
+            jdbc.update("""
+                    UPDATE scan_session 
+                    SET scanned_count = scanned_count + 1,
+                        extra_count = extra_count + 1,
+                        discrepancy_count = discrepancy_count + 1
+                    WHERE id = ?
+                    """, batchId);
+        }
     }
 
     private List<String> scannedTracking(long sessionId) {
