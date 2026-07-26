@@ -76,7 +76,7 @@ public class MapPlanningService {
         int safeLimit = Math.min(Math.max(limit, 1), 50000);
         boolean viewport = west != null && south != null && east != null && north != null;
         String viewportSql = viewport ? " AND ST_X(g.delivery_point) BETWEEN ? AND ? AND ST_Y(g.delivery_point) BETWEEN ? AND ?" : "";
-        String waveSql = waveId != null ? " AND (t.wave_id = ? OR NOT EXISTS(SELECT 1 FROM dispatch_wave_area dwa WHERE dwa.wave_id=?) OR EXISTS(SELECT 1 FROM parcel_area_assignment paa2 JOIN dispatch_wave_area dwa2 ON dwa2.delivery_area_id=paa2.delivery_area_id WHERE paa2.parcel_id=p.id AND dwa2.wave_id=?))" : "";
+        String waveSql = waveId != null ? " AND t.wave_id = ?" : "";
         
         String slaSql = "";
         if ("TODAY_DUE".equalsIgnoreCase(slaFilter) || "EXPRESS_ONLY".equalsIgnoreCase(slaFilter)) {
@@ -111,8 +111,6 @@ public class MapPlanningService {
         params.add(stationId);
         params.add(stationId);
         if (waveId != null) {
-            params.add(waveId);
-            params.add(waveId);
             params.add(waveId);
         }
 

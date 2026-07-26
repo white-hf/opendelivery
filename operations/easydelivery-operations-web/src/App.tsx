@@ -256,7 +256,7 @@ function Page({ page, station,serviceDate,filter,onNavigate }: { page: PageKey; 
     let content;
     if (page === 'areas') content = <AreaWorkspace key={station} session={session!} station={station} />;
     else if (page === 'drivers' || page === 'stations') content = <SystemConfigWorkspace key={station} session={session!} station={station} />;
-    else if (page === 'manifests') content = <ArrivalWorkspace session={session!} station={station} serviceDate={serviceDate}/>;
+    else if (page === 'manifests') content = <ArrivalWorkspace session={session!} station={station} serviceDate={serviceDate} onNavigate={onNavigate}/>;
     else if (page === 'dispatch') content = <DispatchWorkspace key={`${station}-${serviceDate}-${filter}`} session={session!} station={station} initialDate={serviceDate} initialFilter={filter}/>;
     else if (page === 'dispatch-reassign') content = <DispatchReassignWorkspace key={`${station}-${serviceDate}`} session={session!} station={station} serviceDate={serviceDate}/>;
     else if(page==='dashboard')content=<TodayWorkspace session={session!} station={station} serviceDate={serviceDate} onNavigate={onNavigate}/>;

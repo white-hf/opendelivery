@@ -109,6 +109,7 @@ export function PlanningMap({
     const parcelLayer = useRef<google.maps.Data | undefined>(undefined);
     const areaLayer = useRef<google.maps.Data | undefined>(undefined);
     const markersRef = useRef<google.maps.Marker[]>([]);
+    const routePolylineRef = useRef<google.maps.Polyline | null>(null);
     const parcelRef = useRef<Map<number, PlanningParcel>>(new Map());
     const [lassoPoints, setLassoPoints] = useState<Array<[number, number]>>([]);
     const drawingRef = useRef<Array<google.maps.Polygon | google.maps.Polyline>>([]);
@@ -252,6 +253,10 @@ export function PlanningMap({
             areaLayer.current?.setMap(null);
             parcelLayer.current?.setMap(null);
             markersRef.current.forEach(m => m.setMap(null));
+            if (routePolylineRef.current) {
+                routePolylineRef.current.setMap(null);
+                routePolylineRef.current = null;
+            }
             map.current = undefined;
             setReady(false);
         };
@@ -445,6 +450,12 @@ export function PlanningMap({
 
         const unsequenced = visibleParcels.filter(p => p.stop_sequence == null || p.stop_sequence <= 0);
 
+        // Clear previous route polyline
+        if (routePolylineRef.current) {
+            routePolylineRef.current.setMap(null);
+            routePolylineRef.current = null;
+        }
+
         // 1. Render sequenced parcels as SVG Waterdrop Markers with centered Sequence Numbers (#1, #2, ...)
         sequenced.forEach(parcel => {
             const isSel = selected.has(parcel.parcel_id);
@@ -480,10 +491,10 @@ export function PlanningMap({
             markersRef.current.push(marker);
         });
 
-        // 2. Draw Polyline route connecting sequenced stops in order
-        if (sequenced.length > 1 && map.current) {
+        // 2. Draw Polyline route connecting sequenced stops ONLY when focusing on a specific selected driver
+        if (selectedDriverName && sequenced.length > 1 && map.current) {
             const routePath = sequenced.map(p => ({ lat: Number(p.latitude), lng: Number(p.longitude) }));
-            const routePolyline = new google.maps.Polyline({
+            routePolylineRef.current = new google.maps.Polyline({
                 map: map.current,
                 path: routePath,
                 clickable: false,
@@ -492,7 +503,6 @@ export function PlanningMap({
                 strokeWeight: 3.5,
                 zIndex: 120
             });
-            drawingRef.current.push(routePolyline);
         }
 
         // 3. Render unsequenced parcels on standard DataLayer
