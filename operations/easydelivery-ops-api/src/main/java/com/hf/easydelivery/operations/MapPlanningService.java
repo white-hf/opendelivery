@@ -77,7 +77,11 @@ public class MapPlanningService {
         boolean viewport = west != null && south != null && east != null && north != null;
         String viewportSql = viewport ? " AND ST_X(g.delivery_point) BETWEEN ? AND ? AND ST_Y(g.delivery_point) BETWEEN ? AND ?" : "";
         String waveSql = waveId != null ? " AND t.wave_id = ?" : "";
-        
+        // When waveId is explicitly selected, join task on waveId. When waveId is null (all waves), join task on active non-cancelled tasks.
+        String taskJoinSql = waveId != null 
+                ? "LEFT JOIN driver_task t ON t.id=ti.task_id AND t.wave_id = ?"
+                : "LEFT JOIN driver_task t ON t.id=ti.task_id AND t.status <> 'CANCELLED'";
+
         String slaSql = "";
         if ("TODAY_DUE".equalsIgnoreCase(slaFilter) || "EXPRESS_ONLY".equalsIgnoreCase(slaFilter)) {
             slaSql = " AND (p.promised_date <= ? OR w.service_code IN ('EXPRESS', 'SAME_DAY', 'URGENT'))";
@@ -99,15 +103,17 @@ public class MapPlanningService {
                 LEFT JOIN parcel_area_assignment paa ON paa.parcel_id=p.id AND paa.ended_at IS NULL
                 LEFT JOIN delivery_area a ON a.id=COALESCE(p.current_area_id, paa.delivery_area_id)
                 LEFT JOIN driver_task_item ti ON ti.parcel_id=p.id AND ti.item_status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY')
-                LEFT JOIN driver_task t ON t.id=ti.task_id AND t.service_date=?
+                """ + taskJoinSql + """
                 LEFT JOIN driver d ON d.id=t.driver_id
                 LEFT JOIN operational_case oc ON oc.id=(SELECT MIN(c.id) FROM operational_case c WHERE c.parcel_id=p.id AND c.status NOT IN ('RESOLVED','CLOSED'))
                 WHERE p.current_station_id=? AND w.resolved_station_id=? AND w.routing_status IN ('ROUTED','OVERRIDDEN')
-                  AND (p.status IN ('RECEIVED','AT_STATION','SORTED','READY_FOR_DISPATCH') OR (p.status='ASSIGNED' AND t.id IS NOT NULL))
+                  AND (p.status IN ('RECEIVED','AT_STATION','SORTED','READY_FOR_DISPATCH') OR (p.status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY') AND t.id IS NOT NULL))
                 """ + waveSql + slaSql + viewportSql + " ORDER BY p.id LIMIT ?";
         
         java.util.List<Object> params = new java.util.ArrayList<>();
-        params.add(serviceDate);
+        if (waveId != null) {
+            params.add(waveId);
+        }
         params.add(stationId);
         params.add(stationId);
         if (waveId != null) {
