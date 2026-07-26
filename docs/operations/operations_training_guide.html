@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EasyDelivery 运营调度工作台 - 快速上手培训指南</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --primary-light: #eff6ff;
+            --success-color: #16a34a;
+            --warning-color: #ea580c;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --bg-body: #f8fafc;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            margin: 0;
+            padding: 24px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 32px 40px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border-color);
+        }
+        .header {
+            border-bottom: 2px solid var(--primary-light);
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .badge {
+            background: var(--primary-light);
+            color: var(--primary-color);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .section-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-top: 32px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-left: 4px solid var(--primary-color);
+            padding-left: 12px;
+        }
+        .step-card {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .step-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .step-num {
+            width: 26px;
+            height: 26px;
+            background: var(--primary-color);
+            color: #ffffff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        .step-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+        .step-desc {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        .tip-box {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 13px;
+            color: #166534;
+        }
+        .action-button-demo {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #1677ff;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .quick-nav {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .nav-item {
+            background: var(--primary-light);
+            border: 1px solid #bfdbfe;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--primary-color);
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>EasyDelivery 调度工作台 - 快速上手指南</h1>
+        <span class="badge">运营现场操作手册</span>
+    </div>
+
+    <p style="color: var(--text-muted); font-size: 14px;">
+        欢迎使用 EasyDelivery 运营调度工作台！本手册帮助您在 3 分钟内掌握“看流转 ➔ 区域指派 ➔ 圈选改派 ➔ 智能路线规划”四步核心操作。
+    </p>
+
+    <div class="quick-nav">
+        <div class="nav-item">1. 看流转 (今日看板)</div>
+        <div class="nav-item">2. 区域指派 (3.1 工作台)</div>
+        <div class="nav-item">3. 圈选划转 (3.2 工作台)</div>
+        <div class="nav-item">4. 路线规划 (OSRM)</div>
+    </div>
+
+    <!-- 阶段 1 -->
+    <div class="section-title">一、 查看站点实时流转状态（今日看板）</div>
+    <div class="step-card">
+        <div class="step-header">
+            <div class="step-num">1</div>
+            <div class="step-title">查看 7 阶段 SOP 状态</div>
+        </div>
+        <div class="step-desc">
+            登录系统后默认进入<b>【今日看板】</b>。顶部横栏展示了今日作业的 7 个阶段（推单 ➔ 到仓 ➔ 分拣 ➔ 派送 ➔ 妥投 ➔ 异常 ➔ 日结）。
+        </div>
+        <div class="tip-box">
+            💡 <b>操作提示：</b> 点击任意阶段卡片，可直接跳转至对应的作业页面处理具体业务。
+        </div>
+    </div>
+
+    <!-- 阶段 2 -->
+    <div class="section-title">二、 按责任片区指派包裹（3.1 派送计划工作台）</div>
+    <div class="step-card">
+        <div class="step-header">
+            <div class="step-num">2</div>
+            <div class="step-title">一键按责任区域指派</div>
+        </div>
+        <div class="step-desc">
+            进入<b>【3.1 派送计划工作台】</b>，选择当前波次后，点击左侧面板中的 <span class="action-button-demo">一键按责任区域指派</span> 按钮。系统会自动将包裹按画好的责任片区指派给对应司机。
+        </div>
+    </div>
+
+    <!-- 阶段 3 -->
+    <div class="section-title">三、 现场多边形圈选与划转改派（3.2 司机包裹动态调配工作台）</div>
+    <div class="step-card">
+        <div class="step-header">
+            <div class="step-num">3</div>
+            <div class="step-title">开启地图套索圈选包裹</div>
+        </div>
+        <div class="step-desc">
+            当出现临时改派或司机负载不均时，进入<b>【3.2 司机包裹动态调配工作台】</b>：
+            <ul style="margin-top: 6px; margin-bottom: 6px; padding-left: 20px;">
+                <li>点击地图左上角 <span class="action-button-demo" style="background:#722ed1">开启地图套索圈选</span> 按钮。</li>
+                <li>在地图上按住鼠标左键，画圈框选需要改派的点位。</li>
+                <li>圈选完成后在上方弹出栏下拉选择【目标司机】，点击【确认划转】完成改派。</li>
+            </ul>
+        </div>
+        <div class="tip-box">
+            💡 <b>操作提示：</b> 点击地图右上角【展开包裹明细】，可以在右侧表格中精准核对圈选包裹的单号与地址。
+        </div>
+    </div>
+
+    <!-- 阶段 4 -->
+    <div class="section-title">四、 生成司机最优派送路线与序号（OSRM 智能排线）</div>
+    <div class="step-card">
+        <div class="step-header">
+            <div class="step-num">4</div>
+            <div class="step-title">点击一键路线规划</div>
+        </div>
+        <div class="step-desc">
+            指派完成后，选择目标司机，点击 <span class="action-button-demo" style="background:#1677ff">🧭 OSRM 智能规划当前司机路线</span>：
+            <ul style="margin-top: 6px; margin-bottom: 6px; padding-left: 20px;">
+                <li>系统会在地图上标出带有 <b>#1, #2, #3...</b> 数字的水滴 Marker。</li>
+                <li>地图会自动画出行驶轨迹折线，司机端 App 会同步更新派送顺序。</li>
+            </ul>
+        </div>
+        <div class="tip-box">
+            💡 <b>操作提示：</b> 路线规划按单司机独立执行，不会影响其他司机的已排线路。
+        </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 30px; border-top: 1px solid var(--border-color); padding-top: 16px; color: var(--text-muted); font-size: 12px;">
+        EasyDelivery 运营团队 · 保持高效与精准
+    </div>
+</div>
+
+</body>
+</html>
