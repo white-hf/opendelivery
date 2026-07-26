@@ -18,7 +18,8 @@ type InboundDiscrepancyItem = {
     action_status: 'CASE_OPENED' | 'PENDING_PHYSICAL_CHECK' | 'RESOLVED';
 };
 
-export function ManifestWorkspace({ session, station }: { session: Session; station: string }) {
+export function ManifestWorkspace({ session, station }: { session: Session; station: number | string }) {
+
     const { t } = useTranslation();
     const cache = useQueryClient();
     const [selectedId, setSelectedId] = useState<number>();

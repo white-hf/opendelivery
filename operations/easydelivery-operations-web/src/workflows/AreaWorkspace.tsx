@@ -10,14 +10,15 @@ import { areaGeoJsonSummary, parseAreaGeoJson } from './areaGeometry';
 
 type AreaRow = {
     id: number; area_code: string; area_name: string; area_level: number; status: string;
-    version_id?: number; version_no?: number; version_status?: string; geo_json?: string;
-    primary_driver_id?: number; primary_driver_name?: string;
+    geo_json?: string; primary_driver_id?: number; primary_driver_name?: string;
 };
+
 type PreferenceRow = { id: number; driver_id: number; driver_code: string; driver_name: string; priority: number; status: string };
 type DriverRow = { id?: number; driver_id?: number; driver_code?: string; credential_id?: string; display_name?: string; driver_name?: string };
 type VersionRow = { id: number; version_no: number; status: string; change_reason: string; created_at: string; geo_json: string };
 
-export function AreaWorkspace({ session, station }: { session: Session; station: string }) {
+export function AreaWorkspace({ session, station }: { session: Session; station: number | string }) {
+
     const { t } = useTranslation();
     const [notice, noticeContext] = notification.useNotification();
     const cache = useQueryClient();
@@ -50,14 +51,22 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
         queryFn: () => api<VersionRow[]>(`/ops/v1/delivery-areas/${viewingArea!.id}/versions`, session, {}, station),
         enabled: Boolean(viewingArea),
     });
+    const sortedAreaList = useMemo(() => {
+        const raw = list.data ?? [];
+        return [...raw].sort((a, b) => {
+            if (a.status === b.status) return 0;
+            return a.status === 'ACTIVE' ? -1 : 1;
+        });
+    }, [list.data]);
+
     const overviewGeoJson = useMemo(() => {
-        const rows = selectedArea ? [selectedArea] : (list.data ?? []).filter((row) => row.status === 'ACTIVE');
+        const rows = selectedArea ? [selectedArea] : sortedAreaList.filter((row) => row.status === 'ACTIVE');
         const features = rows.flatMap((row) => {
             try { return row.geo_json ? [{ type: 'Feature', properties: { areaCode: row.area_code }, geometry: JSON.parse(row.geo_json) }] : []; }
             catch { return []; }
         });
         return features.length ? JSON.stringify({ type: 'FeatureCollection', features }) : undefined;
-    }, [list.data, selectedArea]);
+    }, [sortedAreaList, selectedArea]);
     const action = useMutation({
         mutationFn: ({ path, body, method = 'POST' }: { path: string; body?: unknown; method?: string }) => api(path, session, {
             method, body: body === undefined ? undefined : JSON.stringify(body),
@@ -121,12 +130,11 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
             </div>
             <Table<AreaRow>
                 rowKey="id"
-                dataSource={list.data ?? []}
+                dataSource={sortedAreaList}
                 loading={list.isLoading}
-                pagination={false}
+                pagination={{ pageSize: 5, showSizeChanger: true, pageSizeOptions: ['5', '10', '20'], showTotal: (total) => `共 ${total} 条` }}
                 rowClassName={(row) => selectedArea?.id === row.id ? 'area-table-row-selected' : 'area-table-row'}
                 onRow={(row) => ({
-                    onMouseEnter: () => setSelectedArea(row),
                     onClick: () => setSelectedArea(row),
                 })}
                 columns={[

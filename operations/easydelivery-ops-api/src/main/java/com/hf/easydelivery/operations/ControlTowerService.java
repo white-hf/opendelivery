@@ -26,18 +26,19 @@ public class ControlTowerService {
     public Snapshot snapshot(LocalDate serviceDate) {
         long stationId = station();
         Map<String,Object> station=jdbc.queryForMap("SELECT id,station_code,station_name,city,province_code,timezone,status FROM station WHERE id=?",stationId);
-        int expected=count("SELECT COUNT(*) FROM parcel WHERE current_station_id=? AND promised_date=? AND status<>'CANCELLED'",stationId,serviceDate);
-        int routed=count("SELECT COUNT(*) FROM parcel p JOIN waybill w ON w.id=p.waybill_id WHERE p.current_station_id=? AND p.promised_date=? AND w.resolved_station_id=? AND w.routing_status IN ('ROUTED','OVERRIDDEN')",stationId,serviceDate,stationId);
-        int geocoded=count("SELECT COUNT(*) FROM parcel p JOIN waybill_geocode g ON g.waybill_id=p.waybill_id WHERE p.current_station_id=? AND p.promised_date=?",stationId,serviceDate);
-        int areaMatched=count("SELECT COUNT(*) FROM parcel p WHERE p.current_station_id=? AND p.promised_date=? AND p.current_area_id IS NOT NULL",stationId,serviceDate);
-        int assigned=count("SELECT COUNT(DISTINCT ti.parcel_id) FROM driver_task t JOIN driver_task_item ti ON ti.task_id=t.id AND ti.item_status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY') WHERE t.station_id=? AND t.service_date=? AND t.status IN ('DRAFT','FROZEN','PUBLISHED','ACCEPTING','IN_PROGRESS')",stationId,serviceDate);
-        int arrived=count("SELECT COUNT(*) FROM parcel WHERE current_station_id=? AND promised_date=? AND current_custody_type='STATION'",stationId,serviceDate);
-        int scanned=count("SELECT COUNT(DISTINCT se.parcel_id) FROM scan_event se JOIN scan_session ss ON ss.id=se.session_id JOIN driver_task t ON t.id=ss.task_id WHERE t.station_id=? AND t.service_date=? AND se.result_code='EXPECTED'",stationId,serviceDate);
-        int released=count("SELECT COUNT(DISTINCT ti.parcel_id) FROM driver_task t JOIN driver_task_item ti ON ti.task_id=t.id WHERE t.station_id=? AND t.service_date=? AND t.status IN ('ACCEPTING','IN_PROGRESS','CLOSED') AND ti.item_status IN ('LOADED','OUT_FOR_DELIVERY','DELIVERED','FAILED','RETURNED')",stationId,serviceDate);
-        int out=count("SELECT COUNT(*) FROM parcel WHERE current_station_id=? AND promised_date=? AND status='OUT_FOR_DELIVERY'",stationId,serviceDate);
-        int delivered=count("SELECT COUNT(*) FROM parcel WHERE current_station_id=? AND promised_date=? AND status='DELIVERED'",stationId,serviceDate);
-        int failed=count("SELECT COUNT(*) FROM parcel WHERE current_station_id=? AND promised_date=? AND status IN ('DELIVERY_FAILED','RETURN_PENDING','RETURNED_TO_STATION')",stationId,serviceDate);
-        int openCases=count("SELECT COUNT(*) FROM operational_case c WHERE c.status NOT IN ('RESOLVED','CLOSED') AND (c.station_id=? OR (c.station_id IS NULL AND c.parcel_id IN (SELECT id FROM parcel WHERE current_station_id=?)))",stationId,stationId);
+        int expected=count("SELECT COUNT(*) FROM parcel WHERE current_station_id=? AND promised_date=? AND status<>'CANCELLED' AND is_test=0",stationId,serviceDate);
+        int routed=count("SELECT COUNT(*) FROM parcel p JOIN waybill w ON w.id=p.waybill_id WHERE p.current_station_id=? AND p.promised_date=? AND w.resolved_station_id=? AND w.routing_status IN ('ROUTED','OVERRIDDEN') AND p.is_test=0",stationId,serviceDate,stationId);
+        int geocoded=count("SELECT COUNT(*) FROM parcel p JOIN waybill_geocode g ON g.waybill_id=p.waybill_id WHERE p.current_station_id=? AND p.promised_date=? AND p.is_test=0",stationId,serviceDate);
+        int areaMatched=count("SELECT COUNT(*) FROM parcel p WHERE p.current_station_id=? AND p.promised_date=? AND p.current_area_id IS NOT NULL AND p.is_test=0",stationId,serviceDate);
+        int assigned=count("SELECT COUNT(DISTINCT ti.parcel_id) FROM driver_task t JOIN driver_task_item ti ON ti.task_id=t.id AND ti.item_status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY') WHERE t.station_id=? AND t.service_date=? AND t.status IN ('DRAFT','FROZEN','PUBLISHED','ACCEPTING','IN_PROGRESS') AND t.is_test=0",stationId,serviceDate);
+        int arrived=count("SELECT COUNT(*) FROM parcel WHERE current_station_id=? AND promised_date=? AND current_custody_type='STATION' AND is_test=0",stationId,serviceDate);
+        int scanned=count("SELECT COUNT(DISTINCT se.parcel_id) FROM scan_event se JOIN scan_session ss ON ss.id=se.session_id JOIN driver_task t ON t.id=ss.task_id WHERE t.station_id=? AND t.service_date=? AND se.result_code='EXPECTED' AND ss.is_test=0",stationId,serviceDate);
+        int released=count("SELECT COUNT(DISTINCT ti.parcel_id) FROM driver_task t JOIN driver_task_item ti ON ti.task_id=t.id WHERE t.station_id=? AND t.service_date=? AND t.status IN ('ACCEPTING','IN_PROGRESS','CLOSED') AND ti.item_status IN ('LOADED','OUT_FOR_DELIVERY','DELIVERED','FAILED','RETURNED') AND t.is_test=0",stationId,serviceDate);
+        int out=count("SELECT COUNT(*) FROM parcel WHERE current_station_id=? AND promised_date=? AND status='OUT_FOR_DELIVERY' AND is_test=0",stationId,serviceDate);
+        int delivered=count("SELECT COUNT(*) FROM parcel WHERE current_station_id=? AND promised_date=? AND status='DELIVERED' AND is_test=0",stationId,serviceDate);
+        int failed=count("SELECT COUNT(*) FROM parcel WHERE current_station_id=? AND promised_date=? AND status IN ('DELIVERY_FAILED','RETURN_PENDING','RETURNED_TO_STATION') AND is_test=0",stationId,serviceDate);
+        int openCases=count("SELECT COUNT(*) FROM operational_case c WHERE c.status NOT IN ('RESOLVED','CLOSED') AND c.is_test=0 AND (c.station_id=? OR (c.station_id IS NULL AND c.parcel_id IN (SELECT id FROM parcel WHERE current_station_id=?)))",stationId,stationId);
+
         int openManifests=count("SELECT COUNT(*) FROM inbound_manifest WHERE station_id=? AND status NOT IN ('CLOSED','CANCELLED')",stationId);
         int availableDrivers=count("SELECT COUNT(*) FROM driver_shift WHERE station_id=? AND service_date=? AND availability_status='AVAILABLE'",stationId,serviceDate);
         int capacity=count("SELECT COALESCE(SUM(parcel_capacity),0) FROM driver_shift WHERE station_id=? AND service_date=? AND availability_status='AVAILABLE'",stationId,serviceDate);
@@ -75,7 +76,7 @@ public class ControlTowerService {
     public List<DriverSupervisionItem> onRoadSupervision(LocalDate serviceDate) {
         long stationId = station();
         String sql = """
-            SELECT d.id AS driver_id, d.name AS driver_name,
+            SELECT d.id AS driver_id, d.driver_name AS driver_name,
                    COALESCE(da.area_code, 'DEFAULT') AS area_code,
                    COUNT(ti.id) AS dispatched_count,
                    COUNT(CASE WHEN ti.item_status = 'DELIVERED' THEN 1 END) AS delivered_count,
@@ -87,10 +88,11 @@ public class ControlTowerService {
             FROM driver d
             JOIN driver_task t ON t.driver_id = d.id AND t.station_id = ? AND t.service_date = ?
             JOIN driver_task_item ti ON ti.task_id = t.id
-            LEFT JOIN delivery_area da ON da.id = t.area_id
+            LEFT JOIN driver_task_area dta ON dta.task_id = t.id
+            LEFT JOIN delivery_area da ON da.id = dta.delivery_area_id
             LEFT JOIN delivery_attempt att ON att.task_item_id = ti.id
-            LEFT JOIN proof_of_delivery pod ON pod.task_item_id = ti.id
-            GROUP BY d.id, d.name, da.area_code
+            LEFT JOIN proof_of_delivery pod ON pod.attempt_id = att.id
+            GROUP BY d.id, d.driver_name, da.area_code
             """;
 
         return jdbc.query(sql, (rs, rowNum) -> {
@@ -127,27 +129,58 @@ public class ControlTowerService {
 
     public List<DriverCapacityItem> driverCapacity(LocalDate serviceDate) {
         long stationId = station();
-        String sql = """
+
+        // Query 1: Fetch active drivers for station with shift capacity (only driver + shift tables)
+        String driverSql = """
             SELECT d.id AS driver_id, d.credential_id AS driver_code, d.driver_name,
-                   ds.availability_status, da.area_name AS vehicle_type,
-                   ds.parcel_capacity AS capacity_limit,
-                   COUNT(ti.id) AS assigned_count
+                   COALESCE(ds.availability_status, 'UNAVAILABLE') AS availability_status,
+                   COALESCE(ds.parcel_capacity, 200) AS capacity_limit
             FROM driver d
-            JOIN driver_shift ds ON ds.driver_id = d.id AND ds.station_id = ? AND ds.service_date = ?
-            LEFT JOIN driver_task t ON t.driver_id = d.id AND t.station_id = ? AND t.service_date = ?
-            LEFT JOIN driver_task_item ti ON ti.task_id = t.id AND ti.item_status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY','DELIVERED')
-            LEFT JOIN delivery_area da ON da.id = t.area_id
-            GROUP BY d.id, d.credential_id, d.driver_name, ds.availability_status, da.area_name, ds.parcel_capacity
+            LEFT JOIN driver_shift ds ON ds.driver_id = d.id AND ds.station_id = ? AND ds.service_date = ?
+            WHERE d.home_station_id = ? AND d.status = 'ACTIVE'
+            ORDER BY d.id
             """;
-        return jdbc.query(sql, (rs, rowNum) -> new DriverCapacityItem(
+
+        List<DriverCapacityItem> drivers = jdbc.query(driverSql, (rs, rowNum) -> new DriverCapacityItem(
             rs.getLong("driver_id"),
             rs.getString("driver_code"),
             rs.getString("driver_name"),
             rs.getString("availability_status"),
-            rs.getString("vehicle_type") != null ? rs.getString("vehicle_type") : "VAN 标准货车",
+            "VAN 标准货车",
             rs.getInt("capacity_limit"),
-            rs.getInt("assigned_count")
-        ), stationId, serviceDate, stationId, serviceDate);
+            0
+        ), stationId, serviceDate, stationId);
+
+        if (drivers.isEmpty()) {
+            return List.of();
+        }
+
+        // Query 2: Fetch assigned parcel counts grouped by driver for the day's active tasks (no parcel/item table Join)
+        String taskSql = """
+            SELECT t.driver_id, COUNT(ti.id) AS assigned_count
+            FROM driver_task t
+            JOIN driver_task_item ti ON ti.task_id = t.id AND ti.item_status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY','DELIVERED')
+            WHERE t.station_id = ? AND t.service_date = ? AND t.status <> 'CANCELLED'
+            GROUP BY t.driver_id
+            """;
+
+        Map<Long, Integer> assignedMap = new LinkedHashMap<>();
+        jdbc.query(taskSql, rs -> {
+            assignedMap.put(rs.getLong("driver_id"), rs.getInt("assigned_count"));
+        }, stationId, serviceDate);
+
+        // Java-side in-memory aggregation & assembly
+        return drivers.stream()
+            .map(d -> new DriverCapacityItem(
+                d.driverId(),
+                d.driverCode(),
+                d.driverName(),
+                d.status(),
+                d.vehicleType(),
+                d.capacityLimit(),
+                assignedMap.getOrDefault(d.driverId(), 0)
+            ))
+            .toList();
     }
 
     public List<InboundDiscrepancyItem> inboundDiscrepancies(LocalDate serviceDate) {

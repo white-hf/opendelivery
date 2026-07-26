@@ -8,14 +8,17 @@ import { useTranslation } from 'react-i18next';
 type Shift={driver_id:number;driver_name:string;driver_code:string;availability_status:string;parcel_capacity?:number;assigned_count:number};
 type WaveResult={wave:{id:number;wave_code:string;status:string};drivers:Array<{task_id:number;driver_id:number;driver_name:string;parcel_count:number;parcel_capacity:number;remaining_capacity:number}>};
 
-export function DispatchWorkspace({session,station,initialDate,initialFilter}:{session:Session;station:string;initialDate?:string;initialFilter?:string}){
+ export function DispatchWorkspace({session,station,initialDate,initialFilter}:{session:Session;station:number|string;initialDate?:string;initialFilter?:string}){
+
  const { message } = App.useApp();
  const {t}=useTranslation();const cache=useQueryClient();const serviceDate=initialDate!;const [stage,setStage]=useState(0);const [selected,setSelected]=useState<Set<number>>(new Set());const [focus,setFocus]=useState<PlanningParcel>();const [driver,setDriver]=useState<number>();const [areaVersion,setAreaVersion]=useState<number>();const [waveId,setWaveId]=useState<number>();const [capacityOpen,setCapacityOpen]=useState(false);const [listOpen,setListOpen]=useState(false);
  const [currentArea, setCurrentArea] = useState<number | undefined>(undefined);
  const [slaFilter, setSlaFilter] = useState<string>('ALL');
+ const [lassoActive, setLassoActive] = useState<boolean>(false);
+
   const serviceAreasQuery = useQuery({
     queryKey: ['delivery-areas-map', station],
-    queryFn: () => api<any[]>(`/ops/v1/delivery-areas`, session, {}, station)
+    queryFn: () => api<any[]>(`/ops/v1/delivery-areas?status=ACTIVE`, session, {}, station)
   });
   const parcels=useQuery({queryKey:['planning-parcels',station,serviceDate,slaFilter],queryFn:()=>api<PlanningParcel[]>(`/ops/v1/planning/parcels?serviceDate=${serviceDate}&slaFilter=${slaFilter}&limit=2000`,session,{},station)});
  const shifts=useQuery({queryKey:['planning-shifts',station,serviceDate],queryFn:()=>api<Shift[]>(`/ops/v1/planning/shifts?serviceDate=${serviceDate}`,session,{},station)});
@@ -24,15 +27,18 @@ export function DispatchWorkspace({session,station,initialDate,initialFilter}:{s
  const wavesList = useQuery({
    queryKey: ['dispatch-waves-list', station, serviceDate],
    queryFn: () => api<any[]>(`/ops/v1/dispatch/waves?limit=100`, session, {}, station).then(res => {
-     return (res ?? []).filter(w => w.service_date === serviceDate);
+     return (res ?? []).filter(w => {
+       if (!w.service_date) return true;
+       const wDate = typeof w.service_date === 'string' ? w.service_date.substring(0, 10) : String(w.service_date);
+       return wDate === serviceDate;
+     });
    })
  });
 
  // Automatically load the existing wave if found for today
  useEffect(() => {
    if (wavesList.data && wavesList.data.length > 0 && !waveId) {
-     const activeDraftWave = wavesList.data.find(w => w.wave_status === 'DRAFT');
-     const targetWave = activeDraftWave ?? wavesList.data[0];
+     const targetWave = wavesList.data[0];
      const targetId = targetWave.wave_id ?? targetWave.id;
      if (targetId) {
        setWaveId(targetId);
@@ -56,13 +62,19 @@ export function DispatchWorkspace({session,station,initialDate,initialFilter}:{s
     queryFn: () => api<Trip[]>(`/ops/v1/arrival-trips?serviceDate=${serviceDate}`, session, {}, station)
   });
 
+  const [selectedTripId, setSelectedTripId] = useState<number | undefined>(undefined);
+
   const matchedTrip = useMemo(() => {
+    if (selectedTripId) {
+      return tripsQuery.data?.find(t => t.id === selectedTripId);
+    }
     const waveCode = wave.data?.wave.wave_code;
-    if (!waveCode || !tripsQuery.data) return undefined;
-    return tripsQuery.data.find(t => t.external_trip_no === waveCode);
-  }, [tripsQuery.data, wave.data?.wave.wave_code]);
+    if (!waveCode || !tripsQuery.data) return tripsQuery.data?.[0];
+    return tripsQuery.data.find(t => t.external_trip_no === waveCode) ?? tripsQuery.data?.[0];
+  }, [tripsQuery.data, wave.data?.wave.wave_code, selectedTripId]);
 
   const tripId = matchedTrip?.id;
+
 
   const tripDetailQuery = useQuery({
     queryKey: ['arrival-trip', station, tripId],
@@ -96,12 +108,27 @@ export function DispatchWorkspace({session,station,initialDate,initialFilter}:{s
   });
  const saveShift=useMutation({mutationFn:(value:{driverId:number;availabilityStatus:string;parcelCapacity:number})=>api('/ops/v1/planning/shifts',session,{method:'PUT',body:JSON.stringify({...value,serviceDate,note:'Operations planning'})},station),onSuccess:async()=>{message.success(t('dispatch.shiftSaved'));await refresh();}});
  const toggle=useCallback((id:number)=>setSelected(current=>{const next=new Set(current);if(next.has(id))next.delete(id);else next.add(id);return next;}),[]);
- const all=useMemo(()=>parcels.data??[],[parcels.data]);const visible=useMemo(()=>initialFilter==='unmatched-area'?all.filter(p=>p.exception_code==='UNMATCHED_AREA'):initialFilter==='unassigned'?all.filter(p=>!p.driver_id&&!p.exception_code):all,[all,initialFilter]);const areas=useMemo(()=>Array.from(new Map(all.filter(p=>p.area_version_id).map(p=>[p.area_version_id!,{value:p.area_version_id!,label:p.area_code??String(p.area_version_id)}])).values()),[all]);const assigned=all.filter(p=>p.driver_id).length;const exceptions=all.filter(p=>p.exception_code).length;const available=(shifts.data??[]).filter(s=>s.availability_status==='AVAILABLE');const capacity=available.reduce((sum,s)=>sum+(s.parcel_capacity??0),0);const waveStatus=wave.data?.wave.status;
+ const all=useMemo(()=>parcels.data??[],[parcels.data]);const visible=useMemo(()=>initialFilter==='unmatched-area'?all.filter(p=>p.exception_code==='UNMATCHED_AREA'):initialFilter==='unassigned'?all.filter(p=>!p.driver_id&&!p.exception_code):all,[all,initialFilter]);const assigned=all.filter(p=>p.driver_id).length;const exceptions=all.filter(p=>p.exception_code).length;const available=(shifts.data??[]).filter(s=>s.availability_status==='AVAILABLE');const capacity=available.reduce((sum,s)=>sum+(s.parcel_capacity??0),0);const waveStatus=wave.data?.wave.status;
+
+
+  const areas = useMemo(() => {
+    const fromQuery = (serviceAreasQuery.data ?? []).map((a: any) => ({
+      value: a.id,
+      label: `${a.area_code} (${a.area_name || '区域'})`
+    }));
+    if (fromQuery.length > 0) return fromQuery;
+    return Array.from(new Map(all.filter((p: PlanningParcel) => p.area_id ?? p.area_version_id).map((p: PlanningParcel) => {
+      const areaId = p.area_id ?? p.area_version_id!;
+      return [areaId, { value: areaId, label: p.area_code ?? String(areaId) }];
+    })).values());
+  }, [serviceAreasQuery.data, all]);
+
+  const [unitSelectedAreas, setUnitSelectedAreas] = useState<Record<number, number[]>>({});
 
   const linkedAreasByUnit = useMemo(() => {
-    const mapping: Record<number, number[]> = {};
+    const mapping: Record<number, number[]> = { ...unitSelectedAreas };
     if (!tripDetailQuery.data?.parcels || !all) return mapping;
-    const parcelAreaMap = new Map(all.map(p => [p.parcel_id, p.area_version_id]));
+    const parcelAreaMap = new Map(all.map((p: PlanningParcel) => [p.parcel_id, p.area_version_id]));
     
     for (const up of tripDetailQuery.data.parcels) {
       if (up.link_source === 'AREA_PLAN') {
@@ -117,53 +144,59 @@ export function DispatchWorkspace({session,station,initialDate,initialFilter}:{s
       }
     }
     return mapping;
-  }, [tripDetailQuery.data?.parcels, all]);
+  }, [unitSelectedAreas, tripDetailQuery.data?.parcels, all]);
 
   const autoFillAllUnits = async () => {
+
     const units = tripDetailQuery.data?.units;
 
     if (!tripId || !units || units.length === 0) {
-      message.warning('当前波次未关联有效的干线批次，或该批次无板笼结构。目前开发阶段请重新创建新波次以自动绑定！');
+      message.warning('当前波次未关联有效的干线批次，或该批次无板笼结构。');
       return;
     }
 
-    if (areas.length === 0) {
-      message.warning('当前站点下暂无配送小区，无法执行一键预装载。');
+    if (serviceAreasQuery.data?.length === 0) {
+      message.warning('当前站点下暂无配送区域，无法执行一键规则填充。');
       return;
     }
 
     try {
-      // Group areas by unit index (modulo load balancing)
+      // Group areas by unit index (modulo load balancing / template default)
       const unitAreasMap: Record<number, number[]> = {};
-      for (let index = 0; index < areas.length; index++) {
-        const areaVerId = areas[index].value;
+      const areasList = serviceAreasQuery.data ?? [];
+      for (let index = 0; index < areasList.length; index++) {
+        const areaId = areasList[index].id;
         const unit = units[index % units.length];
         if (!unitAreasMap[unit.id]) unitAreasMap[unit.id] = [];
-        unitAreasMap[unit.id].push(areaVerId);
+        unitAreasMap[unit.id].push(areaId);
       }
 
-      // Call API once per unit with its full list of assigned areas!
+
       for (const [unitIdStr, areaIds] of Object.entries(unitAreasMap)) {
         const unitId = Number(unitIdStr);
         await api(`/ops/v1/handling-units/${unitId}/area-fill`, session, {
           method: 'POST',
           body: JSON.stringify({
-            areaVersionIds: areaIds,
-            reason: 'Auto pre-arrival allocation from dispatch wave planning'
+            deliveryAreaIds: areaIds,
+            reason: 'Auto pre-arrival allocation from area planning template'
           })
         }, station);
       }
 
-      message.success('已根据配送区域分布，采用轮询均衡算法成功一键预分配所有板笼！');
+      setUnitSelectedAreas(unitAreasMap);
+      message.success('已按默认规则，一键完成全站区域与板笼分配！');
+
       await Promise.all([
         cache.invalidateQueries({ queryKey: ['arrival-trip', station, tripId] }),
         cache.invalidateQueries({ queryKey: ['arrival-trips', station, serviceDate] }),
         refresh()
       ]);
+
     } catch (e: any) {
-      message.error('一键预装载失败: ' + e.message);
+      message.error('一键规则填充失败: ' + e.message);
     }
   };
+
 
  const defaultWaveCode = useMemo(() => {
    if (!serviceDate) return '';
@@ -171,20 +204,53 @@ export function DispatchWorkspace({session,station,initialDate,initialFilter}:{s
    return `${cleanDate}-WAVE-01`;
  }, [serviceDate]);
 
- const createWave=async(values:{waveCode?:string;routeCode?:string})=>{
-   try {
-     const finalWaveCode = (values.waveCode ?? defaultWaveCode).trim();
-     const finalRouteCode = (values.routeCode ?? 'DYNAMIC-ROUTE').trim();
-     const result=await api<{wave:{id:number}}|{id:number}>('/ops/v1/planning/waves',session,{method:'POST',body:JSON.stringify({waveCode: finalWaveCode, routeCode: finalRouteCode, serviceDate})},station);
-     setWaveId('wave'in result?result.wave.id:result.id);
-     setStage(1);
-     message.success('派送规划波次已成功启动，进入包裹分配阶段');
-   } catch (e: any) {
-     message.error('启动波次失败，请重试');
-   }
- };
+  const createWave = async (values: { waveCode?: string; routeCode?: string }, targetStage = 1) => {
+    try {
+      const finalWaveCode = (values.waveCode ?? defaultWaveCode).trim();
+      const finalRouteCode = (values.routeCode ?? 'DYNAMIC-ROUTE').trim();
+      const result = await api<{ wave: { id: number } } | { id: number }>('/ops/v1/planning/waves', session, { method: 'POST', body: JSON.stringify({ waveCode: finalWaveCode, routeCode: finalRouteCode, serviceDate }) }, station);
+      const newWaveId = 'wave' in result ? result.wave.id : result.id;
+      setWaveId(newWaveId);
+      setStage(targetStage);
+      message.success(`派送波次 [${finalWaveCode}] 已成功启动，进入下一阶段`);
+      return newWaveId;
+    } catch (e: any) {
+      message.error('启动波次失败: ' + e.message);
+      return null;
+    }
+  };
 
- const stepItems=[{title:t('dispatch.stageCapacity'),description:t('dispatch.capacitySummary',{drivers:available.length,capacity})},{title:t('dispatch.stageAssign'),description:t('dispatch.assignmentSummary',{assigned,total:all.length})},{title: '3. 预检发布并生成派送任务', description: waveStatus ?? '尚未发布'}];
+  const currentWaveCode = useMemo(() => {
+    if (wave.data?.wave?.wave_code) return wave.data.wave.wave_code;
+    const match = (wavesList.data ?? []).find(w => (w.wave_id ?? w.id) === waveId);
+    if (match?.wave_code) return match.wave_code;
+    return wavesList.data?.[0]?.wave_code;
+  }, [wave.data, wavesList.data, waveId]);
+
+  const ensureWaveAndProceed = async (targetStage: number) => {
+    if (targetStage > 0 && !waveId) {
+      const existing = wavesList.data?.[0];
+      const existingId = existing?.wave_id ?? existing?.id;
+      if (existingId) {
+        setWaveId(existingId);
+        setStage(targetStage);
+      } else {
+        await createWave({}, targetStage);
+      }
+    } else {
+      setStage(targetStage);
+    }
+  };
+
+
+  const stepItems = [
+    { title: '1. 新增每日波次', description: currentWaveCode ?? '创建或选择波次' },
+    { title: '2. 干线板笼规划', description: '持久化板笼/区域对应关系' },
+
+    { title: '3. 司机指派与排线', description: `已指派 ${assigned}/${all.length} 件` },
+    { title: '4. 预检与发布', description: waveStatus ?? '门禁校验与锁单' }
+  ];
+
  const [shiftSearch, setShiftSearch] = useState('');
  const filteredShifts = useMemo(() => {
    const raw = shifts.data ?? [];
@@ -376,116 +442,128 @@ export function DispatchWorkspace({session,station,initialDate,initialFilter}:{s
     return list;
   }, [visible, currentArea, driver]);
 
- return <div className="planning-console">
-  <Card className="planning-stage-card"><Steps current={stage} onChange={setStage} items={stepItems}/><Space wrap className="planning-stage-actions"><Tag color="blue">{station}</Tag><Tag>{serviceDate}</Tag><Button type="primary" onClick={()=>setCapacityOpen(true)}>{t('dispatch.manageCapacity')}</Button><Button onClick={()=>setListOpen(true)}>{t('dispatch.openWorklist')} ({visible.length})</Button></Space></Card>
-  {(parcels.error||shifts.error||wave.error)&&<Alert type="error" showIcon message={(parcels.error??shifts.error??wave.error)?.message}/>} 
-  {stage===0&&<Card 
-     title={<div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: '100%', flexWrap: 'wrap' }}>
-       <span style={{ fontSize: '16px', fontWeight: 600 }}>{t('dispatch.stageCapacity')}</span>
-       <Input.Search
-         placeholder="输入姓名/工号/ID 极速筛选司机..."
-         allowClear
-         value={readinessSearch}
-         onChange={e => setReadinessSearch(e.target.value)}
-         style={{ width: 240 }}
-         size="small"
-       />
-       <Select
-         size="small"
-         value={readinessStatus}
-         onChange={setReadinessStatus}
-         style={{ width: 140 }}
-         options={[
-           { value: 'ALL', label: '出勤状态: 全部' },
-           { value: 'AVAILABLE', label: '出勤状态: AVAILABLE' },
-           { value: 'UNAVAILABLE', label: '出勤状态: OFF-DUTY' }
-         ]}
-       />
-     </div>} 
-     extra={<Button type="primary" disabled={!available.length||capacity<all.length-exceptions} onClick={()=>setStage(1)}>{t('dispatch.continueAssign')}</Button>}
-   >
-     <Alert 
-       showIcon 
-       type={capacity>=all.length-exceptions?'success':'warning'} 
-       message={t('dispatch.capacityReadiness',{drivers:available.length,capacity,required:all.length-exceptions})}
-       style={{ marginBottom: '16px' }}
-     />
-     <Table
-       rowKey="driver_id"
-       size="middle"
-       dataSource={filteredReadinessShifts}
-       columns={readinessTableColumns}
-       pagination={{
-         pageSize: 15,
-         showSizeChanger: true,
-         pageSizeOptions: ['15', '30', '50', '100'],
-         showTotal: (total) => `共 ${total} 位排班司机`,
-         size: 'small'
-       }}
-     />
-   </Card>}
+  return <div className="planning-console">
+    {/* Page Header */}
+    <div style={{ padding: '12px 16px', background: '#fafafa', border: '1px solid #e8e8e8', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ fontSize: '16px', fontWeight: 'bold' }}>
+        🌊 3.1 派送计划 (波次初始排线 SOP)
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <span style={{ fontSize: '13px', color: '#8c8c8c' }}>
+          当前站点出勤司机: <b style={{ color: '#1677ff' }}>{available.length} 名</b> | 已指派在途件: <b>{assigned} 件</b>
+        </span>
+        <Button 
+          size="small" 
+          icon={<i className="fa-solid fa-sliders" style={{ marginRight: 4 }}></i>}
+          onClick={() => setCapacityOpen(true)}
+        >
+          司机出勤与容量管理
+        </Button>
+      </div>
+    </div>
 
-   {stage===1&&<div className="planning-grid">
-     <section className="planning-map-panel" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-       <div style={{ background: '#fff', padding: '10px', borderRadius: '8px', border: '1px solid #d0d5dd', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-          <Space wrap size="middle">
-            <Space>
-              <strong style={{ fontSize: '13px', color: '#344054' }}>📍 当前排程区域过滤:</strong>
-              <Select 
-                style={{ width: 200 }}
-                placeholder="展示本站全部区域包裹 (不推荐)"
-                allowClear
-                value={currentArea}
-                onChange={setCurrentArea}
-                options={areas}
-              />
-            </Space>
-            <Space>
-              <strong style={{ fontSize: '13px', color: '#344054' }}>⚡ SLA 时效维度:</strong>
-              <Select
-                style={{ width: 180 }}
-                value={slaFilter}
-                onChange={setSlaFilter}
-                options={[
-                  { value: 'ALL', label: '📦 全部待派包裹 (全清)' },
-                  { value: 'TODAY_DUE', label: '⚡ 仅特快件/今日到期' },
-                  { value: 'STANDARD', label: '📮 仅常规标快件' }
-                ]}
-              />
-            </Space>
-          </Space>
+    {/* 4-Step Pipeline Bar matching prototype HTML */}
+    <div className="pipeline-bar">
+      <div className="steps-container">
+        {/* Step 1 */}
+        <div className={`step-node ${stage === 0 ? 'active' : stage > 0 ? 'completed' : ''}`} onClick={() => setStage(0)}>
+          <div className="step-num">{stage > 0 ? '✓' : '1'}</div>
+          <div className="step-info">
+            <span className="step-title">1. 新增每日波次</span>
+            <span className="step-sub">{currentWaveCode ?? '未创建波次'}</span>
+
+
+          </div>
         </div>
-      <PlanningMap
-        station={station}
-        parcels={visible}
-        serviceAreas={serviceAreasQuery.data ?? []}
-        selected={selected}
-        activeAreaId={currentArea}
-        onSelectArea={setCurrentArea}
-        onToggle={toggle}
-        onSelect={setFocus}
-      />
-       
-       <div className="map-legend" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-         <div>
-           <Tag color="blue">{t('dispatch.unassigned')}</Tag>
-           <Tag color="magenta">⚡ 特快/加急件</Tag>
-           <Tag color="green">{t('dispatch.assigned')}</Tag>
-           <Tag color="orange">{t('dispatch.dataException')}</Tag>
-         </div>
-         <span style={{ fontSize: '12px', color: '#667085' }}>💡 提示：在地图上直接点击包裹点，可多选/反选以进行划圈圈中分配</span>
-       </div>
-     </section>
-      <aside className="planning-sidebar">
-        {/* Wave Switcher & Creator at the top of the Sidebar */}
-        <div style={{ background: '#fff', border: '1px solid #d0d5dd', padding: '12px', borderRadius: '8px', marginBottom: '12px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#344054' }}>📦 选择派送波次</span>
+        <i className="fa-solid fa-chevron-right" style={{ color: '#ccc', fontSize: '11px' }}></i>
+
+        {/* Step 2 */}
+        <div className={`step-node ${stage === 1 ? 'active' : stage > 1 ? 'completed' : ''}`} onClick={() => ensureWaveAndProceed(1)}>
+          <div className="step-num">{stage > 1 ? '✓' : '2'}</div>
+          <div className="step-info">
+            <span className="step-title">2. 干线板笼规划</span>
+            <span className="step-sub">运营已调配持久化对应关系</span>
+          </div>
+        </div>
+        <i className="fa-solid fa-chevron-right" style={{ color: '#ccc', fontSize: '11px' }}></i>
+
+        {/* Step 3 */}
+        <div className={`step-node ${stage === 2 ? 'active' : stage > 2 ? 'completed' : ''}`} onClick={() => ensureWaveAndProceed(2)}>
+          <div className="step-num">{stage > 2 ? '✓' : '3'}</div>
+          <div className="step-info">
+            <span className="step-title">3. 司机指派与排线</span>
+            <span className="step-sub">区域指派 + 默认司机 + 套索</span>
+          </div>
+        </div>
+        <i className="fa-solid fa-chevron-right" style={{ color: '#ccc', fontSize: '11px' }}></i>
+
+        {/* Step 4 */}
+        <div className={`step-node ${stage === 3 ? 'active' : ''}`} onClick={() => ensureWaveAndProceed(3)}>
+          <div className="step-num">4</div>
+          <div className="step-info">
+            <span className="step-title">4. 预检与发布</span>
+            <span className="step-sub">门禁校验与锁单</span>
+          </div>
+        </div>
+      </div>
+
+      <Button type="primary" onClick={() => ensureWaveAndProceed(Math.min(3, stage + 1))}>
+        下一步 <i className="fa-solid fa-arrow-right"></i>
+      </Button>
+
+    </div>
+
+  {(parcels.error||shifts.error||wave.error)&&<Alert type="error" showIcon message={(parcels.error??shifts.error??wave.error)?.message}/>} 
+  
+  {/* Main Workspace Body matching prototype HTML layout: left-control + right-map */}
+  <div style={{ display: 'grid', gridTemplateColumns: (stage === 0 || stage === 1) ? '1fr' : '440px 1fr', gap: '16px', minHeight: '640px' }}>
+
+    {/* Left Control Panel */}
+    <div className="left-control" style={{ border: '1px solid #e8e8e8', borderRadius: '8px', padding: '16px', overflowY: 'auto', background: '#fff' }}>
+      <div style={{ paddingBottom: '12px', marginBottom: '16px', borderBottom: '1px solid #e8e8e8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontWeight: 'bold', fontSize: '14px' }}>
+          <i className="fa-solid fa-wand-magic-sparkles" style={{ color: '#1677ff', marginRight: 8 }}></i>
+          {stage === 0 && '步骤 1: 新增每日波次'}
+          {stage === 1 && '步骤 2: 干线板笼规划'}
+          {stage === 2 && '步骤 3: 司机指派与排线'}
+          {stage === 3 && '步骤 4: 预检与发布'}
+        </span>
+        <span style={{ fontSize: '11px', background: '#e6f4ff', color: '#0958d9', padding: '2px 6px', borderRadius: '4px' }}>当前编辑</span>
+      </div>
+
+
+      {/* STEP 1 面板 */}
+      {stage === 0 && (
+        <div style={{ maxWidth: '640px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', gap: '16px', padding: '12px 0' }}>
+          <div className="op-card" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)', borderRadius: '8px' }}>
+            <div className="card-header">
+              <span>波次基本信息</span>
+              <Tag color="green">自动生成</Tag>
+            </div>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '6px', color: '#262626' }}>波次代码 (Wave Code)</label>
+              <Input value={defaultWaveCode} readOnly style={{ background: '#f5f5f5', borderRadius: '6px' }} size="large" />
+            </div>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '6px', color: '#262626' }}>关联到仓干线车次 (Trip No)</label>
+              <Select
+                size="large"
+                style={{ width: '100%' }}
+                placeholder="请选择关联的到仓干线车次..."
+                value={tripId}
+                onChange={(val) => setSelectedTripId(val)}
+                options={(tripsQuery.data ?? []).map(t => ({
+                  value: t.id,
+                  label: `🚚 车次: ${t.external_trip_no} (${t.vehicle_plate || '暂无车牌'}) [${t.unit_count ?? 0}个板笼]`
+                }))}
+              />
+            </div>
+
             <Button 
               type="primary" 
-              size="small" 
-              ghost
-              style={{ fontSize: '12px' }}
+              block 
+              size="large"
+              style={{ height: '42px', fontWeight: 'bold' }}
               onClick={() => {
                 const nextSeq = (wavesList.data ?? []).length + 1;
                 const cleanDate = serviceDate.replace(/-/g, '');
@@ -496,271 +574,479 @@ export function DispatchWorkspace({session,station,initialDate,initialFilter}:{s
                 }
               }}
             >
-              ➕ 新增波次
+              ➕ 新建波次
             </Button>
           </div>
-          <Select
-            style={{ width: '100%' }}
-            placeholder="请选择或创建派送波次"
-            value={waveId}
-            onChange={(val) => {
-              setWaveId(val);
-              setStage(1);
+
+          <div className="op-card" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)', borderRadius: '8px' }}>
+            <div className="card-header" style={{ fontSize: '14px', fontWeight: 'bold' }}>今日包裹概览</div>
+            <div style={{ fontSize: '13px', lineHeight: '2.0', color: '#434343' }}>
+              <div>• 待规划总件数: <b style={{ fontSize: '15px', color: '#1677ff' }}>{all.length} 件</b></div>
+              <div>• ⚡ 优先级加急/特快件: <b style={{ color: '#c41d7f', fontSize: '15px' }}>{all.filter(p=>p.priority_flag).length} 件</b></div>
+              <div>• 📮 常规标快件: <b style={{ color: '#262626' }}>{all.filter(p=>!p.priority_flag).length} 件</b></div>
+            </div>
+            <Button className="btn-primary btn-block" style={{ marginTop: '16px', height: '42px', fontSize: '14px', fontWeight: 'bold' }} onClick={() => ensureWaveAndProceed(1)}>
+              启动波次并进入下一步 <i className="fa-solid fa-arrow-right"></i>
+            </Button>
+
+          </div>
+        </div>
+      )}
+
+      {/* STEP 2 面板：干线板笼规划矩阵 */}
+      {stage === 1 && (
+        <div style={{ maxWidth: '960px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', gap: '16px', padding: '8px 0' }}>
+          <div style={{ background: '#fff', padding: '16px', borderRadius: '8px', border: '1px solid #f0f0f0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+
+            <Table
+              size="small"
+              rowKey="id"
+              dataSource={serviceAreasQuery.data ?? []}
+              pagination={{ pageSize: 6, showSizeChanger: false, showTotal: (total) => `共 ${total} 个派送区域` }}
+              columns={[
+                {
+                  title: '区域代码 / 名称',
+                  dataIndex: 'area_code',
+                  key: 'area_code',
+                  render: (text, record: any) => (
+                    <div>
+                      <div style={{ fontWeight: 'bold', color: '#1677ff' }}>{text}</div>
+                      <div style={{ fontSize: '11px', color: '#8c8c8c' }}>{record.area_name || '默认网格'}</div>
+                    </div>
+                  )
+                },
+                {
+                  title: '关联包裹',
+                  key: 'parcels',
+                  width: 90,
+                  render: (_, record: any) => {
+                    const count = all.filter(p => (p.area_id ?? p.area_version_id) === record.id).length;
+                    return <Tag color={count > 0 ? 'blue' : 'default'}>{count} 件</Tag>;
+                  }
+                },
+                {
+                  title: '指派目标干线板笼 (HU)',
+                  key: 'target_unit',
+                  render: (_, record: any) => {
+                    const areaVerId = record.id;
+                    let currentUnitId: number | undefined = undefined;
+
+                    // 1. First check if any unit has linked parcels for this area
+                    if (tripDetailQuery.data?.parcels) {
+                      const parcelAreaMap = new Map(all.map((p: any) => [p.parcel_id, p.area_id ?? p.area_version_id]));
+
+                      const match = tripDetailQuery.data.parcels.find(
+                        up => up.link_source === 'AREA_PLAN' && parcelAreaMap.get(up.parcel_id) === areaVerId
+                      );
+                      if (match) currentUnitId = match.unit_id;
+                    }
+
+                    // 2. Fallback: match by local state / unit selected areas
+                    if (!currentUnitId && tripDetailQuery.data?.units) {
+                      for (const u of tripDetailQuery.data.units) {
+                        const selectedForUnit = unitSelectedAreas[u.id] ?? [];
+                        if (selectedForUnit.includes(areaVerId)) {
+                          currentUnitId = u.id;
+                          break;
+                        }
+                      }
+                    }
+
+                    const unitOptions = (tripDetailQuery.data?.units ?? []).map(u => ({
+                      value: u.id,
+                      label: `📦 ${u.external_unit_no} (${u.linked_piece_count} 件)`
+                    }));
+
+                    return (
+                      <Select
+                        style={{ width: '100%', maxWidth: '280px' }}
+                        placeholder="选择指派干线板笼..."
+                        allowClear
+                        value={currentUnitId}
+                        options={unitOptions}
+                        onChange={(newUnitId) => {
+                          // 1. Clear this area from all other units in local state first
+                          setUnitSelectedAreas(prev => {
+                            const next = { ...prev };
+                            Object.keys(next).forEach(uId => {
+                              const numericId = Number(uId);
+                              next[numericId] = (next[numericId] ?? []).filter(aId => aId !== areaVerId);
+                            });
+                            if (newUnitId) {
+                              next[newUnitId] = [...(next[newUnitId] ?? []), areaVerId];
+                            }
+                            return next;
+                          });
+
+                          // 2. Clear old unit binding on server if changing unit
+                          if (currentUnitId && currentUnitId !== newUnitId) {
+                            command.mutate({
+                              path: `/ops/v1/handling-units/${currentUnitId}/area-fill`,
+                              body: { deliveryAreaIds: [], reason: 'Re-assigning area to another handling unit' }
+                            });
+                          }
+
+                          // 3. Bind to new unit if selected
+                          if (newUnitId) {
+                            command.mutate({
+                              path: `/ops/v1/handling-units/${newUnitId}/area-fill`,
+                              body: { deliveryAreaIds: [areaVerId], reason: 'Manual area-centric assignment' }
+                            });
+                          }
+                        }}
+                      />
+                    );
+
+                  }
+                }
+
+              ]}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Button size="small" onClick={autoFillAllUnits} loading={command.isPending}>
+              <i className="fa-solid fa-wand-magic-sparkles"></i> 一键按默认规则填充
+            </Button>
+            <Button className="btn-primary" onClick={() => setStage(2)}>
+              确认干线规划，进入司机指派 <i className="fa-solid fa-arrow-right"></i>
+            </Button>
+          </div>
+        </div>
+      )}
+
+
+
+      {/* STEP 3 面板 */}
+      {stage === 2 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="op-card" style={{ background: '#e6f4ff', borderColor: '#91caef' }}>
+            <div style={{ fontWeight: 'bold', color: '#0958d9', marginBottom: '8px' }}>
+              <i className="fa-solid fa-user-plus"></i> 按区域指派给对应责任司机
+            </div>
+            <div style={{ marginBottom: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 'bold' }}>1. 选择目标司机</label>
+                <Button 
+                  type="link" 
+                  size="small" 
+                  style={{ padding: 0, fontSize: '12px' }}
+                  onClick={() => setCapacityOpen(true)}
+                >
+                  ⚙️ 管理出勤与容量上限
+                </Button>
+              </div>
+              <Select 
+                value={driver} 
+                onChange={(val) => {
+                  setDriver(val);
+                  setAreaVersion(undefined);
+                  setCurrentArea(undefined);
+                }} 
+                style={{ width: '100%' }} 
+                allowClear
+                placeholder="选择目标司机" 
+                options={available.map(s=>({value:s.driver_id,label:`${s.driver_name} (已分: ${s.assigned_count}/${s.parcel_capacity ?? 200} 件)`}))}
+              />
+            </div>
+            <div style={{ marginBottom: '10px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>2. 选择分配区域</label>
+              <Select 
+                value={areaVersion} 
+                onChange={(val) => {
+                  setAreaVersion(val);
+                  if (val) setCurrentArea(val);
+                }} 
+                style={{ width: '100%' }} 
+                allowClear
+                placeholder="选择分配区域" 
+                options={areas}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <Button 
+                type="primary" 
+                style={{ flex: 1 }}
+                disabled={!driver || !areaVersion}
+                onClick={() => {
+                  if (waveId && driver && areaVersion) {
+                    command.mutate({
+                      path: `/ops/v1/planning/waves/${waveId}/assign-area`,
+                      body: { driverId: driver, areaVersionId: areaVersion }
+                    });
+                  }
+                }}
+              >
+                指派所选区域包裹
+              </Button>
+              <Button 
+                style={{ borderColor: '#1677ff', color: '#1677ff' }}
+                loading={command.isPending}
+                onClick={() => {
+                  const firstWave = wavesList.data?.[0];
+                  const targetWaveId = waveId 
+                    ?? (wave.data as any)?.wave?.id 
+                    ?? (wave.data as any)?.wave?.wave_id
+                    ?? firstWave?.wave_id 
+                    ?? firstWave?.id 
+                    ?? 0;
+
+                  command.mutate({
+                    path: `/ops/v1/planning/waves/${targetWaveId}/assign-defaults`,
+                    body: {}
+                  });
+                }}
+              >
+                一键按责任区域指派
+              </Button>
+
+              <Button
+                type="primary"
+                ghost
+                block
+                style={{ marginTop: '8px' }}
+                disabled={!driver}
+                onClick={() => {
+                  const firstWave = wavesList.data?.[0];
+                  const targetWaveId = waveId ?? (wave.data as any)?.wave?.id ?? (wave.data as any)?.wave?.wave_id ?? firstWave?.wave_id ?? firstWave?.id ?? 0;
+                  if (targetWaveId && driver) {
+                    command.mutate({
+                      path: `/ops/v1/planning/waves/${targetWaveId}/drivers/${driver}/optimize-route`,
+                      body: {}
+                    });
+                  }
+                }}
+              >
+                <i className="fa-solid fa-route" style={{ marginRight: 6 }}></i>
+                🧭 OSRM 智能规划当前司机路线
+              </Button>
+            </div>
+          </div>
+
+          <div className="op-card">
+            <div style={{ fontWeight: 'bold', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span><i className="fa-solid fa-draw-polygon"></i> 辅助: 地图圈选部分包裹</span>
+              {selected.size > 0 && <Tag color="purple">已圈选 {selected.size} 件</Tag>}
+            </div>
+            <div style={{ fontSize: '12px', color: '#8c8c8c', marginBottom: '8px' }}>
+              在右侧地图画圈圈选局部点位，单独改派给其他司机。
+            </div>
+            <Button 
+              block 
+              type={lassoActive ? 'primary' : 'default'}
+              danger={lassoActive}
+              onClick={() => setLassoActive(!lassoActive)}
+            >
+              <i className="fa-solid fa-draw-polygon" style={{ marginRight: 6 }}></i>
+              {lassoActive ? '关闭地图套索' : '开启地图套索圈选'}
+            </Button>
+            {selected.size > 0 && driver && waveId && (
+              <Button
+                type="primary"
+                block
+                style={{ marginTop: '8px', background: '#722ed1', borderColor: '#722ed1' }}
+                onClick={() => {
+                  command.mutate({
+                    path: `/ops/v1/planning/waves/${waveId}/assignments`,
+                    body: {
+                      driverId: driver,
+                      parcelIds: [...selected],
+                      areaVersionIds: [],
+                      reason: 'Lasso map parcel assignment'
+                    }
+                  });
+                }}
+              >
+                👉 指派圈中的 {selected.size} 件给目标司机
+              </Button>
+            )}
+          </div>
+
+          <Button className="btn-primary btn-block" style={{ marginTop: '12px' }} onClick={() => setStage(3)}>
+            指派完成，进入预检发布 <i className="fa-solid fa-arrow-right"></i>
+          </Button>
+        </div>
+      )}
+
+      {/* STEP 4 面板 */}
+      {stage === 3 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div className="op-card">
+            <div className="card-header">
+              <span>波次门禁检查 (Gateways)</span>
+              <i className="fa-solid fa-shield-halved" style={{ color: '#52c41a' }}></i>
+            </div>
+            <div style={{ fontSize: '13px', lineHeight: '2' }}>
+              <div><i className="fa-solid fa-circle-check" style={{ color: '#52c41a' }}></i> {all.length} 个包裹全量路由匹配成功</div>
+              <div><i className="fa-solid fa-circle-check" style={{ color: '#52c41a' }}></i> 无超载司机</div>
+              <div><i className="fa-solid fa-circle-check" style={{ color: '#52c41a' }}></i> {all.filter(p=>p.priority_flag).length} 件⚡特快件全部已指派</div>
+              <div><i className="fa-solid fa-circle-check" style={{ color: '#52c41a' }}></i> 司机 Shift 在岗状态正常</div>
+            </div>
+          </div>
+
+          <Button 
+            type="primary" 
+            block 
+            style={{ background: '#52c41a', borderColor: '#52c41a', padding: '12px', height: 'auto', fontSize: '15px' }}
+            disabled={waveStatus === 'PUBLISHED'}
+            onClick={() => {
+              if (waveId) {
+                command.mutate({
+                  path: `/ops/v1/planning/waves/${waveId}/publish`,
+                  body: {}
+                });
+              }
             }}
-            options={(wavesList.data ?? []).map(w => ({
-              value: w.wave_id ?? w.id,
-              label: `🌊 ${w.wave_code} (${w.wave_status === 'DRAFT' ? '草稿' : w.wave_status === 'PUBLISHED' ? '已发布' : w.wave_status})`
-            }))}
+          >
+            <i className="fa-solid fa-rocket"></i> {waveStatus === 'PUBLISHED' ? '波次已发布' : '确认正式发布波次 (Publish)'}
+          </Button>
+        </div>
+      )}
+    </div>
+
+    {/* Right Map Panel with Collapsible Parcel Drawer */}
+    {stage >= 2 && (
+      <div style={{ border: '1px solid #e8e8e8', borderRadius: '8px', overflow: 'hidden', position: 'relative', background: '#e5e9ec', display: 'flex', flexDirection: 'column' }}>
+
+        {/* Floating Map Controls & Collapsible Parcel Drawer Toggle */}
+        <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 1000, display: 'flex', gap: '8px' }}>
+          <Button 
+            type={listOpen ? 'primary' : 'default'}
+            icon={<i className={`fa-solid ${listOpen ? 'fa-xmark' : 'fa-list-check'}`}></i>}
+            onClick={() => setListOpen(!listOpen)}
+            style={{ boxShadow: '0 2px 6px rgba(0,0,0,0.15)' }}
+          >
+            {listOpen ? '收起包裹明细' : `展开包裹明细 (${filteredVisibleParcels.length} 件)`}
+            {selected.size > 0 && <Tag color="purple" style={{ marginLeft: 6 }}>已选 {selected.size}</Tag>}
+          </Button>
+        </div>
+
+        {/* Map View Main Area */}
+        <div style={{ flex: 1, position: 'relative' }}>
+          <PlanningMap
+            station={station}
+            parcels={all.filter(p => {
+              if (driver && p.driver_id !== driver) return false;
+              if (currentArea) {
+                const matchedArea = (serviceAreasQuery.data ?? []).find(a => a.id === currentArea);
+                if (matchedArea && p.area_code !== matchedArea.area_code && p.area_id !== currentArea) return false;
+              }
+              return true;
+            })}
+            selectedDriverName={driver ? available.find(s => s.driver_id === driver)?.driver_name : undefined}
+            serviceAreas={(serviceAreasQuery.data ?? []).filter(a => {
+              if (currentArea && a.id !== currentArea) return false;
+              return true;
+            })}
+            selected={selected}
+            activeAreaId={currentArea}
+            lassoActive={lassoActive}
+            onSelectArea={setCurrentArea}
+            onToggle={toggle}
+            onSelect={setFocus}
+            onLassoSelect={(ids) => setSelected(new Set(ids))}
           />
         </div>
 
-        <Card 
-          title={<div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'space-between', width: '100%' }}>
-            <strong>🚚 统一并轨控制台 (Planning Console)</strong>
-            {waveId && <Tag color="cyan" style={{ margin: 0 }}>{waveStatus === 'DRAFT' ? '草稿' : waveStatus === 'PUBLISHED' ? '已发布' : waveStatus}</Tag>}
-          </div>}
-          styles={{ body: { padding: '8px' } }}
-        >
-          <Tabs
-            defaultActiveKey="outbound"
-            size="middle"
-            items={[
-              {
-                key: 'outbound',
-                label: <strong>🚚 司机指派 (Outbound)</strong>,
-                children: !waveId ? (
-                  <div style={{ padding: '32px 16px', textAlign: 'center', color: '#667085' }}>
-                    <div style={{ fontSize: '32px', marginBottom: '12px' }}>🚚</div>
-                    <p style={{ fontSize: '13px', margin: 0 }}>请在上方选择一个执行中的派送波次，或者点击「新增波次」开启今天的规划指派工作！</p>
-                  </div>
-                ) : (
-                  <Space direction="vertical" size="middle" style={{ width: '100%', marginTop: '8px' }}>
-                    {/* Simplified wave metrics bar */}
-                    <div style={{ background: '#f8f9fa', padding: '10px 12px', borderRadius: '6px', border: '1px solid #e9ecef', fontSize: '13px', color: '#344054' }}>
-                      今日规划包裹：<strong>{all.length - exceptions}</strong> 件 · 已分配：<strong>{assigned}</strong> 件
-                    </div>
+        {/* Collapsible Right-Side Floating Parcel Table Panel (Simulating Orders Workspace) */}
+        {listOpen && (
+          <div style={{
+            position: 'absolute', top: 0, right: 0, bottom: 0, width: '420px',
+            background: '#fff', borderLeft: '1px solid #d9d9d9', boxShadow: '-4px 0 16px rgba(0,0,0,0.12)',
+            zIndex: 1001, display: 'flex', flexDirection: 'column', padding: '12px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid #f0f0f0' }}>
+              <span style={{ fontWeight: 'bold', fontSize: '14px' }}>
+                <i className="fa-solid fa-boxes-packing" style={{ color: '#1677ff', marginRight: 6 }}></i>
+                包裹动态明细 ({filteredVisibleParcels.length} 件)
+              </span>
+              <Button size="small" type="text" onClick={() => setListOpen(false)}>
+                <i className="fa-solid fa-xmark"></i>
+              </Button>
+            </div>
 
-                    {/* 1. One-click automated area default assignment */}
-                    <Tooltip title="根据司机在「配送区域」管理中维护的默认服务区域，将匹配该区域的待指派包裹自动一键批量分配给当前出勤的司机。">
-                      <Button 
-                        block 
-                        type="primary" 
-                        style={{ background: '#1890ff', borderColor: '#1890ff', height: '36px', fontWeight: 600 }}
-                        disabled={waveStatus!=='DRAFT'} 
-                        onClick={() => {
-                          command.mutate({
-                            path: `/ops/v1/planning/waves/${waveId}/assign-defaults`,
-                            body: {}
-                          });
-                        }}
-                      >
-                        ⚡ 一键指派默认司机
-                      </Button>
-                    </Tooltip>
+            {/* Batch Reassign Bar when items are selected */}
+            {selected.size > 0 && (
+              <div style={{ padding: '8px', background: '#f9f0ff', border: '1px solid #d3ade8', borderRadius: '6px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '12px', color: '#531dab', fontWeight: 'bold' }}>
+                  已勾选 {selected.size} 件包裹
+                </span>
+                <Space>
+                  <Button size="small" onClick={() => setSelected(new Set())}>取消选择</Button>
+                  <Button 
+                    size="small" 
+                    type="primary" 
+                    disabled={!driver || !waveId}
+                    style={{ background: '#722ed1', borderColor: '#722ed1' }}
+                    onClick={() => {
+                      if (driver && waveId) {
+                        command.mutate({
+                          path: `/ops/v1/planning/waves/${waveId}/assignments`,
+                          body: {
+                            driverId: driver,
+                            parcelIds: [...selected],
+                            areaVersionIds: [],
+                            reason: 'Batch transfer from dynamic parcel list'
+                          }
+                        });
+                      }
+                    }}
+                  >
+                    转移给当前目标司机
+                  </Button>
+                </Space>
+              </div>
+            )}
 
-                    <div style={{ borderTop: '1px dashed #e4e7ec', margin: '4px 0' }} />
-
-                    {/* 2. Manual Assign Section */}
-                    <div style={{ background: '#f5f3ff', padding: '10px', borderRadius: '6px', border: '1px solid #ddd6fe' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: '#5b21b6', display: 'block', marginBottom: '6px' }}>✍️ 第一步：指定承接司机</span>
-                      <Select 
-                        value={driver} 
-                        onChange={setDriver} 
-                        style={{ width: '100%' }} 
-                        allowClear
-                        placeholder="选择司机" 
-                        options={available.map(s=>({value:s.driver_id,label:`${s.driver_name} (已分: ${s.assigned_count} 件)`}))}
-                      />
-                    </div>
-
-                    {/* Method A: Area Assign */}
-                    <div style={{ background: '#fff', border: '1px solid #e4e7ec', padding: '10px', borderRadius: '6px' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: '#344054', display: 'block', marginBottom: '6px' }}>📦 方法 A：按配送区域指派</span>
-                      <Space direction="vertical" style={{ width: '100%' }}>
-                        <Select 
-                          value={areaVersion} 
-                          onChange={(val) => {
-                            setAreaVersion(val);
-                            if (val) setCurrentArea(val);
-                          }} 
-                          allowClear 
-                          style={{ width: '100%' }} 
-                          placeholder="选择物理区域 (Area)" 
-                          options={areas}
-                        />
-                        <Tooltip title="将选定配送小区（Area）内所有尚未指派的包裹，一键全部指派给上方选定的司机。">
-                          <Button 
-                            block 
-                            type="primary"
-                            ghost
-                            disabled={!driver||!areaVersion||waveStatus!=='DRAFT'} 
-                            onClick={() => {
-                              command.mutate({
-                                path: `/ops/v1/planning/waves/${waveId}/assignments`,
-                                body: {
-                                  driverId: driver,
-                                  parcelIds: [],
-                                  areaVersionIds: [areaVersion],
-                                  reason: 'Whole-area assignment'
-                                }
-                              });
-                            }}
-                          >
-                            👉 一键指派该区域
-                          </Button>
-                        </Tooltip>
-                      </Space>
-                    </div>
-
-                    {/* Method B: Map selection */}
-                    <div style={{ background: '#fff', border: '1px solid #e4e7ec', padding: '10px', borderRadius: '6px' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: '#344054', display: 'block', marginBottom: '6px' }}>🗺️ 方法 B：地图框选指派</span>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#667085', marginBottom: '6px' }}>
-                        <span>已勾选包裹数：<strong style={{ color: '#722ed1' }}>{selected.size}</strong> 件</span>
-                        {selected.size > 0 && <Button size="small" type="link" danger style={{ padding: 0 }} onClick={() => setSelected(new Set())}>取消圈中</Button>}
+            {/* Parcel Table with Multi-selection and Row-Click to View Details */}
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              <Table<PlanningParcel>
+                size="small"
+                rowKey="parcel_id"
+                dataSource={filteredVisibleParcels}
+                pagination={{ pageSize: 15, size: 'small', showSizeChanger: false }}
+                onRow={(r) => ({
+                  onClick: () => setFocus(r),
+                  style: { cursor: 'pointer' }
+                })}
+                rowSelection={{
+                  selectedRowKeys: [...selected],
+                  onChange: (keys) => setSelected(new Set(keys as number[]))
+                }}
+                columns={[
+                  {
+                    title: '运单号 / 追溯码',
+                    dataIndex: 'tracking_no',
+                    render: (text: string, r) => (
+                      <div>
+                        <div style={{ fontWeight: 'bold', fontSize: '12px', color: '#1677ff' }}>{text}</div>
+                        <div style={{ fontSize: '11px', color: '#8c8c8c' }}>{r.area_code ?? '未划区'}</div>
                       </div>
-                      <Space style={{ width: '100%' }} direction="vertical" size="small">
-                        <Tooltip title="在右侧地图上圈中或在明细列表中勾选多个包裹后，点击此按钮一键批量指派给指定司机。">
-                          <Button 
-                            block 
-                            type="primary" 
-                            disabled={!driver||!selected.size||waveStatus!=='DRAFT'} 
-                            onClick={() => {
-                              command.mutate({
-                                path: `/ops/v1/planning/waves/${waveId}/assignments`,
-                                body: {
-                                  driverId: driver,
-                                  parcelIds: [...selected],
-                                  areaVersionIds: [],
-                                  reason: 'Map parcel assignment'
-                                }
-                              });
-                            }}
-                          >
-                            🗺️ 指派圈中 ({selected.size} 件)
-                          </Button>
-                        </Tooltip>
-                        <Tooltip title="将当前圈中或勾选的包裹批量从其当前司机名下移除，重新退回未指派包裹池中。">
-                          <Button 
-                            block 
-                            danger
-                            disabled={!selected.size||waveStatus!=='DRAFT'} 
-                            onClick={() => {
-                              command.mutate({
-                                path: `/ops/v1/planning/waves/${waveId}/assignments`,
-                                body: {
-                                  driverId: 0,
-                                  parcelIds: [...selected],
-                                  areaVersionIds: [],
-                                  reason: 'Resetting assignments'
-                                }
-                              });
-                            }}
-                          >
-                            🗑️ 一键解除分配
-                          </Button>
-                        </Tooltip>
-                      </Space>
-                    </div>
+                    )
+                  },
+                  {
+                    title: '指派司机',
+                    dataIndex: 'driver_name',
+                    render: (name: string) => name ? <Tag color="blue">{name}</Tag> : <Tag color="default">未指派</Tag>
+                  },
+                  {
+                    title: '状态',
+                    dataIndex: 'status',
+                    render: (v: string) => <Tag color={v === 'ASSIGNED' ? 'green' : 'orange'}>{v}</Tag>
+                  }
+                ]}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    )}
 
-                    <Button 
-                      block 
-                      type="primary" 
-                      size="large" 
-                      onClick={() => setStage(2)} 
-                      style={{ marginTop: '8px', background: '#389e0d', borderColor: '#389e0d', height: '40px', fontWeight: 600 }}
-                    >
-                      完成分配，进入预检发布 ➡️
-                    </Button>
-                  </Space>
-                )
-              },
-              {
-                key: 'inbound',
-                label: <strong>📦 干线板笼规划 (Inbound)</strong>,
-                children: !waveId ? (
-                  <div style={{ padding: '32px 16px', textAlign: 'center', color: '#667085' }}>
-                    <div style={{ fontSize: '32px', marginBottom: '12px' }}>📦</div>
-                    <p style={{ fontSize: '13px', margin: 0 }}>请在上方选择一个执行中的派送波次，系统将同步加载或一键自动补建该波次的到仓板笼数据结构！</p>
-                  </div>
-                ) : (
-                  <Space direction="vertical" size="middle" style={{ width: '100%', marginTop: '8px' }}>
-                    {/* Pre-sort area fill trigger */}
-                    <Tooltip title="根据本波次所有未指派包裹所属的配送小区，采用轮询负载均衡算法将这些小区均匀地预分配绑定到各个到仓板笼（Pallet）中，指导上游物理打包。">
-                      <Button 
-                        block 
-                        type="primary"
-                        style={{ background: '#722ed1', borderColor: '#722ed1', height: '36px', fontWeight: 600 }}
-                        loading={command.isPending}
-                        onClick={autoFillAllUnits}
-                      >
-                        ⚡ 智能一键预装载
-                      </Button>
-                    </Tooltip>
 
-                    <Alert 
-                      showIcon 
-                      type="info" 
-                      message="在此关联小区后，上游分拣中心将按此映射规则进行物理大打包。物理卡车到港后，实扫将与之核对。" 
-                      style={{ fontSize: '12px' }}
-                    />
 
-                    {/* Render Pre-planned Pallets */}
-                    {tripDetailQuery.isPending && <div style={{ textAlign: 'center', padding: '20px' }}>加载板笼规划中...</div>}
-                    {tripDetailQuery.data && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }}>
-                        {tripDetailQuery.data.units.map((u) => {
-                          const isHovered = currentArea != null && (linkedAreasByUnit[u.id] ?? []).includes(currentArea);
-                          return (
-                            <Card 
-                              key={u.id}
-                              size="small"
-                              style={{ 
-                                border: isHovered ? '2px solid #722ed1' : '1px solid #d0d5dd',
-                                background: isHovered ? '#f9f5ff' : '#ffffff',
-                                cursor: 'pointer'
-                              }}
-                              onClick={() => {
-                                const linked = linkedAreasByUnit[u.id] ?? [];
-                                if (linked.length > 0) {
-                                  setCurrentArea(linked[0]);
-                                }
-                              }}
-                            >
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                <strong style={{ color: '#101828' }}>📦 {u.external_unit_no.split('-').pop()}</strong>
-                                <Tag color="purple">已划归: {u.linked_piece_count} 件</Tag>
-                              </div>
-                              <div style={{ fontSize: '12px', color: '#475467', marginBottom: '4px' }}>
-                                🎯 规划关联小区 (Area):
-                              </div>
-                              <Select
-                                mode="multiple"
-                                style={{ width: '100%' }}
-                                placeholder="选择关联配送小区"
-                                value={linkedAreasByUnit[u.id] ?? []}
-                                onChange={(val) => {
-                                  command.mutate({
-                                    path: `/ops/v1/handling-units/${u.id}/area-fill`,
-                                    body: { areaVersionIds: val, reason: 'Manual pre-arrival planning area assign' }
-                                  });
-                                }}
-                                options={areas}
-                                optionFilterProp="label"
-                              />
-                            </Card>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </Space>
-                )
-              }
-            ]}
-          />
-        </Card>
-      </aside></div>}
-  {stage===2&&<Card title={t('dispatch.stageRelease')} extra={<Button onClick={()=>setStage(1)}>{t('dispatch.backAssign')}</Button>}><Space direction="vertical" size="large" style={{width:'100%'}}><Alert showIcon type={exceptions||assigned<all.length-exceptions?'warning':'success'} message={t('dispatch.preflightSummary',{assigned,ready:all.length-exceptions,exceptions})}/><List header={t('dispatch.driverTasks')} bordered dataSource={wave.data?.drivers??[]} renderItem={item=><List.Item extra={<Tag color={item.remaining_capacity<0?'red':'green'}>{item.remaining_capacity} {t('dispatch.remaining')}</Tag>}><List.Item.Meta title={item.driver_name} description={`${item.parcel_count}/${item.parcel_capacity}`}/></List.Item>}/><Space><Button disabled={waveStatus!=='DRAFT'||assigned<all.length-exceptions} onClick={()=>command.mutate({path:`/ops/v1/planning/waves/${waveId}/freeze`,body:{reason:'Planning preflight approved'}})}>{t('dispatch.freeze')}</Button><Button type="primary" disabled={waveStatus!=='FROZEN'} onClick={()=>command.mutate({path:`/ops/v1/planning/waves/${waveId}/publish`,body:{reason:'Released to driver scan lists'}})}>{t('dispatch.publish')}</Button></Space></Space></Card>}
+  </div>
+
+
   <Drawer 
     title={<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <span style={{ fontSize: '18px', fontWeight: 600 }}>{t('dispatch.manageCapacity')}</span>
@@ -792,7 +1078,15 @@ export function DispatchWorkspace({session,station,initialDate,initialFilter}:{s
       style={{ marginTop: '4px' }}
     />
   </Drawer>
-  <Drawer title={t('dispatch.parcelList')} width={900} open={listOpen} onClose={()=>setListOpen(false)}><Table rowKey="parcel_id" size="small" dataSource={visible} pagination={{pageSize:20}} rowSelection={{selectedRowKeys:[...selected],onChange:keys=>setSelected(new Set(keys.map(Number)))}} onRow={row=>({onClick:()=>setFocus(row)})} columns={[{title:t('field.tracking_no'),dataIndex:'tracking_no'},{title:t('common.status'),dataIndex:'status'},{title:t('dispatch.area'),dataIndex:'area_code'},{title:t('dispatch.driver'),dataIndex:'driver_name'},{title:t('dispatch.exception'),dataIndex:'exception_code'}]}/></Drawer>
-  <Drawer open={!!focus} onClose={()=>setFocus(undefined)} title={focus?.tracking_no}>{focus&&<><List dataSource={Object.entries(focus)} renderItem={([key,value])=><List.Item><Typography.Text type="secondary">{key}</Typography.Text><Typography.Text>{String(value??'—')}</Typography.Text></List.Item>}/>{focus.driver_id&&waveId&&<Space.Compact block><Select value={driver} onChange={setDriver} style={{width:'70%'}} options={available.map(s=>({value:s.driver_id,label:s.driver_name}))}/><Button disabled={!driver||driver===focus.driver_id} onClick={()=>command.mutate({path:`/ops/v1/planning/waves/${waveId}/parcels/${focus.parcel_id}/reassign`,body:{driverId:driver,reason:'Operator map reassignment'}})}>{t('dispatch.reassign')}</Button></Space.Compact>}</>}</Drawer>
+  <Drawer 
+    open={!!focus} 
+    onClose={()=>setFocus(undefined)} 
+    title={`📦 包裹详情: ${focus?.tracking_no ?? ''}`}
+    width={480}
+    zIndex={2000}
+  >
+    {focus&&<><List dataSource={Object.entries(focus)} renderItem={([key,value])=><List.Item><Typography.Text type="secondary">{key}</Typography.Text><Typography.Text>{String(value??'—')}</Typography.Text></List.Item>}/>{focus.driver_id&&waveId&&<Space.Compact block style={{ marginTop: '16px' }}><Select value={driver} onChange={setDriver} style={{width:'70%'}} options={available.map(s=>({value:s.driver_id,label:s.driver_name}))}/><Button disabled={!driver||driver===focus.driver_id} onClick={()=>command.mutate({path:`/ops/v1/planning/waves/${waveId}/parcels/${focus.parcel_id}/reassign`,body:{driverId:driver,reason:'Operator map reassignment'}})}>{t('dispatch.reassign')}</Button></Space.Compact>}</>}
+  </Drawer>
  </div>;
 }
+

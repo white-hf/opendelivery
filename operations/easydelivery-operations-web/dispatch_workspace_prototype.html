@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenDelivery - 派送计划与司机调配</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --primary-color: #1677ff;
+            --primary-hover: #4096ff;
+            --success-color: #52c41a;
+            --warning-color: #faad14;
+            --error-color: #ff4d4f;
+            --bg-dark: #001529;
+            --bg-light: #f5f7fa;
+            --border-color: #e8e8e8;
+            --text-main: #1f1f1f;
+            --text-secondary: #8c8c8c;
+        }
+
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: var(--bg-light); color: var(--text-main); }
+        .shell { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* Header */
+        .header { background: var(--bg-dark); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; height: 56px; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+        .brand { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+        .badge-ver { background: var(--primary-color); font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+        .global-search-container { position: relative; width: 320px; }
+        .global-search { width: 100%; padding: 6px 16px 6px 36px; border-radius: 18px; border: none; outline: none; background: rgba(255,255,255,0.15); color: #fff; font-size: 13px; transition: all 0.3s; }
+        .global-search::placeholder { color: rgba(255,255,255,0.55); }
+        .global-search:focus { background: rgba(255,255,255,0.25); box-shadow: 0 0 0 2px rgba(22,119,255,0.4); }
+        .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.55); font-size: 13px; }
+
+        /* App Layout */
+        .main-body { display: flex; flex: 1; overflow: hidden; }
+        .sider { width: 220px; background: var(--bg-dark); color: #fff; display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.05); }
+        .menu-group { padding: 14px 20px 6px; font-size: 12px; color: rgba(255,255,255,0.45); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .menu-item { padding: 10px 20px; color: rgba(255,255,255,0.75); cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 13.5px; transition: all 0.2s; }
+        .menu-item.sub-item { padding-left: 36px; font-size: 13px; }
+        .menu-item:hover { color: #fff; background: rgba(255,255,255,0.08); }
+        .menu-item.active { background: var(--primary-color); color: #fff; font-weight: 600; border-right: 3px solid #69b1ff; }
+
+        /* Workspace Header */
+        .workspace { flex: 1; display: flex; flex-direction: column; background: #fff; overflow: hidden; }
+        .page-header { padding: 12px 20px; background: #fafafa; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+
+        /* Step Pipeline Bar (Submenu 3.1) */
+        .pipeline-bar { background: #fff; border-bottom: 1px solid var(--border-color); padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; }
+        .steps-container { display: flex; align-items: center; gap: 12px; flex: 1; max-width: 920px; }
+        .step-node { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 6px; background: #fafafa; border: 1px solid var(--border-color); cursor: pointer; transition: all 0.25s; }
+        .step-node:hover { border-color: var(--primary-color); }
+        .step-node.active { background: #e6f4ff; border-color: var(--primary-color); box-shadow: 0 2px 6px rgba(22,119,255,0.15); }
+        .step-node.completed { background: #f6ffed; border-color: #b7eb8f; }
+        .step-num { width: 22px; height: 22px; border-radius: 50%; background: #d9d9d9; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
+        .step-node.active .step-num { background: var(--primary-color); }
+        .step-node.completed .step-num { background: var(--success-color); }
+        .step-info { display: flex; flex-direction: column; }
+        .step-title { font-size: 13px; font-weight: 600; color: var(--text-main); }
+        .step-sub { font-size: 11px; color: var(--text-secondary); }
+
+        /* Workspace Main Body */
+        .dispatch-body { flex: 1; display: flex; overflow: hidden; }
+        
+        /* Left Control Panel */
+        .left-control { width: 440px; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; background: #fff; z-index: 10; }
+        .panel-header { padding: 12px 16px; background: #fafafa; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; }
+        .panel-title { font-size: 14px; font-weight: bold; display: flex; align-items: center; gap: 8px; }
+
+        /* Step Panels */
+        .step-section { display: none; }
+        .step-section.active { display: block; }
+
+        /* Card Component */
+        .op-card { border: 1px solid var(--border-color); border-radius: 8px; padding: 14px; margin-bottom: 14px; background: #fff; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: 600; font-size: 14px; }
+        
+        .unit-row { border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; margin-bottom: 8px; background: #fff; display: flex; flex-direction: column; gap: 6px; }
+        .unit-row:hover { border-color: var(--primary-color); }
+        .unit-title { display: flex; justify-content: space-between; font-weight: bold; font-size: 13px; }
+
+        .driver-card-big { border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 10px; cursor: pointer; background: #fff; transition: all 0.2s; }
+        .driver-card-big:hover, .driver-card-big.active { border-color: var(--primary-color); background: #e6f4ff; }
+
+        .progress-bar-wrap { background: #f0f0f0; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 6px; }
+        .progress-bar-inner { height: 100%; border-radius: 4px; transition: width 0.3s; }
+
+        .btn { padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border-color); background: #fff; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+        .btn:hover { border-color: var(--primary-color); color: var(--primary-color); }
+        .btn-primary { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
+        .btn-primary:hover { background: var(--primary-hover); color: #fff; }
+        .btn-success { background: var(--success-color); color: #fff; border-color: var(--success-color); }
+        .btn-block { width: 100%; }
+
+        .input-select { width: 100%; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 13px; outline: none; }
+
+        /* Right Map Area */
+        .right-map { flex: 1; position: relative; background: #e5e9ec; }
+        #map { width: 100%; height: 100%; }
+
+        .map-overlay-tools { position: absolute; top: 16px; right: 16px; z-index: 500; background: #fff; border-radius: 8px; padding: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; gap: 6px; }
+
+        .lasso-panel { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 500; background: rgba(0,21,41,0.92); backdrop-filter: blur(8px); color: #fff; padding: 12px 24px; border-radius: 30px; display: flex; align-items: center; gap: 16px; box-shadow: 0 6px 20px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15); }
+
+        /* Drawer */
+        .drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 2000; display: none; justify-content: flex-end; }
+        .drawer { width: 480px; background: #fff; height: 100%; display: flex; flex-direction: column; box-shadow: -4px 0 16px rgba(0,0,0,0.15); }
+        .drawer-header { padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: #fafafa; }
+        .drawer-body { flex: 1; overflow-y: auto; padding: 20px; }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <!-- 1. Header with Global Search -->
+        <header class="header">
+            <div class="brand">
+                <i class="fa-solid fa-truck-fast" style="color: #1677ff;"></i>
+                <span>OpenDelivery</span>
+                <span class="badge-ver">v0.6.4</span>
+                <span style="font-size: 13px; color: rgba(255,255,255,0.65); font-weight: normal; margin-left: 8px;">
+                    | 站点: <b>YHZ-01 - Halifax Station</b>
+                </span>
+            </div>
+
+            <!-- 全局运单/追踪号/电话 搜索框 -->
+            <div class="global-search-container">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" class="global-search" placeholder="🔍 全局搜索：单号 / 追踪号 / 电话" onkeypress="handleGlobalSearch(event)">
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 16px; font-size: 13px;">
+                <span>营业日: <b>2026-07-24</b></span>
+                <span>操作员: <b>dispatch.yhz</b></span>
+                <i class="fa-solid fa-right-from-bracket" style="cursor: pointer;" title="退出登录"></i>
+            </div>
+        </header>
+
+        <!-- 2. Main App Body -->
+        <div class="main-body">
+            <!-- 侧边导航菜单：派送计划拆分为 2 个专业子菜单 -->
+            <aside class="sider">
+                <div class="menu-group">📋 今日日常作业</div>
+                <div class="menu-item"><i class="fa-solid fa-chart-line"></i>1. 运营大屏</div>
+                <div class="menu-item"><i class="fa-solid fa-boxes-packing"></i>2. 订单准备</div>
+                
+                <!-- 2 个明确子菜单 -->
+                <div class="menu-item active" id="menuDispatch1" onclick="switchNav('dispatch-wave')">
+                    <i class="fa-solid fa-route"></i>3.1 派送计划 (波次排线)
+                </div>
+                <div class="menu-item sub-item" id="menuDispatch2" onclick="switchNav('dispatch-driver-reassign')">
+                    <i class="fa-solid fa-users-gear" style="color: #ff7a45;"></i>3.2 司机包裹 (动态调配)
+                </div>
+
+                <div class="menu-item"><i class="fa-solid fa-file-invoice"></i>4. 到货清单</div>
+                <div class="menu-item"><i class="fa-solid fa-barcode"></i>5. 司机扫描</div>
+                <div class="menu-item"><i class="fa-solid fa-signature"></i>6. 交接审批</div>
+                <div class="menu-item"><i class="fa-solid fa-location-dot"></i>7. 派送监控</div>
+                <div class="menu-item"><i class="fa-solid fa-calendar-check"></i>8. 日终关站</div>
+                
+                <div class="menu-group">🚨 异常管理</div>
+                <div class="menu-item"><i class="fa-solid fa-circle-exclamation"></i>异常工单</div>
+
+                <div class="menu-group">⚙️ 基础设施配置</div>
+                <div class="menu-item"><i class="fa-solid fa-draw-polygon"></i>派送区域</div>
+                <div class="menu-item"><i class="fa-solid fa-id-card"></i>司机配置</div>
+                <div class="menu-item"><i class="fa-solid fa-warehouse"></i>站点配置</div>
+            </aside>
+
+            <!-- 3. Workspace Area -->
+            <main class="workspace">
+                <!-- Page Header -->
+                <div class="page-header">
+                    <div style="font-size: 16px; font-weight: bold;" id="pageTitle">
+                        🌊 3.1 派送计划 (波次初始排线 SOP)
+                    </div>
+                    <div style="font-size: 13px; color: var(--text-secondary);">
+                        当前站点出勤司机: <b style="color: var(--primary-color);">3 名</b> | 已指派在途件: <b>46 件</b>
+                    </div>
+                </div>
+
+                <!-- 完整恢复：子菜单 3.1 专用的【4 步调度流水线 (4-Step Pipeline Bar)】 -->
+                <div class="pipeline-bar" id="pipelineBar">
+                    <div class="steps-container">
+                        <!-- Step 1 -->
+                        <div class="step-node active" id="stepNode1" onclick="gotoStep(1)">
+                            <div class="step-num">1</div>
+                            <div class="step-info">
+                                <span class="step-title">1. 新增每日波次</span>
+                                <span class="step-sub">20260724-WAVE-01</span>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right" style="color: #ccc; font-size: 11px;"></i>
+
+                        <!-- Step 2 -->
+                        <div class="step-node" id="stepNode2" onclick="gotoStep(2)">
+                            <div class="step-num">2</div>
+                            <div class="step-info">
+                                <span class="step-title">2. 干线板笼规划</span>
+                                <span class="step-sub">运营已调配持久化对应关系</span>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right" style="color: #ccc; font-size: 11px;"></i>
+
+                        <!-- Step 3 -->
+                        <div class="step-node" id="stepNode3" onclick="gotoStep(3)">
+                            <div class="step-num">3</div>
+                            <div class="step-info">
+                                <span class="step-title">3. 司机指派与排线</span>
+                                <span class="step-sub">区域指派 + 默认司机 + 套索</span>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right" style="color: #ccc; font-size: 11px;"></i>
+
+                        <!-- Step 4 -->
+                        <div class="step-node" id="stepNode4" onclick="gotoStep(4)">
+                            <div class="step-num">4</div>
+                            <div class="step-info">
+                                <span class="step-title">4. 预检与发布</span>
+                                <span class="step-sub">门禁校验与锁单</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="nextStep()"><i class="fa-solid fa-arrow-right"></i> 下一步</button>
+                </div>
+
+                <!-- Main Workspace Body -->
+                <div class="dispatch-body">
+                    <!-- Left Control Panel -->
+                    <div class="left-control">
+                        <!-- Panel Header -->
+                        <div class="panel-header" id="panelHeader">
+                            <span class="panel-title" id="panelStepTitle"><i class="fa-solid fa-wand-magic-sparkles"></i> 步骤 1: 新增每日波次</span>
+                            <span style="font-size: 11px; background: #e6f4ff; color: #0958d9; padding: 2px 6px; border-radius: 4px;">当前编辑</span>
+                        </div>
+
+                        <!-- 子菜单 3.1 界面内容：包含 100% 契合系统真实代码的 4 步面板 -->
+                        <div id="viewDispatchWave" style="flex: 1; overflow-y: auto; padding: 16px;">
+                            <!-- STEP 1 面板 -->
+                            <div class="step-section active" id="secStep1">
+                                <div class="op-card">
+                                    <div class="card-header">
+                                        <span>波次基本信息</span>
+                                        <span class="badge-ver" style="background: #52c41a;">自动生成</span>
+                                    </div>
+                                    <div style="margin-bottom: 12px;">
+                                        <label style="font-size: 12px; font-weight: bold;">波次代码 (Wave Code)</label>
+                                        <input type="text" class="input-select" value="20260724-WAVE-01" readonly style="background: #f5f5f5;">
+                                    </div>
+                                    <div style="margin-bottom: 12px;">
+                                        <label style="font-size: 12px; font-weight: bold;">关联干线车次 (Trip No)</label>
+                                        <select class="input-select">
+                                            <option>TRIP-20260724-YHZ (NorthStar Commerce 干线车次)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="op-card">
+                                    <div class="card-header">今日包裹概览</div>
+                                    <div style="font-size: 13px; line-height: 1.8;">
+                                        <div>• 待规划总件数: <b>72 件</b></div>
+                                        <div>• ⚡ 优先级加急/特快件: <b style="color: #c41d7f;">12 件</b></div>
+                                        <div>• 📮 常规标快件: <b>60 件</b></div>
+                                    </div>
+                                    <button class="btn btn-primary btn-block" style="margin-top: 12px;" onclick="gotoStep(2)">启动波次并进入下一步 <i class="fa-solid fa-arrow-right"></i></button>
+                                </div>
+                            </div>
+
+                            <!-- STEP 2 面板：运营人工配置并持久化调配的【板笼与区域对应关系】 -->
+                            <div class="step-section" id="secStep2">
+                                <div class="op-card" style="background: #f6ffed; border-color: #b7eb8f;">
+                                    <div style="font-weight: bold; color: #389e0d; display: flex; justify-content: space-between; align-items: center;">
+                                        <span><i class="fa-solid fa-floppy-disk"></i> 板笼-区域运营配置已持久化保存</span>
+                                        <span class="badge-ver" style="background: #52c41a;">直接加载</span>
+                                    </div>
+                                    <div style="font-size: 12px; color: #595959; margin-top: 6px;">
+                                        系统自动载入上次运营人工配置并保存的「板笼-派送区域」对应规则。每日进入无需重新配置：
+                                    </div>
+                                </div>
+
+                                <div style="font-size: 12px; font-weight: bold; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                                    <span>固定干线板笼结构 (HU 调配):</span>
+                                    <button class="btn" style="padding: 2px 8px; font-size: 11px;" onclick="saveTemplate()"><i class="fa-solid fa-pen"></i> 修改并保存调配规则</button>
+                                </div>
+
+                                <!-- 运营调配配置好的板笼与区域 -->
+                                <div class="unit-row">
+                                    <div class="unit-title">
+                                        <span>📦 HU-01 (Downtown 西区板笼)</span>
+                                        <span style="color: var(--primary-color);">24 件</span>
+                                    </div>
+                                    <div style="font-size: 12px; color: #595959; display: flex; justify-content: space-between; align-items: center;">
+                                        <span>对应派送区域: <b style="color: var(--primary-color);">DEMO-R02-YHZ-A1</b></span>
+                                        <span style="color: #52c41a; font-size: 11px;">[已绑定]</span>
+                                    </div>
+                                </div>
+
+                                <div class="unit-row">
+                                    <div class="unit-title">
+                                        <span>📦 HU-02 (Downtown 东区板笼)</span>
+                                        <span style="color: var(--primary-color);">28 件</span>
+                                    </div>
+                                    <div style="font-size: 12px; color: #595959; display: flex; justify-content: space-between; align-items: center;">
+                                        <span>对应派送区域: <b style="color: var(--primary-color);">DEMO-R02-YHZ-A2</b></span>
+                                        <span style="color: #52c41a; font-size: 11px;">[已绑定]</span>
+                                    </div>
+                                </div>
+
+                                <div class="unit-row">
+                                    <div class="unit-title">
+                                        <span>📦 HU-03 (North Residential 板笼)</span>
+                                        <span style="color: var(--primary-color);">20 件</span>
+                                    </div>
+                                    <div style="font-size: 12px; color: #595959; display: flex; justify-content: space-between; align-items: center;">
+                                        <span>对应派送区域: <b style="color: var(--primary-color);">DEMO-R02-YHZ-A3</b></span>
+                                        <span style="color: #52c41a; font-size: 11px;">[已绑定]</span>
+                                    </div>
+                                </div>
+
+                                <div class="unit-row" style="opacity: 0.6;">
+                                    <div class="unit-title">
+                                        <span>📦 HU-04 (West Coastal 板笼)</span>
+                                        <span style="color: #bfbfbf;">0 件 (备用)</span>
+                                    </div>
+                                    <div style="font-size: 12px; color: #595959; display: flex; justify-content: space-between; align-items: center;">
+                                        <span>对应派送区域: <b>DEMO-R02-YHZ-A4</b></span>
+                                        <span style="color: #8c8c8c; font-size: 11px;">[已绑定]</span>
+                                    </div>
+                                </div>
+
+                                <div style="text-align: center; font-size: 12px; color: var(--text-secondary); margin: 8px 0;">
+                                    ... (HU-05 ~ HU-10 运营已配置绑定关系)
+                                </div>
+
+                                <button class="btn btn-primary btn-block" style="margin-top: 12px;" onclick="gotoStep(3)">确认板笼配置，进入司机指派 <i class="fa-solid fa-arrow-right"></i></button>
+                            </div>
+
+                            <!-- STEP 3 面板：司机指派与排线 -->
+                            <div class="step-section" id="secStep3">
+                                <div class="op-card" style="background: #e6f4ff; border-color: #91caef;">
+                                    <div style="font-weight: bold; color: #0958d9; margin-bottom: 8px;">
+                                        <i class="fa-solid fa-user-plus"></i> 按区域指派给对应责任司机
+                                    </div>
+                                    <div style="margin-bottom: 10px;">
+                                        <label style="font-size: 12px; font-weight: bold;">1. 选择目标司机</label>
+                                        <select class="input-select" id="assignDriverSelect" onchange="onDriverSelectChange()">
+                                            <option value="alex">Alex Chen (负责区域: A1)</option>
+                                            <option value="maya">Maya Singh (负责区域: A2)</option>
+                                            <option value="noah">Noah Martin (负责区域: A3)</option>
+                                        </select>
+                                    </div>
+                                    <div style="margin-bottom: 10px;">
+                                        <label style="font-size: 12px; font-weight: bold;">2. 选择分配区域</label>
+                                        <select class="input-select" id="assignAreaSelect">
+                                            <option value="A1">DEMO-R02-YHZ-A1 (Halifax Downtown)</option>
+                                            <option value="A2">DEMO-R02-YHZ-A2 (Halifax East)</option>
+                                            <option value="A3">DEMO-R02-YHZ-A3 (Halifax North)</option>
+                                        </select>
+                                    </div>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button class="btn btn-primary" style="flex: 1;" onclick="assignByArea()">指派所选区域包裹</button>
+                                        <button class="btn" style="border-color: #1677ff; color: #1677ff;" onclick="assignDefaults()">一键按责任区域指派</button>
+                                    </div>
+                                </div>
+
+                                <div class="op-card">
+                                    <div style="font-weight: bold; margin-bottom: 6px;">
+                                        <i class="fa-solid fa-draw-polygon"></i> 辅助: 地图圈选部分包裹
+                                    </div>
+                                    <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+                                        在右侧地图画圈圈选局部点位，单独改派给其他司机。
+                                    </div>
+                                    <button class="btn btn-block" onclick="toggleLassoMode()">开启地图套索圈选</button>
+                                </div>
+
+                                <button class="btn btn-primary btn-block" style="margin-top: 12px;" onclick="gotoStep(4)">指派完成，进入预检发布 <i class="fa-solid fa-arrow-right"></i></button>
+                            </div>
+
+                            <!-- STEP 4 面板：预检与发布 -->
+                            <div class="step-section" id="secStep4">
+                                <div class="op-card">
+                                    <div class="card-header">
+                                        <span>波次门禁检查 (Gateways)</span>
+                                        <i class="fa-solid fa-shield-halved" style="color: var(--success-color);"></i>
+                                    </div>
+                                    <div style="font-size: 13px; line-height: 2;">
+                                        <div><i class="fa-solid fa-circle-check" style="color: #52c41a;"></i> 72 个包裹全量路由匹配成功</div>
+                                        <div><i class="fa-solid fa-circle-check" style="color: #52c41a;"></i> 无超载司机</div>
+                                        <div><i class="fa-solid fa-circle-check" style="color: #52c41a;"></i> 12 件⚡特快件全部已指派</div>
+                                        <div><i class="fa-solid fa-circle-check" style="color: #52c41a;"></i> 司机 Shift 在岗状态正常</div>
+                                    </div>
+                                </div>
+
+                                <button class="btn btn-success btn-block" style="padding: 12px; font-size: 15px;" onclick="publishWave()">
+                                    <i class="fa-solid fa-rocket"></i> 确认正式发布波次 (Publish)
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 子菜单 3.2 界面内容：司机包裹 (动态调配工作台) -->
+                        <div id="viewDriverReassign" style="display: none; padding: 16px; flex: 1; overflow-y: auto;">
+                            <div class="op-card" style="background: #e6f4ff; border-color: #91caef;">
+                                <div style="font-weight: bold; color: #0958d9; margin-bottom: 6px;">
+                                    <i class="fa-solid fa-arrows-rotate"></i> 司机包裹动态调配控制台
+                                </div>
+                                <div style="font-size: 12px; color: #595959; margin-bottom: 10px;">
+                                    适用于初始发布后的日常动态转件、救火平拆运力。<br>
+                                    可在右侧地图画圈套索，秒级将包裹转移指派给其他司机。
+                                </div>
+                                <button class="btn btn-primary btn-block" onclick="toggleLassoMode()">
+                                    <i class="fa-solid fa-draw-polygon"></i> 开启地图画圈套索划转
+                                </button>
+                            </div>
+
+                            <div style="font-weight: bold; font-size: 13px; margin: 16px 0 8px 0;">出勤司机包裹分配与运力监控:</div>
+
+                            <!-- 司机卡片 1 -->
+                            <div class="driver-card-big active" onclick="selectDriver('alex')">
+                                <div style="display: flex; justify-content: space-between; font-weight: bold;">
+                                    <span><i class="fa-solid fa-circle" style="color: #52c41a;"></i> 源司机: Alex Chen (VAN)</span>
+                                    <span style="color: var(--primary-color);">18 / 22 件</span>
+                                </div>
+                                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+                                    包裹分配: ⚡ 3 特快件 + 15 常规件 | 📍 Downtown 西区
+                                </div>
+                                <div class="progress-bar-wrap">
+                                    <div class="progress-bar-inner" style="width: 81%; background: var(--primary-color);"></div>
+                                </div>
+                            </div>
+
+                            <!-- 司机卡片 2 -->
+                            <div class="driver-card-big" onclick="selectDriver('maya')">
+                                <div style="display: flex; justify-content: space-between; font-weight: bold;">
+                                    <span><i class="fa-solid fa-circle" style="color: #1890ff;"></i> 源司机: Maya Singh (Sedan)</span>
+                                    <span style="color: var(--error-color);">28 / 28 件 🔴(爆仓)</span>
+                                </div>
+                                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+                                    包裹分配: ⚡ 5 特快件 + 23 常规件 | 📍 Downtown 东区
+                                </div>
+                                <div class="progress-bar-wrap">
+                                    <div class="progress-bar-inner" style="width: 100%; background: var(--error-color);"></div>
+                                </div>
+                            </div>
+
+                            <!-- 司机卡片 3 -->
+                            <div class="driver-card-big" onclick="selectDriver('noah')">
+                                <div style="display: flex; justify-content: space-between; font-weight: bold;">
+                                    <span><i class="fa-solid fa-circle" style="color: #faad14;"></i> 备用司机: Noah Martin (SUV)</span>
+                                    <span style="color: var(--success-color);">0 / 32 件 (空闲)</span>
+                                </div>
+                                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+                                    未分配包裹 | 📍 Halifax 北区
+                                </div>
+                                <div class="progress-bar-wrap">
+                                    <div class="progress-bar-inner" style="width: 0%; background: var(--success-color);"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Map Area -->
+                    <div class="right-map">
+                        <div class="map-overlay-tools">
+                            <button class="btn" id="btnLasso" onclick="toggleLassoMode()"><i class="fa-solid fa-draw-polygon"></i> 🖊️ 地图套索画圈划转</button>
+                            <button class="btn" onclick="resetMap()"><i class="fa-solid fa-rotate-left"></i> 重置视角</button>
+                        </div>
+
+                        <div id="map"></div>
+
+                        <!-- Lasso Re-assign Control Float Bar -->
+                        <div class="lasso-panel" id="lassoPanel" style="display: none;">
+                            <span><i class="fa-solid fa-wand-magic-sparkles" style="color: #69b1ff;"></i> 已画圈圈选 <b>4 件</b> 包裹 (来自 Alex)</span>
+                            <span style="font-size: 13px; color: rgba(255,255,255,0.75);">转移指派给:</span>
+                            <select class="input-select" style="width: 180px; padding: 4px 8px; color: #000;">
+                                <option>Noah Martin (空闲, 剩余 32 件容量)</option>
+                                <option>Maya Singh (已满 28 件)</option>
+                            </select>
+                            <button class="btn btn-success" onclick="confirmTransfer()">确认提交划转 (Re-assign)</button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- 运单详情 Drawer -->
+    <div class="drawer-backdrop" id="shipmentDrawer">
+        <div class="drawer">
+            <div class="drawer-header">
+                <span style="font-weight: bold; font-size: 16px;">📦 运单与包裹详情 (Shipment Detail)</span>
+                <i class="fa-solid fa-xmark" style="cursor: pointer; font-size: 18px;" onclick="closeDrawer()"></i>
+            </div>
+            <div class="drawer-body">
+                <div class="op-card" style="background: #e6f4ff; border-color: #91caef;">
+                    <div style="font-weight: bold; font-size: 15px; color: #0958d9;">追踪号: DEMO-R02-YHZ-P001</div>
+                    <div style="font-size: 12px; color: #595959; margin-top: 4px;">当前 Custody 托管权: <b>STATION_WAREHOUSE (Halifax Station)</b></div>
+                    <div style="font-size: 12px; color: #595959;">履约状态: <b>RECEIVED (已到仓待派送)</b></div>
+                </div>
+
+                <div class="op-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-weight: bold;">收件人与派送地址属性 (Editable Attributes)</span>
+                        <button class="btn" style="padding: 2px 8px; font-size: 12px;" onclick="enableEdit()"><i class="fa-solid fa-pen"></i> 编辑修改</button>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <label style="font-size: 12px; font-weight: bold;">收件人姓名</label>
+                        <input type="text" id="editName" class="input-select" value="Sarah Jenkins" disabled>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <label style="font-size: 12px; font-weight: bold;">联系电话</label>
+                        <input type="text" id="editPhone" class="input-select" value="+1 (902) 555-0192" disabled>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <label style="font-size: 12px; font-weight: bold;">派送地址 (Address Line)</label>
+                        <input type="text" id="editAddr" class="input-select" value="1234 Barrington St, Halifax, NS" disabled>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <label style="font-size: 12px; font-weight: bold;">邮编 (Postal Code)</label>
+                        <input type="text" id="editPostal" class="input-select" value="B3J 1Y2" disabled>
+                    </div>
+                    <button class="btn btn-primary btn-block" id="btnSaveShipment" style="display: none; margin-top: 12px;" onclick="saveShipment()">
+                        <i class="fa-solid fa-check"></i> 保存修改并自动重新 Geocode 校验
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const map = L.map('map').setView([44.6488, -63.5752], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        const parcels = [
+            { lat: 44.650, lng: -63.580, driver: 'alex', code: 'DEMO-R02-YHZ-P001' },
+            { lat: 44.648, lng: -63.575, driver: 'alex', code: 'DEMO-R02-YHZ-P002' },
+            { lat: 44.645, lng: -63.570, driver: 'alex', code: 'DEMO-R02-YHZ-P003' },
+            { lat: 44.642, lng: -63.565, driver: 'maya', code: 'DEMO-R02-YHZ-P004' },
+            { lat: 44.640, lng: -63.560, driver: 'maya', code: 'DEMO-R02-YHZ-P005' },
+        ];
+
+        parcels.forEach(p => {
+            const marker = L.circleMarker([p.lat, p.lng], {
+                radius: 8,
+                fillColor: p.driver === 'alex' ? '#52c41a' : '#1890ff',
+                color: '#fff',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.9
+            }).addTo(map);
+            marker.bindPopup(`<b>${p.code}</b><br>当前司机: ${p.driver}`);
+        });
+
+        // Pipeline Step Switcher
+        function gotoStep(stepNum) {
+            for (let i = 1; i <= 4; i++) {
+                document.getElementById(`stepNode${i}`).classList.remove('active');
+                document.getElementById(`secStep${i}`).classList.remove('active');
+            }
+            document.getElementById(`stepNode${stepNum}`).classList.add('active');
+            document.getElementById(`secStep${stepNum}`).classList.add('active');
+
+            const titles = [
+                '步骤 1: 新增每日波次',
+                '步骤 2: 干线板笼规划 (运营持久化调配)',
+                '步骤 3: 司机指派与排线 (责任区域指派)',
+                '步骤 4: 预检与发布波次'
+            ];
+            document.getElementById('panelStepTitle').innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> ${titles[stepNum - 1]}`;
+        }
+
+        function nextStep() {
+            const currentActive = document.querySelector('.step-node.active');
+            const currentNum = parseInt(currentActive.id.replace('stepNode', ''));
+            if (currentNum < 4) {
+                currentActive.classList.add('completed');
+                gotoStep(currentNum + 1);
+            }
+        }
+
+        function saveTemplate() {
+            alert('🎉 运营配置成功保存！对应规则已持久化存入系统 DB，日后进入默认直接加载该对应关系，无需再次配置！');
+        }
+
+        function onDriverSelectChange() {
+            const drv = document.getElementById('assignDriverSelect').value;
+            const areaSel = document.getElementById('assignAreaSelect');
+            if (drv === 'alex') areaSel.value = 'A1';
+            else if (drv === 'maya') areaSel.value = 'A2';
+            else if (drv === 'noah') areaSel.value = 'A3';
+        }
+
+        function assignByArea() {
+            const drv = document.getElementById('assignDriverSelect').value;
+            const area = document.getElementById('assignAreaSelect').value;
+            alert(`🎉 成功将区域 DEMO-R02-YHZ-${area} 内的所有包裹指派给责任司机 ${drv}！`);
+        }
+
+        function assignDefaults() {
+            alert('⚡ 成功执行一键按责任区域指派 (assign-defaults)！已分配 46 件包裹！');
+        }
+
+        // Switch Nav Submenus
+        function switchNav(navKey) {
+            const isWave = navKey === 'dispatch-wave';
+            document.getElementById('menuDispatch1').classList.toggle('active', isWave);
+            document.getElementById('menuDispatch2').classList.toggle('active', !isWave);
+            
+            document.getElementById('pageTitle').innerText = isWave 
+                ? '🌊 3.1 派送计划 (波次初始排线 SOP)' 
+                : '🚚 3.2 司机包裹 (动态调配工作台)';
+                
+            document.getElementById('pipelineBar').style.display = isWave ? 'flex' : 'none';
+            document.getElementById('panelHeader').style.display = isWave ? 'flex' : 'none';
+            document.getElementById('viewDispatchWave').style.display = isWave ? 'block' : 'none';
+            document.getElementById('viewDriverReassign').style.display = isWave ? 'none' : 'block';
+        }
+
+        let isLasso = false;
+        function toggleLassoMode() {
+            isLasso = !isLasso;
+            document.getElementById('lassoPanel').style.display = isLasso ? 'flex' : 'none';
+        }
+
+        function confirmTransfer() {
+            alert('🎉 成功将 Alex 的 4 件包裹批量划转指派给 Noah Martin！对应司机的运力及地图分布已实时更新！');
+            toggleLassoMode();
+        }
+
+        function publishWave() {
+            alert('🚀 波次 WAVE-20260724-01 正式发布成功！已生成司机任务并切换至动态调配界面！');
+            switchNav('dispatch-driver-reassign');
+        }
+
+        function handleGlobalSearch(event) {
+            if (event.key === 'Enter') {
+                document.getElementById('shipmentDrawer').style.display = 'flex';
+            }
+        }
+
+        function closeDrawer() {
+            document.getElementById('shipmentDrawer').style.display = 'none';
+        }
+
+        function enableEdit() {
+            document.getElementById('editName').disabled = false;
+            document.getElementById('editPhone').disabled = false;
+            document.getElementById('editAddr').disabled = false;
+            document.getElementById('editPostal').disabled = false;
+            document.getElementById('btnSaveShipment').style.display = 'block';
+        }
+
+        function saveShipment() {
+            alert('🎉 运单修改成功！已保存新地址并完成 Geocode 重新校验！');
+            closeDrawer();
+        }
+
+        function resetMap() {
+            map.setView([44.6488, -63.5752], 13);
+        }
+    </script>
+</body>
+</html>

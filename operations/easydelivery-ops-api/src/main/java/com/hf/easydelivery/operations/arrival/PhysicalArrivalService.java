@@ -24,6 +24,8 @@ import java.util.Map;
  * (persistence ADR); reporting queries and set-based INSERT…SELECT stay on JdbcTemplate
  * as documented escape hatches.
  */
+import com.hf.easydelivery.operations.domain.HandlingUnitDomainService;
+
 @Service
 @Profile("!memory")
 public class PhysicalArrivalService {
@@ -32,11 +34,15 @@ public class PhysicalArrivalService {
     private final ObjectMapper mapper;
     private final ArrivalTripRepository tripRepo;
     private final HandlingUnitRepository unitRepo;
+    private final HandlingUnitDomainService huDomainService;
 
     public PhysicalArrivalService(JdbcTemplate jdbc, OperationsAccess access, ObjectMapper mapper,
-                                  ArrivalTripRepository tripRepo, HandlingUnitRepository unitRepo) {
+                                  ArrivalTripRepository tripRepo, HandlingUnitRepository unitRepo,
+                                  HandlingUnitDomainService huDomainService) {
         this.jdbc=jdbc;this.access=access;this.mapper=mapper;this.tripRepo=tripRepo;this.unitRepo=unitRepo;
+        this.huDomainService = huDomainService;
     }
+
 
     // Reporting read model (ADR escape hatch): aggregate SQL stays JDBC.
     public List<Map<String,Object>> trips(LocalDate serviceDate){long station=station();return jdbc.queryForList("""
@@ -117,9 +123,24 @@ public class PhysicalArrivalService {
         for(String unitNo:ArrivalLinkagePolicy.defaultUnitNumbers(no,ArrivalLinkagePolicy.DEFAULT_UNIT_COUNT)){
             // Escape hatch (ADR): dialect upsert for generated default units
             defaultUnits+=jdbc.update("INSERT IGNORE INTO handling_unit(trip_id,station_id,external_unit_no,unit_type) VALUES (?,?,?,'PALLET')",trip.getId(),station,unitNo);
+            
+            // Auto-apply area template rule to new units
+            Long unitId = jdbc.queryForObject("SELECT id FROM handling_unit WHERE trip_id=? AND external_unit_no=?", Long.class, trip.getId(), unitNo);
+            if (unitId != null) {
+                jdbc.update("""
+                    INSERT IGNORE INTO handling_unit_parcel(handling_unit_id,parcel_id,link_source)
+                    SELECT ?, p.id, 'AREA_PLAN'
+                    FROM handling_unit_area_rule r
+                    JOIN parcel p ON p.current_area_id = r.delivery_area_id AND p.current_station_id = r.station_id
+                    WHERE r.station_id = ? AND r.unit_code = ?
+                      AND p.status NOT IN ('DELIVERED','RETURNED_TO_UPSTREAM','CANCELLED','LOST')
+                    """, unitId, station, unitNo);
+            }
+
         }
         audit(http,station,"ARRIVAL_TRIP_CREATED","ARRIVAL_TRIP",trip.getId(),body.note(),Map.of("externalTripNo",no,"defaultUnitsCreated",defaultUnits));
         return detail(trip.getId());}
+
 
     @Transactional public Map<String,Object> moveTrip(long tripId,StateRequest body,HttpServletRequest http){
         ArrivalTripEntity trip=tripForUpdate(tripId);
@@ -152,30 +173,13 @@ public class PhysicalArrivalService {
 
     @Transactional public Map<String,Object> areaFill(long unitId,AreaFillRequest body,HttpServletRequest http){
         HandlingUnitEntity unit=unitForUpdate(unitId);
-        if(body.areaVersionIds()==null||body.areaVersionIds().isEmpty()){
-            jdbc.update("DELETE FROM handling_unit_parcel WHERE handling_unit_id=? AND link_source='AREA_PLAN'", unit.getId());
-            audit(http,unit.getStationId(),"HANDLING_UNIT_AREA_CLEARED","HANDLING_UNIT",unit.getId(),body.reason(),Map.of("cleared",true));
-            return detail(unit.getTripId());
-        }
-        for(Long areaId:body.areaVersionIds()){
-            Integer n=jdbc.queryForObject("SELECT COUNT(*) FROM delivery_area a WHERE a.id=? AND a.station_id=? AND a.status='ACTIVE'",Integer.class,areaId,unit.getStationId());
-            if(n==null||n==0)throw new BizException("AREA.NOT.AVAILABLE","Active area does not belong to selected station");
-        }
-        jdbc.update("DELETE FROM handling_unit_parcel WHERE handling_unit_id=? AND link_source='AREA_PLAN'", unit.getId());
-        int linked=0;
-        for(Long areaId:body.areaVersionIds()){
-            // Escape hatch (ADR): set-based INSERT…SELECT over the denormalized area projection
-            linked+=jdbc.update("""
-                    INSERT IGNORE INTO handling_unit_parcel(handling_unit_id,parcel_id,link_source)
-                    SELECT ?,p.id,'AREA_PLAN' FROM parcel p
-                    WHERE p.current_area_id=? AND p.current_station_id=?
-                      AND p.status NOT IN ('DELIVERED','RETURNED_TO_UPSTREAM','CANCELLED','LOST')
-                      AND NOT EXISTS(SELECT 1 FROM handling_unit_parcel other JOIN handling_unit ou ON ou.id=other.handling_unit_id
-                                     WHERE other.parcel_id=p.id AND ou.trip_id=? AND other.handling_unit_id<>?)
-                    """,unit.getId(),areaId,unit.getStationId(),unit.getTripId(),unit.getId());
-        }
-        audit(http,unit.getStationId(),"HANDLING_UNIT_AREA_FILLED","HANDLING_UNIT",unit.getId(),body.reason(),Map.of("areaVersionIds",body.areaVersionIds(),"linkedCount",linked));
+        String reason=required(body==null?null:body.reason(),"reason");
+        List<Long> areaIds = body.getEffectiveAreaIds();
+        int linked = huDomainService.reassignAreasToUnit(unitId, areaIds, reason);
+        audit(http,unit.getStationId(),"HANDLING_UNIT_AREA_FILLED","HANDLING_UNIT",unit.getId(),reason,Map.of("deliveryAreaIds",areaIds,"linkedCount",linked));
         return detail(unit.getTripId());}
+
+
 
     @Transactional public Map<String,Object> moveUnit(long unitId,StateRequest body,HttpServletRequest http){
         HandlingUnitEntity unit=unitForUpdate(unitId);
@@ -196,6 +200,13 @@ public class PhysicalArrivalService {
     private String json(Object value){try{return mapper.writeValueAsString(value);}catch(Exception ex){throw new IllegalStateException(ex);}}
     public record TripRequest(String externalTripNo,String vehiclePlate,String sealNo,LocalDateTime expectedAt,String note){}
     public record UnitRequest(String externalUnitNo,String unitType,Integer expectedPieceCount,List<String> trackingNumbers,String reason){}
-    public record AreaFillRequest(List<Long> areaVersionIds,String reason){}
+    public record AreaFillRequest(List<Long> deliveryAreaIds, List<Long> areaVersionIds, String reason) {
+        public List<Long> getEffectiveAreaIds() {
+            if (deliveryAreaIds != null && !deliveryAreaIds.isEmpty()) {
+                return deliveryAreaIds;
+            }
+            return areaVersionIds != null ? areaVersionIds : List.of();
+        }
+    }
     public record StateRequest(String targetStatus,String reason){}
 }

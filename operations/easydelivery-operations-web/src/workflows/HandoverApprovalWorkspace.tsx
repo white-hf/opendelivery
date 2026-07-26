@@ -34,7 +34,8 @@ interface EventItem {
     correctDriverName: string | null;
 }
 
-export function HandoverApprovalWorkspace({ session, station, serviceDate }: { session: Session; station: string; serviceDate: string }) {
+export function HandoverApprovalWorkspace({ session, station, serviceDate }: { session: Session; station: number | string; serviceDate: string }) {
+
     const { t } = useTranslation();
     const queryClient = useQueryClient();
     const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);

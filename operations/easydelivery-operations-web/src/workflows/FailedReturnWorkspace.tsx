@@ -16,20 +16,22 @@ type MonitorTask = {
 };
 
 type OnRoadSupervision = {
-    driver_name: string;
-    area_name: string;
-    assigned_count: number;
-    delivered_count: number;
-    failed_count: number;
-    duration_hours: number;
-    actual_sph: number;
-    baseline_sph: number;
-    efficiency_variance_percent: number;
-    missing_pod_count: number;
-    supervision_status: 'NORMAL' | 'LAGGING' | 'STAGNANT';
+    driverId: number;
+    driverName: string;
+    areaCode: string;
+    dispatchedCount: number;
+    deliveredCount: number;
+    failedCount: number;
+    activeHours: number;
+    actualSph: number;
+    baselineSph: number;
+    efficiencyVariancePercent: number;
+    missingPodCount: number;
+    supervisionStatus: string;
 };
 
-export function FailedReturnWorkspace({ session, station, serviceDate }: { session: Session; station: string; serviceDate: string }) {
+export function FailedReturnWorkspace({ session, station, serviceDate }: { session: Session; station: number | string; serviceDate: string }) {
+
     const { t } = useTranslation();
     const cache = useQueryClient();
     const [selected, setSelected] = useState<FailedReturn>();
@@ -88,9 +90,9 @@ export function FailedReturnWorkspace({ session, station, serviceDate }: { sessi
     const failedRows = failedQuery.data ?? [];
 
     const mockSupervision: OnRoadSupervision[] = [
-        { driver_name: '张师傅', area_name: 'YYZ-Downtown (密集)', assigned_count: 120, delivered_count: 80, failed_count: 2, duration_hours: 4.0, actual_sph: 20.5, baseline_sph: 20.0, efficiency_variance_percent: 2.5, missing_pod_count: 0, supervision_status: 'NORMAL' },
-        { driver_name: '李师傅', area_name: 'YYZ-Suburbs (偏远)', assigned_count: 80, delivered_count: 30, failed_count: 1, duration_hours: 4.0, actual_sph: 7.5, baseline_sph: 12.0, efficiency_variance_percent: -37.5, missing_pod_count: 3, supervision_status: 'LAGGING' },
-        { driver_name: '王师傅', area_name: 'YYZ-Midtown', assigned_count: 100, delivered_count: 0, failed_count: 0, duration_hours: 2.5, actual_sph: 0.0, baseline_sph: 18.0, efficiency_variance_percent: -100.0, missing_pod_count: 0, supervision_status: 'STAGNANT' },
+        { driverId: 101, driverName: '张师傅', areaCode: 'YYZ-Downtown (密集)', dispatchedCount: 120, deliveredCount: 80, failedCount: 2, activeHours: 4.0, actualSph: 20.5, baselineSph: 20.0, efficiencyVariancePercent: 2.5, missingPodCount: 0, supervisionStatus: 'NORMAL' },
+        { driverId: 102, driverName: '李师傅', areaCode: 'YYZ-Suburbs (偏远)', dispatchedCount: 80, deliveredCount: 30, failedCount: 1, activeHours: 4.0, actualSph: 7.5, baselineSph: 12.0, efficiencyVariancePercent: -37.5, missingPodCount: 3, supervisionStatus: 'LAGGING' },
+        { driverId: 103, driverName: '王师傅', areaCode: 'YYZ-Midtown', dispatchedCount: 100, deliveredCount: 0, failedCount: 0, activeHours: 2.5, actualSph: 0.0, baselineSph: 18.0, efficiencyVariancePercent: -100.0, missingPodCount: 0, supervisionStatus: 'STAGNANT' },
     ];
 
     const supervisionData = (supervisionQuery.data && supervisionQuery.data.length > 0) ? supervisionQuery.data : mockSupervision;
@@ -122,20 +124,20 @@ export function FailedReturnWorkspace({ session, station, serviceDate }: { sessi
                             label: '在途 SPH 效率督导 (原型界面 3)',
                             children: (
                                 <Table<OnRoadSupervision>
-                                    rowKey="driver_name"
+                                    rowKey="driverId"
                                     dataSource={supervisionData}
                                     pagination={false}
                                     columns={[
-                                        { title: '司机姓名', dataIndex: 'driver_name', render: (v) => <strong>{v}</strong> },
-                                        { title: '派送区域 (Area)', dataIndex: 'area_name' },
-                                        { title: '领包总数', dataIndex: 'assigned_count' },
-                                        { title: '已妥投 / 失败', render: (_, r) => `${r.delivered_count} / ${r.failed_count}` },
-                                        { title: '派送时长', dataIndex: 'duration_hours', render: (v) => `${v} h` },
-                                        { title: '实际 SPH (件/h)', dataIndex: 'actual_sph', render: (v) => <strong>{v} 件/h</strong> },
-                                        { title: '区域基准 SPH', dataIndex: 'baseline_sph', render: (v) => `${v} 件/h` },
+                                        { title: '司机姓名', dataIndex: 'driverName', render: (v) => <strong>{v}</strong> },
+                                        { title: '派送区域 (Area)', dataIndex: 'areaCode' },
+                                        { title: '领包总数', dataIndex: 'dispatchedCount' },
+                                        { title: '已妥投 / 失败', render: (_, r) => `${r.deliveredCount} / ${r.failedCount}` },
+                                        { title: '派送时长', dataIndex: 'activeHours', render: (v) => `${v} h` },
+                                        { title: '实际 SPH (件/h)', dataIndex: 'actualSph', render: (v) => <strong>{v} 件/h</strong> },
+                                        { title: '区域基准 SPH', dataIndex: 'baselineSph', render: (v) => `${v} 件/h` },
                                         {
                                             title: '效率偏差 (Variance)',
-                                            dataIndex: 'efficiency_variance_percent',
+                                            dataIndex: 'efficiencyVariancePercent',
                                             render: (v) => (
                                                 <span style={{ color: v >= 0 ? '#52c41a' : '#ff4d4f', fontWeight: 'bold' }}>
                                                     {v > 0 ? `+${v}%` : `${v}%`}
@@ -144,12 +146,12 @@ export function FailedReturnWorkspace({ session, station, serviceDate }: { sessi
                                         },
                                         {
                                             title: 'POD 无照片抽检',
-                                            dataIndex: 'missing_pod_count',
+                                            dataIndex: 'missingPodCount',
                                             render: (v) => v > 0 ? <Tag color="volcano">{v} 件缺失</Tag> : <Tag color="green">0 件缺失</Tag>,
                                         },
                                         {
                                             title: '监控状态',
-                                            dataIndex: 'supervision_status',
+                                            dataIndex: 'supervisionStatus',
                                             render: (v) => {
                                                 if (v === 'NORMAL') return <Tag color="green">🟢 正常</Tag>;
                                                 if (v === 'LAGGING') return <Tag color="red">🔴 效率滞后</Tag>;

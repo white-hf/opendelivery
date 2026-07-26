@@ -4,7 +4,10 @@ import { Alert, Button, Space, Typography, notification } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { parseAreaGeoJson, polygonGeoJson, type Position } from './areaGeometry';
 
-export const STATION_CENTERS: Record<string, google.maps.LatLngLiteral> = {
+export const STATION_CENTERS: Record<string | number, google.maps.LatLngLiteral> = {
+    '1': { lat: 44.6488, lng: -63.5752 },
+    '2': { lat: 43.6532, lng: -79.3832 },
+    '3': { lat: 49.2827, lng: -123.1207 },
     'YHZ-01': { lat: 44.6488, lng: -63.5752 },
     'YYZ-01': { lat: 43.6532, lng: -79.3832 },
     'YVR-01': { lat: 49.2827, lng: -123.1207 },
@@ -29,7 +32,8 @@ function extendBounds(bounds: google.maps.LatLngBounds, coordinates: unknown) {
 }
 
 export function AreaMapEditor({ station, value, onChange, readOnly = false }: {
-    station: string; value?: string; onChange?: (value: string) => void; readOnly?: boolean;
+    station: number | string; value?: string; onChange?: (value: string) => void; readOnly?: boolean;
+
 }) {
     const { t } = useTranslation();
     const [notice, noticeContext] = notification.useNotification();

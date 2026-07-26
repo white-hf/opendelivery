@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 type Area={id:number;area_code:string;area_name:string;status:string;version_id?:number;version_status?:string};
 type Wave={id?:number;wave_id?:number;wave_code?:string;waveCode?:string;service_date:string;status:string;wave_status?:string};
 
-export function OrderReadinessWorkspace({session,station,serviceDate,initialFilter}:{session:Session;station:string;serviceDate:string;initialFilter?:string}){
+export function OrderReadinessWorkspace({session,station,serviceDate,initialFilter}:{session:Session;station:number|string;serviceDate:string;initialFilter?:string}){
  const {t}=useTranslation();const cache=useQueryClient();
  const [selected,setSelected]=useState<Set<number>>(new Set());
  const [focus,setFocus]=useState<PlanningParcel>();
@@ -26,13 +26,7 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
    })
  });
 
- // Automatically select first wave if available - defense for wave_id vs id
- useEffect(() => {
-   if (waves.data && waves.data.length > 0 && !waveId) {
-     const firstWave = waves.data[0];
-     setWaveId(firstWave.wave_id ?? firstWave.id);
-   }
- }, [waves.data, waveId]);
+ // Allow optional wave filter (default all parcels across station)
 
  // 2. Query parcels with waveId parameter
  const parcels = useQuery({
@@ -42,7 +36,7 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
 
  const areas = useQuery({
    queryKey: ['areas', station],
-   queryFn: () => api<Area[]>('/ops/v1/delivery-areas', session, {}, station)
+   queryFn: () => api<Area[]>('/ops/v1/delivery-areas?status=ACTIVE', session, {}, station)
  });
 
  const all = useMemo(() => parcels.data ?? [], [parcels.data]);
@@ -120,25 +114,34 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
              <span style={{ fontWeight: 600, fontSize: '15px' }}>{t('orders.title')}</span>
              <Space wrap>
                <span style={{ color: '#667085' }}>{t('orders.activeWave')}:</span>
-               <Select
-                 value={waveId}
-                 onChange={val => { setWaveId(val); setFilter('all'); }}
-                 style={{ width: 240 }}
-                 placeholder={t('orders.noWave')}
-                 options={(waves.data ?? []).map(w => ({ 
-                   value: w.wave_id ?? w.id, 
-                   label: `${w.wave_code ?? w.waveCode ?? 'WAVE-DEMO'} (${w.wave_status ?? w.status ?? 'DRAFT'})` 
-                 }))}
-               />
-               
-               {/* Geographic Zoning selection - Operational Naming */}
-               <span style={{ color: '#667085', marginLeft: '12px' }}>{t('orders.geographicZoning', {defaultValue: '选择区域'} )}:</span>
-               <Select
-                 value={selectedZoneCode}
-                 onChange={val => setSelectedZoneCode(val)}
-                 style={{ width: 180 }}
-                 options={(areas.data ?? []).map(a => ({ value: a.area_code, label: `${a.area_code} - ${a.area_name}` }))}
-               />
+                <Select
+                  value={waveId}
+                  onChange={val => { setWaveId(val); setFilter('all'); }}
+                  style={{ width: 240 }}
+                  allowClear
+                  placeholder={t('orders.allWaves', { defaultValue: '全站点所有包裹 (不限波次)' })}
+                  options={[
+                    { value: undefined as any, label: t('orders.allWavesOption', { defaultValue: '🌐 全站点所有包裹 (不限波次)' }) },
+                    ...(waves.data ?? []).map(w => ({ 
+                      value: w.wave_id ?? w.id, 
+                      label: `${w.wave_code ?? w.waveCode ?? `WAVE-#${w.wave_id ?? w.id}`} (${w.wave_status ?? w.status ?? 'DRAFT'})` 
+                    }))
+                  ]}
+                />
+                
+                {/* Geographic Zoning selection - Operational Naming */}
+                <span style={{ color: '#667085', marginLeft: '12px' }}>{t('orders.geographicZoning', {defaultValue: '配送区域'} )}:</span>
+                <Select
+                  value={selectedZoneCode}
+                  onChange={val => setSelectedZoneCode(val)}
+                  style={{ width: 200 }}
+                  allowClear
+                  placeholder={t('orders.allZones', { defaultValue: '全部区域' })}
+                  options={[
+                    { value: undefined, label: '🌐 全部区域' },
+                    ...(areas.data ?? []).map(a => ({ value: a.area_code, label: `${a.area_code} - ${a.area_name}` }))
+                  ]}
+                />
              </Space>
            </Space>
          </Col>
@@ -159,13 +162,6 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
                  {t(String(label))}: {Number(count)}
                </Tag>
              ))}
-             <Button 
-               size="small" 
-               type={sidebarOpen ? "default" : "primary"} 
-               onClick={() => setSidebarOpen(!sidebarOpen)}
-             >
-               {sidebarOpen ? t('orders.hideQueue') : t('orders.showQueue')}
-             </Button>
            </Space>
          </Col>
        </Row>
@@ -177,7 +173,7 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
        <div style={{ position: 'absolute', inset: 0 }}>
          <PlanningMap 
             station={station} 
-            parcels={visible} 
+            parcels={all} 
             serviceAreas={areas.data ?? []}
             selected={selected} 
             activeAreaId={areas.data?.find(a => a.area_code === selectedZoneCode)?.id}
@@ -193,6 +189,25 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
             onSelect={setFocus} 
           />
        </div>
+
+        {/* Floating Collapsed Expand Handle (when sidebar is closed) */}
+        {!sidebarOpen && (
+          <Button
+            type="primary"
+            icon={<i className="fa-solid fa-angles-left" />}
+            onClick={() => setSidebarOpen(true)}
+            style={{
+              position: 'absolute',
+              top: '16px',
+              right: '16px',
+              zIndex: 10,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              borderRadius: '8px'
+            }}
+          >
+            {t('orders.queue')} <Badge count={visible.length} overflowCount={9999} style={{ backgroundColor: '#fff', color: '#1677ff', marginLeft: '4px' }} />
+          </Button>
+        )}
 
        {/* Floating Sidebar Drawer Panel */}
        {sidebarOpen && (
@@ -214,25 +229,36 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
          }}>
            {/* Sidebar Title */}
            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignSelf: 'stretch', alignItems: 'center', background: '#fafbfc' }}>
-             <Typography.Text strong style={{ fontSize: '14px' }}>
-               {t('orders.queue')} <Badge count={visible.length} overflowCount={9999} style={{ backgroundColor: '#1677ff', marginLeft: '6px' }} />
-             </Typography.Text>
-             {selected.size > 0 && (
-               <Space>
-                 <Button 
-                   size="small" 
-                   type="primary" 
-                   danger
-                   onClick={() => {
-                     const firstWave = waves.data?.[0]?.wave_id ?? waves.data?.[0]?.id;
-                     if (firstWave) batchAssignWave.mutate(firstWave);
-                   }}
-                 >
-                   Cut-off ({selected.size})
-                 </Button>
-                 <Button size="small" onClick={() => setSelected(new Set())}>Clear</Button>
-               </Space>
-             )}
+             <Space>
+               <Typography.Text strong style={{ fontSize: '14px' }}>
+                 {t('orders.queue')} <Badge count={visible.length} overflowCount={9999} style={{ backgroundColor: '#1677ff', marginLeft: '6px' }} />
+               </Typography.Text>
+             </Space>
+             <Space>
+               {selected.size > 0 && (
+                 <>
+                   <Button 
+                     size="small" 
+                     type="primary" 
+                     danger
+                     onClick={() => {
+                       const firstWave = waves.data?.[0]?.wave_id ?? waves.data?.[0]?.id;
+                       if (firstWave) batchAssignWave.mutate(firstWave);
+                     }}
+                   >
+                     Cut-off ({selected.size})
+                   </Button>
+                   <Button size="small" onClick={() => setSelected(new Set())}>Clear</Button>
+                 </>
+               )}
+               <Button 
+                  type="text" 
+                  size="small" 
+                  icon={<i className="fa-solid fa-angles-right" style={{ color: '#8c8c8c' }} />} 
+                  onClick={() => setSidebarOpen(false)}
+                  title="收缩到右侧"
+                />
+             </Space>
            </div>
 
            {/* Exact Query Input: Single B+Tree Indexed Matcher (No wildcard like % or fuzzy scans) */}
@@ -331,7 +357,7 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
              <Card title={t('orders.manualArea')} size="small">
                <Form layout="vertical" onFinish={values => action.mutate({ path: `/ops/v1/parcels/${focus.parcel_id}/area-override`, body: values })}>
                  <Form.Item name="areaVersionId" label={t('dispatch.area')} rules={[{ required: true }]}>
-                   <Select options={(areas.data ?? []).filter(a => a.status === 'ACTIVE' && a.version_status === 'PUBLISHED').map(a => ({ value: a.version_id, label: `${a.area_code} · ${a.area_name}` }))} />
+                   <Select options={(areas.data ?? []).filter(a => a.status === 'ACTIVE' || a.status === undefined).map(a => ({ value: a.id, label: `${a.area_code} · ${a.area_name}` }))} />
                  </Form.Item>
                  <Form.Item name="reason" label={t('common.reason')} rules={[{ required: true }]}><Input.TextArea /></Form.Item>
                  <Button block htmlType="submit">{t('orders.applyOverride')}</Button>

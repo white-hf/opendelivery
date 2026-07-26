@@ -19,7 +19,8 @@ interface DayCloseData {
     carryoverReason?: string | null;
 }
 
-export function DayCloseWorkspace({ session, station, serviceDate }: { session: Session; station: string; serviceDate: string }) {
+export function DayCloseWorkspace({ session, station, serviceDate }: { session: Session; station: number | string; serviceDate: string }) {
+
     const { t } = useTranslation();
     const queryClient = useQueryClient();
     const [note, setNote] = useState('');

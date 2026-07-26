@@ -11,6 +11,9 @@ import org.springframework.boot.autoconfigure.domain.EntityScan;
 @SpringBootApplication
 @ComponentScan(basePackages = {
     "com.hf.easydelivery.common",
+    "com.hf.easydelivery.auth",
+    "com.hf.easydelivery.delivery",
+    "com.hf.easydelivery.scan",
     "com.hf.easydelivery.operations",
     "com.hf.easydelivery.integration",
     "com.hf.easydelivery.config"

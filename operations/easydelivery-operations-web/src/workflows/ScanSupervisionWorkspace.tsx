@@ -76,7 +76,8 @@ interface ScanEventItem {
     correctDriverName: string | null;
 }
 
-export function ScanSupervisionWorkspace({ session, station, serviceDate }: { session: Session; station: string; serviceDate: string }) {
+export function ScanSupervisionWorkspace({ session, station, serviceDate }: { session: Session; station: number | string; serviceDate: string }) {
+
     const { t } = useTranslation();
     const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
     const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);

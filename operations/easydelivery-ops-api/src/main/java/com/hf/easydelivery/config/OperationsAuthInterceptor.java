@@ -44,7 +44,8 @@ public class OperationsAuthInterceptor implements HandlerInterceptor {
         Long stationId;
         try {
             requirePermission(principal, request.getMethod(), request.getRequestURI());
-            stationId = resolveStation(principal, request.getHeader("X-Station-Code"));
+            stationId = resolveStation(principal, request);
+
         } catch (ForbiddenException ex) {
             auditDenied(request, principal, ex.getMessage());
             throw ex;
@@ -104,14 +105,22 @@ public class OperationsAuthInterceptor implements HandlerInterceptor {
                 request.getHeader("X-Request-Id"), reason, request.getMethod(), request.getRequestURI());
     }
 
-    private Long resolveStation(OperatorSessionService.Principal principal, String requestedCode) {
-        if (requestedCode == null || requestedCode.isBlank()) return principal.stationId();
-        List<Long> stationIds = jdbc.query("SELECT id FROM station WHERE station_code=? AND status='ACTIVE'",
-                (rs,n)->rs.getLong(1), requestedCode.toUpperCase());
-        if (stationIds.isEmpty()) throw new ForbiddenException("Requested station is not active");
-        if (!principal.hasRole("ADMIN") && !stationIds.get(0).equals(principal.stationId())) {
+    private Long resolveStation(OperatorSessionService.Principal principal, HttpServletRequest request) {
+        String headerVal = request.getHeader("X-Station-Id");
+        if (headerVal == null || headerVal.isBlank()) {
+            return principal.stationId();
+        }
+        Long requestedStationId;
+        try {
+            requestedStationId = Long.parseLong(headerVal.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("X-Station-Id must be a valid integer ID");
+        }
+
+        if (!principal.hasRole("ADMIN") && !requestedStationId.equals(principal.stationId())) {
             throw new ForbiddenException("Operator cannot switch to another station");
         }
-        return stationIds.get(0);
+        return requestedStationId;
     }
+
 }

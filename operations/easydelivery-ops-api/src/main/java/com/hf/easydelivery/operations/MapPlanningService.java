@@ -16,6 +16,7 @@ import java.time.LocalDate;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @Profile("!memory")
@@ -75,7 +76,7 @@ public class MapPlanningService {
         int safeLimit = Math.min(Math.max(limit, 1), 50000);
         boolean viewport = west != null && south != null && east != null && north != null;
         String viewportSql = viewport ? " AND ST_X(g.delivery_point) BETWEEN ? AND ? AND ST_Y(g.delivery_point) BETWEEN ? AND ?" : "";
-        String waveSql = waveId != null ? " AND (t.wave_id = ? OR EXISTS(SELECT 1 FROM parcel_area_assignment paa2 JOIN dispatch_wave dw2 ON dw2.service_date=? AND dw2.station_id=? WHERE paa2.parcel_id=p.id AND dw2.id=?))" : "";
+        String waveSql = waveId != null ? " AND (t.wave_id = ? OR NOT EXISTS(SELECT 1 FROM dispatch_wave_area dwa WHERE dwa.wave_id=?) OR EXISTS(SELECT 1 FROM parcel_area_assignment paa2 JOIN dispatch_wave_area dwa2 ON dwa2.delivery_area_id=paa2.delivery_area_id WHERE paa2.parcel_id=p.id AND dwa2.wave_id=?))" : "";
         
         String slaSql = "";
         if ("TODAY_DUE".equalsIgnoreCase(slaFilter) || "EXPRESS_ONLY".equalsIgnoreCase(slaFilter)) {
@@ -89,6 +90,7 @@ public class MapPlanningService {
                        w.external_waybill_no,w.recipient_name,w.address_line1,w.city,w.postal_code,
                        ST_Longitude(g.delivery_point) longitude,ST_Latitude(g.delivery_point) latitude,
                        a.area_code,a.id area_id,a.id area_version_id,t.id task_id,t.driver_id,d.driver_name,
+                       ti.stop_sequence,
                        CASE WHEN g.waybill_id IS NULL THEN 'MISSING_GEOCODE'
                              WHEN COALESCE(p.current_area_id, paa.delivery_area_id) IS NULL THEN 'UNMATCHED_AREA'
                              WHEN oc.id IS NOT NULL THEN 'OPEN_CASE' ELSE NULL END exception_code
@@ -110,10 +112,10 @@ public class MapPlanningService {
         params.add(stationId);
         if (waveId != null) {
             params.add(waveId);
-            params.add(serviceDate);
-            params.add(stationId);
+            params.add(waveId);
             params.add(waveId);
         }
+
         if ("TODAY_DUE".equalsIgnoreCase(slaFilter) || "EXPRESS_ONLY".equalsIgnoreCase(slaFilter) || "STANDARD".equalsIgnoreCase(slaFilter) || "STANDARD_ONLY".equalsIgnoreCase(slaFilter)) {
             params.add(serviceDate);
         }
@@ -206,7 +208,8 @@ public class MapPlanningService {
 
     public Map<String, Object> waveSummary(long waveId) {
         Wave wave = wave(waveId, false);
-        return Map.of("wave", jdbc.queryForMap("SELECT id,wave_code,service_date,route_code,status,frozen_at,published_at,version FROM dispatch_wave WHERE id=?", waveId),
+        return Map.of("wave", jdbc.queryForMap("SELECT id,wave_code,DATE_FORMAT(service_date, '%Y-%m-%d') AS service_date,route_code,status,frozen_at,published_at,version FROM dispatch_wave WHERE id=?", waveId),
+
                 "drivers", jdbc.queryForList("""
                         SELECT t.id task_id,t.task_code,t.driver_id,d.driver_name,t.status,COUNT(ti.id) parcel_count,
                                COALESCE(s.parcel_capacity, COALESCE(st.default_capacity, 200)) parcel_capacity,
@@ -255,7 +258,7 @@ public class MapPlanningService {
                           AND NOT EXISTS (SELECT 1 FROM operational_case c WHERE c.parcel_id=p.id AND c.status NOT IN ('RESOLVED','CLOSED')) FOR UPDATE
                         """, (rs, n) -> rs.getLong(1), parcelId, wave.stationId());
                 if (locked.isEmpty()) throw new BizException("PARCEL.NOT.PLANNABLE", "Parcel is not plannable at selected station: " + parcelId);
-                jdbc.update("INSERT INTO driver_task_item(task_id,parcel_id,stop_sequence,item_status) VALUES (?,?,?,'ASSIGNED')", taskId, parcelId, sequence++);
+                jdbc.update("INSERT IGNORE INTO driver_task_item(task_id,parcel_id,stop_sequence,item_status) VALUES (?,?,?,'ASSIGNED')", taskId, parcelId, sequence++);
             }
         } catch (DataIntegrityViolationException ex) {
             throw new BizException("PARCEL.ACTIVE.TASK.EXISTS", "A selected parcel already belongs to an active task");
@@ -289,6 +292,18 @@ public class MapPlanningService {
             driverAreas.computeIfAbsent(dId, k -> new java.util.ArrayList<>()).add(aId);
         }
 
+        // Pre-fetch 1: Active operational cases (blocked parcel IDs) into Java Set (lightweight query)
+        Set<Long> blockedCaseParcelIds = new java.util.HashSet<>(jdbc.query(
+            "SELECT DISTINCT parcel_id FROM operational_case WHERE station_id = ? AND status NOT IN ('RESOLVED','CLOSED') AND parcel_id IS NOT NULL",
+            (rs, n) -> rs.getLong(1), wave.stationId()));
+
+        // Pre-fetch 2: Active assigned parcel IDs for current service date into Java Set (lightweight query)
+        Set<Long> activeAssignedParcelIds = new java.util.HashSet<>(jdbc.query("""
+            SELECT DISTINCT ti.parcel_id FROM driver_task_item ti
+            JOIN driver_task t ON t.id = ti.task_id
+            WHERE t.station_id = ? AND t.service_date = ? AND ti.item_status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY')
+            """, (rs, n) -> rs.getLong(1), wave.stationId(), wave.serviceDate()));
+
         int totalAssignedInCall = 0;
         for (Map.Entry<Long, List<Long>> entry : driverAreas.entrySet()) {
             long driverId = entry.getKey();
@@ -300,26 +315,28 @@ public class MapPlanningService {
             if (remainingCapacity <= 0) continue;
 
             String inSql = String.join(",", areaIds.stream().map(String::valueOf).toArray(String[]::new));
+            // Ultra-simple single table query without ANY subqueries
             String querySql = """
-                    SELECT p.id FROM parcel_area_assignment paa
-                    JOIN parcel p ON p.id = paa.parcel_id
-                    JOIN waybill w ON w.id = p.waybill_id
-                    WHERE paa.delivery_area_id IN (%s) AND paa.ended_at IS NULL
+                    SELECT DISTINCT p.id FROM parcel p
+                    LEFT JOIN parcel_area_assignment paa ON paa.parcel_id = p.id AND paa.ended_at IS NULL
+                    WHERE (p.current_area_id IN (%s) OR paa.delivery_area_id IN (%s))
                       AND p.current_station_id = ? AND p.status IN ('RECEIVED','AT_STATION','SORTED','READY_FOR_DISPATCH')
-                      AND NOT EXISTS (SELECT 1 FROM operational_case c WHERE c.parcel_id = p.id AND c.status NOT IN ('RESOLVED','CLOSED'))
-                      AND NOT EXISTS (
-                          SELECT 1 FROM driver_task_item ti JOIN driver_task t ON t.id = ti.task_id
-                          WHERE ti.parcel_id = p.id AND t.service_date = ? AND ti.item_status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY')
-                      )
-                    LIMIT ?
-                    """.formatted(inSql);
-            List<Long> plannableParcels = jdbc.query(querySql, (rs, n) -> rs.getLong(1), wave.stationId(), wave.serviceDate(), remainingCapacity);
+                    """.formatted(inSql, inSql);
+            List<Long> rawParcels = jdbc.query(querySql, (rs, n) -> rs.getLong(1), wave.stationId());
+
+            // High-performance Java-side Memory Filter
+            List<Long> plannableParcels = rawParcels.stream()
+                .filter(pId -> !blockedCaseParcelIds.contains(pId))
+                .filter(pId -> !activeAssignedParcelIds.contains(pId))
+                .limit(remainingCapacity)
+                .toList();
 
             if (!plannableParcels.isEmpty()) {
                 long taskId = task(wave, driverId);
                 int seq = count(taskId) + 1;
                 for (Long pId : plannableParcels) {
-                    jdbc.update("INSERT INTO driver_task_item(task_id,parcel_id,stop_sequence,item_status) VALUES (?,?,?,'ASSIGNED')", taskId, pId, seq++);
+                    jdbc.update("INSERT IGNORE INTO driver_task_item(task_id,parcel_id,stop_sequence,item_status) VALUES (?,?,?,'ASSIGNED')", taskId, pId, seq++);
+                    activeAssignedParcelIds.add(pId); // Update local memory set so subsequent drivers don't double-grab
                 }
                 for (Long areaId : areaIds) {
                     jdbc.update("INSERT IGNORE INTO driver_task_area(task_id,delivery_area_id,assignment_mode,assigned_by) VALUES (?,?,'WHOLE_AREA',?)", taskId, areaId, operator(http));
@@ -343,9 +360,135 @@ public class MapPlanningService {
         if (source.get(0) == target) throw new BizException("ASSIGNMENT.SAME.DRIVER", "Parcel is already assigned to this driver");
         MapPlanningPolicy.capacity(assignedForDriver(body.driverId(), wave.serviceDate()), 1, shift.capacity());
         jdbc.update("UPDATE driver_task_item SET item_status='REASSIGNED' WHERE task_id=? AND parcel_id=?", source.get(0), parcelId);
-        jdbc.update("INSERT INTO driver_task_item(task_id,parcel_id,stop_sequence,item_status) VALUES (?,?,?,'ASSIGNED')", target, parcelId, count(target) + 1);
+        jdbc.update("INSERT IGNORE INTO driver_task_item(task_id,parcel_id,stop_sequence,item_status) VALUES (?,?,?,'ASSIGNED')", target, parcelId, count(target) + 1);
         audit(http, wave.stationId(), "PLANNING_REASSIGN", waveId, reason, Map.of("parcelId", parcelId, "fromTaskId", source.get(0), "toTaskId", target));
         return new AssignmentResult(waveId, target, 1, count(target), shift.capacity());
+    }
+
+    @Transactional
+    public Map<String, Object> optimizeDriverRoute(long waveId, long driverId, HttpServletRequest http) {
+        Wave wave = wave(waveId, true);
+        List<Map<String, Object>> items = jdbc.queryForList("""
+            SELECT ti.id AS item_id, p.id AS parcel_id,
+                   ST_Latitude(g.delivery_point) AS latitude, ST_Longitude(g.delivery_point) AS longitude
+            FROM driver_task_item ti
+            JOIN driver_task t ON t.id = ti.task_id
+            JOIN parcel p ON p.id = ti.parcel_id
+            JOIN waybill w ON w.id = p.waybill_id
+            LEFT JOIN waybill_geocode g ON g.waybill_id = w.id
+            WHERE t.wave_id = ? AND t.driver_id = ? AND ti.item_status = 'ASSIGNED'
+            """, waveId, driverId);
+
+        if (items.isEmpty()) {
+            return Map.of("optimizedCount", 0, "message", "No assigned parcels for this driver");
+        }
+
+        List<Long> itemIds = new java.util.ArrayList<>();
+        List<double[]> coords = new java.util.ArrayList<>();
+
+        for (Map<String, Object> row : items) {
+            if (row.get("latitude") != null && row.get("longitude") != null) {
+                itemIds.add(((Number) row.get("item_id")).longValue());
+                coords.add(new double[]{((Number) row.get("longitude")).doubleValue(), ((Number) row.get("latitude")).doubleValue()});
+            }
+        }
+
+        if (itemIds.isEmpty()) {
+            return Map.of("optimizedCount", 0, "message", "No valid coordinates found for assigned parcels");
+        }
+
+        List<Integer> orderedIndices = new java.util.ArrayList<>();
+        boolean osrmSuccess = false;
+
+        // Option B: Pure parcel-based TSP OSRM Route Optimization (No Station Dependency)
+        if (coords.size() > 1) {
+            try {
+                String coordString = coords.stream()
+                        .map(c -> String.format(java.util.Locale.US, "%.6f,%.6f", c[0], c[1]))
+                        .collect(java.util.stream.Collectors.joining(";"));
+
+                // source=first sets the driver's first parcel as start of route across 1-N assigned areas
+                String osrmUrl = "http://localhost:5001/trip/v1/driving/" + coordString + "?source=first&overview=false";
+                java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                        .connectTimeout(java.time.Duration.ofMillis(1000))
+                        .build();
+                java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder()
+                        .uri(java.net.URI.create(osrmUrl))
+                        .timeout(java.time.Duration.ofMillis(2000))
+                        .GET()
+                        .build();
+
+                java.net.http.HttpResponse<String> resp = client.send(req, java.net.http.HttpResponse.BodyHandlers.ofString());
+                if (resp.statusCode() == 200) {
+                    com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(resp.body());
+                    com.fasterxml.jackson.databind.JsonNode waypoints = root.get("waypoints");
+                    if (waypoints != null && waypoints.isArray()) {
+                        List<int[]> waypointOrder = new java.util.ArrayList<>();
+                        for (com.fasterxml.jackson.databind.JsonNode wp : waypoints) {
+                            int waypointIndex = wp.get("waypoint_index").asInt();
+                            int tripsIndex = wp.get("trips_index").asInt();
+                            waypointOrder.add(new int[]{waypointIndex, tripsIndex});
+                        }
+                        waypointOrder.sort(java.util.Comparator.comparingInt(a -> a[0]));
+                        for (int[] pair : waypointOrder) {
+                            if (pair[1] < itemIds.size()) {
+                                orderedIndices.add(pair[1]);
+                            }
+                        }
+                        osrmSuccess = true;
+                    }
+                }
+            } catch (Exception e) {
+                // Fallback gracefully if OSRM service is offline or unreachable
+                osrmSuccess = false;
+            }
+        }
+
+        // Single point case
+        if (coords.size() == 1) {
+            orderedIndices.add(0);
+            osrmSuccess = true;
+        }
+
+        // Option B Fallback: Geometric Nearest Neighbor algorithm if OSRM is offline
+        if (!osrmSuccess) {
+            List<Integer> remaining = new java.util.ArrayList<>();
+            for (int i = 0; i < itemIds.size(); i++) remaining.add(i);
+            int startIdx = remaining.remove(0);
+            orderedIndices.add(startIdx);
+            double curLng = coords.get(startIdx)[0], curLat = coords.get(startIdx)[1];
+
+            while (!remaining.isEmpty()) {
+                int bestIdx = 0;
+                double minDist = Double.MAX_VALUE;
+                for (int i = 0; i < remaining.size(); i++) {
+                    int cand = remaining.get(i);
+                    double[] c = coords.get(cand);
+                    double dist = Math.hypot(c[0] - curLng, c[1] - curLat);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        bestIdx = i;
+                    }
+                }
+                int picked = remaining.remove(bestIdx);
+                orderedIndices.add(picked);
+                curLng = coords.get(picked)[0];
+                curLat = coords.get(picked)[1];
+            }
+        }
+
+        // Batch update stop_sequence in MySQL (Single transaction)
+        List<Object[]> batchArgs = new java.util.ArrayList<>();
+        for (int seq = 0; seq < orderedIndices.size(); seq++) {
+            int itemIdx = orderedIndices.get(seq);
+            long itemId = itemIds.get(itemIdx);
+            batchArgs.add(new Object[]{seq + 1, itemId});
+        }
+
+        jdbc.batchUpdate("UPDATE driver_task_item SET stop_sequence = ? WHERE id = ?", batchArgs);
+        audit(http, wave.stationId(), "PLANNING_OSRM_OPTIMIZE", waveId, "Driver route optimized", Map.of("driverId", driverId, "parcelCount", itemIds.size(), "osrmUsed", osrmSuccess));
+
+        return Map.of("optimizedCount", itemIds.size(), "osrmUsed", osrmSuccess);
     }
 
     @Transactional
@@ -372,12 +515,28 @@ public class MapPlanningService {
 
     private long task(Wave wave, long driverId) {
         ensureDriver(driverId, wave.stationId());
-        List<Long> ids = jdbc.query("SELECT id FROM driver_task WHERE wave_id=? AND driver_id=? AND status='DRAFT'", (rs,n)->rs.getLong(1), wave.id(), driverId);
+        // 1. First check if a task for this wave and driver already exists regardless of status
+        List<Long> ids = jdbc.query("SELECT id FROM driver_task WHERE wave_id=? AND driver_id=?", (rs, n) -> rs.getLong(1), wave.id(), driverId);
         if (!ids.isEmpty()) return ids.get(0);
+
+        // 2. If not found, attempt to insert or reuse existing task_code safely
+        String baseTaskCode = wave.code() + "-D" + driverId;
+        List<Long> existingByCode = jdbc.query("SELECT id FROM driver_task WHERE station_id=? AND task_code=?", (rs, n) -> rs.getLong(1), wave.stationId(), baseTaskCode);
+        if (!existingByCode.isEmpty()) return existingByCode.get(0);
+
         GeneratedKeyHolder keys = new GeneratedKeyHolder();
-        jdbc.update(c->{var ps=c.prepareStatement("INSERT INTO driver_task(wave_id,driver_id,station_id,task_code,service_date,status) VALUES (?,?,?,?,?,'DRAFT')",Statement.RETURN_GENERATED_KEYS);ps.setLong(1,wave.id());ps.setLong(2,driverId);ps.setLong(3,wave.stationId());ps.setString(4,wave.code()+"-D"+driverId);ps.setObject(5,wave.serviceDate());return ps;},keys);
+        jdbc.update(c -> {
+            var ps = c.prepareStatement("INSERT INTO driver_task(wave_id,driver_id,station_id,task_code,service_date,status) VALUES (?,?,?,?,?,'DRAFT')", Statement.RETURN_GENERATED_KEYS);
+            ps.setLong(1, wave.id());
+            ps.setLong(2, driverId);
+            ps.setLong(3, wave.stationId());
+            ps.setString(4, baseTaskCode);
+            ps.setObject(5, wave.serviceDate());
+            return ps;
+        }, keys);
         return keys.getKey().longValue();
     }
+
 
     private Wave wave(long id, boolean lock) {
         List<Wave> rows = jdbc.query("SELECT id,station_id,wave_code,service_date,status FROM dispatch_wave WHERE id=?" + (lock ? " FOR UPDATE" : ""), (rs,n)->new Wave(rs.getLong(1),rs.getLong(2),rs.getString(3),rs.getObject(4,LocalDate.class),rs.getString(5)), id);

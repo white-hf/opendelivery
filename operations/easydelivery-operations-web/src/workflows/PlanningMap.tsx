@@ -14,6 +14,7 @@ export type PlanningParcel = {
     driver_name?: string;
     area_code?: string;
     area_version_id?: number;
+    stop_sequence?: number;
     promised_date?: string;
     service_code?: string;
     [key: string]: unknown;
@@ -79,21 +80,29 @@ function isPointInPolygon(point: { lat: number; lng: number }, vs: Array<[number
 export function PlanningMap({
     station,
     parcels,
+    selectedDriverName,
     serviceAreas = [],
     selected,
     activeAreaId,
+    lassoActive = false,
     onSelectArea,
     onToggle,
-    onSelect
+    onSelect,
+    onLassoSelect
 }: {
-    station: string;
+    station: number | string;
+
     parcels: PlanningParcel[];
+    selectedDriverName?: string;
     serviceAreas?: DeliveryAreaItem[];
     selected: Set<number>;
     activeAreaId?: number;
+    lassoActive?: boolean;
     onSelectArea?: (areaId: number | undefined) => void;
     onToggle: (id: number) => void;
     onSelect: (parcel: PlanningParcel) => void;
+    onLassoSelect?: (selectedParcelIds: number[]) => void;
+
 }) {
     const node = useRef<HTMLDivElement>(null);
     const map = useRef<google.maps.Map | undefined>(undefined);
@@ -101,6 +110,8 @@ export function PlanningMap({
     const areaLayer = useRef<google.maps.Data | undefined>(undefined);
     const markersRef = useRef<google.maps.Marker[]>([]);
     const parcelRef = useRef<Map<number, PlanningParcel>>(new Map());
+    const [lassoPoints, setLassoPoints] = useState<Array<[number, number]>>([]);
+    const drawingRef = useRef<Array<google.maps.Polygon | google.maps.Polyline>>([]);
 
     const [ready, setReady] = useState(false);
     const [error, setError] = useState('');
@@ -110,6 +121,11 @@ export function PlanningMap({
 
     const activeAreaRef = useRef<number | undefined>(activeAreaId);
     useEffect(() => { activeAreaRef.current = activeAreaId; }, [activeAreaId]);
+
+    const lassoActiveRef = useRef<boolean>(lassoActive);
+    useEffect(() => { lassoActiveRef.current = lassoActive; }, [lassoActive]);
+    const lastLassoMatchedKeyRef = useRef<string>('');
+
 
     const parcelsByArea = useMemo(() => {
         const mapById = new Map<number, PlanningParcel[]>();
@@ -137,8 +153,11 @@ export function PlanningMap({
             let matchedAreaId = p.area_id ?? p.area_version_id;
             let matchedAreaCode = p.area_code;
 
-            // If parcel missing explicit area_code/area_version_id, do point-in-polygon check
-            if ((!matchedAreaId && !matchedAreaCode) && p.latitude != null && p.longitude != null) {
+            // Check if matchedAreaId belongs to current active serviceAreas
+            const isKnownArea = serviceAreas.some(a => Number(a.id) === Number(matchedAreaId) || (matchedAreaCode && a.area_code === matchedAreaCode));
+
+            // If parcel missing active area mapping, fallback to point-in-polygon spatial check
+            if (!isKnownArea && p.latitude != null && p.longitude != null) {
                 const pt = { lat: Number(p.latitude), lng: Number(p.longitude) };
                 const found = areaPolygons.find(item => isPointInPolygon(pt, item.vs));
                 if (found) {
@@ -194,6 +213,10 @@ export function PlanningMap({
             parcelLayer.current = new google.maps.Data({ map: map.current });
 
             areaLayer.current.addListener('click', (event: google.maps.Data.MouseEvent) => {
+                if (lassoActiveRef.current && event.latLng) {
+                    setLassoPoints(prev => [...prev, [event.latLng!.lng(), event.latLng!.lat()]]);
+                    return;
+                }
                 const areaId = Number(event.feature.getProperty('areaId'));
                 if (onSelectArea) {
                     const currentActive = activeAreaRef.current;
@@ -201,7 +224,17 @@ export function PlanningMap({
                 }
             });
 
+            map.current.addListener('click', (event: google.maps.MapMouseEvent) => {
+                if (lassoActiveRef.current && event.latLng) {
+                    setLassoPoints(prev => [...prev, [event.latLng!.lng(), event.latLng!.lat()]]);
+                }
+            });
+
             parcelLayer.current.addListener('click', (event: google.maps.Data.MouseEvent) => {
+                if (lassoActiveRef.current && event.latLng) {
+                    setLassoPoints(prev => [...prev, [event.latLng!.lng(), event.latLng!.lat()]]);
+                    return;
+                }
                 const id = Number(event.feature.getProperty('parcelId'));
                 const parcel = parcelRef.current.get(id);
                 if (parcel) {
@@ -209,6 +242,7 @@ export function PlanningMap({
                     onSelect(parcel);
                 }
             });
+
 
             setReady(true);
         }).catch(() => setError('Google Maps could not load.'));
@@ -223,6 +257,13 @@ export function PlanningMap({
         };
     }, [key, station]);
 
+    const fittedStationRef = useRef<number | string | null>(null);
+
+    // Reset fittedStationRef on station change
+    useEffect(() => {
+        fittedStationRef.current = null;
+    }, [station]);
+
     // Draw Delivery Area Polygons & Cluster Centroid Badges
     useEffect(() => {
         if (!ready || !areaLayer.current) return;
@@ -232,6 +273,7 @@ export function PlanningMap({
         markersRef.current = [];
 
         if (serviceAreas.length > 0) {
+            const bounds = new google.maps.LatLngBounds();
             const features = serviceAreas.map(area => {
                 let geom: any;
                 try {
@@ -241,6 +283,19 @@ export function PlanningMap({
                     geom = null;
                 }
                 if (!geom) return null;
+
+                // Extend bounds for map view positioning
+                if (geom.coordinates) {
+                    const collectPts = (arr: any) => {
+                        if (Array.isArray(arr) && arr.length === 2 && typeof arr[0] === 'number' && typeof arr[1] === 'number') {
+                            bounds.extend({ lng: arr[0], lat: arr[1] });
+                        } else if (Array.isArray(arr)) {
+                            arr.forEach(collectPts);
+                        }
+                    };
+                    collectPts(geom.coordinates);
+                }
+
                 return {
                     type: 'Feature' as const,
                     properties: { areaId: area.id, areaCode: area.area_code, areaName: area.area_name },
@@ -249,6 +304,12 @@ export function PlanningMap({
             }).filter((f): f is NonNullable<typeof f> => f !== null);
 
             areaLayer.current.addGeoJson({ type: 'FeatureCollection', features });
+
+            // Fit bounds ONLY ONCE per station load to prevent jarring jumps on zoom/selection
+            if (map.current && !bounds.isEmpty() && fittedStationRef.current !== station) {
+                map.current.fitBounds(bounds, 48);
+                fittedStationRef.current = station;
+            }
 
             areaLayer.current.setStyle(feature => {
                 const areaId = Number(feature.getProperty('areaId'));
@@ -340,7 +401,7 @@ export function PlanningMap({
                 }
             });
         }
-    }, [ready, serviceAreas, activeAreaId, parcelsByArea, onSelectArea]);
+    }, [ready, serviceAreas, activeAreaId, parcelsByArea, onSelectArea, station]);
 
     // Draw Individual Parcel Points
     useEffect(() => {
@@ -348,19 +409,94 @@ export function PlanningMap({
 
         parcelLayer.current.forEach(feature => parcelLayer.current?.remove(feature));
 
-        // When NO activeAreaId is selected, hide individual parcel points (showing ONLY cluster circles and area watermarks)
-        // When activeAreaId IS selected, show ONLY that expanded area's individual parcel points
-        const activeArea = serviceAreas.find(a => Number(a.id) === Number(activeAreaId));
+        // Render individual parcel points:
+        // - Always render pins if a specific driver is selected or a specific area filter is active!
+        // - If viewing global all-parcels overview, show pins when area is expanded via activeAreaId or show all pins if activeAreaId is set.
+        const activeAreaItem = serviceAreas.find(a => Number(a.id) === Number(activeAreaId));
+        let activeVs: Array<[number, number]> = [];
+        if (activeAreaItem) {
+            try {
+                const str = typeof activeAreaItem.geo_json === 'string' ? activeAreaItem.geo_json : JSON.stringify(activeAreaItem.geojson_snapshot || activeAreaItem.geo_json);
+                const geom: any = parseAreaGeoJson(str);
+                if (geom?.type === 'Polygon' && Array.isArray(geom.coordinates?.[0])) activeVs = geom.coordinates[0];
+                else if (geom?.type === 'MultiPolygon' && Array.isArray(geom.coordinates?.[0]?.[0])) activeVs = geom.coordinates[0][0];
+            } catch {
+                activeVs = [];
+            }
+        }
+
         const visibleParcels = parcels.filter(p => {
             if (p.latitude == null || p.longitude == null) return false;
-            if (!activeAreaId) return false; // Hide individual parcel pins in global aggregated cluster view!
+            // If filtered by driver or filtered by specific area, show all matching parcel pins immediately!
+            if (selectedDriverName || serviceAreas.length === 1) return true;
+            // Otherwise, show pins for expanded active area
+            if (!activeAreaId) return false;
             const matchedId = p.area_id ?? p.area_version_id;
             if (matchedId != null && Number(matchedId) === Number(activeAreaId)) return true;
-            if (activeArea && p.area_code && p.area_code === activeArea.area_code) return true;
+            if (activeAreaItem && p.area_code && p.area_code === activeAreaItem.area_code) return true;
+            if (activeVs.length > 0 && isPointInPolygon({ lat: Number(p.latitude), lng: Number(p.longitude) }, activeVs)) return true;
             return false;
         });
 
-        const features = visibleParcels.map(parcel => ({
+        // Separate sequenced parcels for custom Waterdrop Markers & Route Polyline
+        const sequenced = visibleParcels
+            .filter(p => p.stop_sequence != null && p.stop_sequence > 0)
+            .sort((a, b) => (a.stop_sequence ?? 0) - (b.stop_sequence ?? 0));
+
+        const unsequenced = visibleParcels.filter(p => p.stop_sequence == null || p.stop_sequence <= 0);
+
+        // 1. Render sequenced parcels as SVG Waterdrop Markers with centered Sequence Numbers (#1, #2, ...)
+        sequenced.forEach(parcel => {
+            const isSel = selected.has(parcel.parcel_id);
+            const seq = parcel.stop_sequence;
+            const color = isSel ? '#722ed1' : '#1677ff';
+
+            const waterdropSvg = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="30" height="38" viewBox="0 0 30 38">
+                    <path d="M15 0C6.72 0 0 6.72 0 15c0 11.25 15 23 15 23s15-11.75 15-23C30 6.72 23.28 0 15 0z" fill="${color}" stroke="#ffffff" stroke-width="2"/>
+                    <text x="15" y="19" fill="#ffffff" font-size="12" font-family="Arial, sans-serif" font-weight="bold" text-anchor="middle">
+                        ${seq}
+                    </text>
+                </svg>
+            `;
+
+            const marker = new google.maps.Marker({
+                position: { lat: Number(parcel.latitude), lng: Number(parcel.longitude) },
+                map: map.current,
+                title: `#${seq} - ${parcel.tracking_no}${parcel.driver_name ? ' (' + parcel.driver_name + ')' : ''}`,
+                icon: {
+                    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(waterdropSvg),
+                    anchor: new google.maps.Point(15, 38)
+                },
+                zIndex: isSel ? 300 : 150
+            });
+
+            marker.addListener('click', () => {
+                if (lassoActiveRef.current) return;
+                onToggle(parcel.parcel_id);
+                onSelect(parcel);
+            });
+
+            markersRef.current.push(marker);
+        });
+
+        // 2. Draw Polyline route connecting sequenced stops in order
+        if (sequenced.length > 1 && map.current) {
+            const routePath = sequenced.map(p => ({ lat: Number(p.latitude), lng: Number(p.longitude) }));
+            const routePolyline = new google.maps.Polyline({
+                map: map.current,
+                path: routePath,
+                clickable: false,
+                strokeColor: '#1890ff',
+                strokeOpacity: 0.85,
+                strokeWeight: 3.5,
+                zIndex: 120
+            });
+            drawingRef.current.push(routePolyline);
+        }
+
+        // 3. Render unsequenced parcels on standard DataLayer
+        const features = unsequenced.map(parcel => ({
             type: 'Feature' as const,
             properties: { parcelId: parcel.parcel_id },
             geometry: {
@@ -390,25 +526,131 @@ export function PlanningMap({
                 zIndex: isSel ? 100 : 10
             };
         });
-    }, [byId, ready, parcels, activeAreaId, serviceAreas, selected]);
+    }, [byId, ready, parcels, activeAreaId, serviceAreas, selected, selectedDriverName, onToggle, onSelect]);
+
+    // Draw Interactive Lasso Polygon / Polyline Overlay
+
+    useEffect(() => {
+        const m = map.current;
+        if (!m || !ready) return;
+
+        drawingRef.current.forEach(shape => shape.setMap(null));
+        drawingRef.current = [];
+
+        const path = lassoPoints.map(([lng, lat]) => ({ lng, lat }));
+        if (path.length > 2) {
+            const polygon = new google.maps.Polygon({
+                map: m,
+                paths: path,
+                clickable: false,
+                strokeColor: '#fa8c16',
+                strokeWeight: 3,
+                fillColor: '#ffd591',
+                fillOpacity: 0.35,
+                zIndex: 200
+            });
+            drawingRef.current.push(polygon);
+
+            // Compute enclosed parcels using point-in-polygon algorithm
+            if (onLassoSelect) {
+                const matchedIds: number[] = [];
+                parcels.forEach(p => {
+                    if (p.latitude != null && p.longitude != null) {
+                        const inside = isPointInPolygon({ lat: Number(p.latitude), lng: Number(p.longitude) }, lassoPoints);
+                        if (inside) matchedIds.push(p.parcel_id);
+                    }
+                });
+                const key = matchedIds.sort((a, b) => a - b).join(',');
+                if (lastLassoMatchedKeyRef.current !== key) {
+                    lastLassoMatchedKeyRef.current = key;
+                    onLassoSelect(matchedIds);
+                }
+            }
+        } else if (path.length > 1) {
+            const polyline = new google.maps.Polyline({
+                map: m,
+                path: path,
+                clickable: false,
+                strokeColor: '#fa8c16',
+                strokeWeight: 3,
+                zIndex: 200
+            });
+            drawingRef.current.push(polyline);
+        }
+
+        lassoPoints.forEach(([lng, lat]) => {
+            const ptMarker = new google.maps.Marker({
+                position: { lat, lng },
+                map: m,
+                clickable: false,
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 5,
+                    fillColor: '#fa8c16',
+                    fillOpacity: 1,
+                    strokeColor: '#ffffff',
+                    strokeWeight: 2
+                },
+                zIndex: 205
+            });
+            drawingRef.current.push(ptMarker as any);
+        });
+    }, [ready, lassoPoints, parcels, onLassoSelect]);
+
+    // Clear lasso points if lasso mode turned off
+    useEffect(() => {
+        if (!lassoActive) {
+            setLassoPoints([]);
+        }
+    }, [lassoActive]);
 
     const locatable = parcels.filter(p => p.latitude != null && p.longitude != null).length;
 
     if (!key) return <Alert type="warning" showIcon message="Google Maps API key is not configured" />;
 
     return (
-        <div className="planning-map-wrap">
+        <div className="planning-map-wrap" style={{ position: 'relative' }}>
             {error && <Alert type="error" showIcon message={error} />}
+            
+            {lassoActive && (
+                <div style={{
+                    position: 'absolute',
+                    top: 10,
+                    left: 10,
+                    zIndex: 300,
+                    background: 'rgba(0,0,0,0.85)',
+                    color: '#fff',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px'
+                }}>
+                    <span>
+                        <i className="fa-solid fa-draw-polygon" style={{ color: '#fa8c16', marginRight: 6 }}></i>
+                        🖊️ <b>地图套索圈选模式:</b> 请在地图上连续点击 3 个以上点位围成封闭多边形圈选包裹
+                    </span>
+                    <Tag color="orange">{lassoPoints.length} 个顶点</Tag>
+                    {lassoPoints.length > 0 && (
+                        <Button size="small" type="primary" danger onClick={() => setLassoPoints([])}>
+                            重置画圈
+                        </Button>
+                    )}
+                </div>
+            )}
+
             <div ref={node} className="planning-map" aria-label="Parcel planning map" style={{ minHeight: '480px', borderRadius: '8px' }} />
 
             <Space className="map-status" wrap style={{ marginTop: '8px' }}>
-                <Tag color="purple">{activeAreaId ? `已展开区域 ID: ${activeAreaId}` : '全局聚合视图 (点击区域气泡展开明细)'}</Tag>
-                <Tag>查询包裹 {parcels.length}</Tag>
-                <Tag color="green">准准确定位 {locatable}</Tag>
+                {selectedDriverName && <Tag color="blue">👤 正在查看司机【{selectedDriverName}】已分配的包裹 ({parcels.length} 件)</Tag>}
                 <Button size="small" onClick={fitAll} disabled={!ready || !locatable}>全图适应</Button>
-                {activeAreaId && <Button size="small" type="link" onClick={() => onSelectArea?.(undefined)}>重置全局聚合</Button>}
+                {activeAreaId && <Button size="small" type="link" onClick={() => onSelectArea?.(undefined)}>重置区域视图</Button>}
             </Space>
+
         </div>
     );
 }
+
 

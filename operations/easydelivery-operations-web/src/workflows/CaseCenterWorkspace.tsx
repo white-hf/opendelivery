@@ -37,7 +37,8 @@ interface AuditLogItem {
     occurred_at: string;
 }
 
-export function CaseCenterWorkspace({ session, station }: { session: Session; station: string }) {
+export function CaseCenterWorkspace({ session, station }: { session: Session; station: number | string }) {
+
     const { t } = useTranslation();
     const queryClient = useQueryClient();
     const [selectedCaseId, setSelectedCaseId] = useState<number | null>(null);

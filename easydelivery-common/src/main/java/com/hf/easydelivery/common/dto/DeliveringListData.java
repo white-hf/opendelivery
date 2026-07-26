@@ -27,7 +27,11 @@ public class DeliveringListData {
     private int is_detained;
     private int time_range;
     private int since_last_updated;
+    private int stop_sequence;
     private String building_id;
+
+    public int getStop_sequence() { return stop_sequence; }
+    public void setStop_sequence(int stop_sequence) { this.stop_sequence = stop_sequence; }
 
     public long getOrder_id() { return order_id; }
     public void setOrder_id(long order_id) { this.order_id = order_id; }

@@ -51,7 +51,8 @@ const DEFAULT_CITIES = [
   { value: 'VANCOUVER', label: 'VANCOUVER (温哥华)' },
 ];
 
-export function SystemConfigWorkspace({ session, station }: { session: Session; station: string }) {
+export function SystemConfigWorkspace({ session, station }: { session: Session; station: number | string }) {
+
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const [driverModalOpen, setDriverModalOpen] = useState(false);

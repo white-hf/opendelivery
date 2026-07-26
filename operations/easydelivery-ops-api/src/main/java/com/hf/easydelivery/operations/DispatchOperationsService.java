@@ -12,8 +12,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Statement;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import com.hf.easydelivery.operations.dispatch.persistence.DispatchWaveRepository;
 import com.hf.easydelivery.operations.dispatch.persistence.DriverTaskRepository;
@@ -62,7 +64,7 @@ public class DispatchOperationsService {
         long stationId = requireStationContext();
         // ESCAPE-HATCH (ADR-Persistence): Set-based aggregate query for wave dispatch progress
         return jdbc.queryForList("""
-                SELECT w.id wave_id,w.wave_code,w.service_date,w.route_code,w.status wave_status,
+                SELECT w.id wave_id,w.wave_code,DATE_FORMAT(w.service_date, '%Y-%m-%d') AS service_date,w.route_code,w.status wave_status,
                        COUNT(DISTINCT t.id) task_count,COUNT(ti.id) parcel_count
                 FROM dispatch_wave w LEFT JOIN driver_task t ON t.wave_id=w.id
                 LEFT JOIN driver_task_item ti ON ti.task_id=t.id
@@ -73,7 +75,7 @@ public class DispatchOperationsService {
     public List<Map<String, Object>> waves(LocalDate serviceDate) {
         long stationId = requireStationContext();
         return jdbc.queryForList("""
-                SELECT w.id wave_id,w.wave_code,w.service_date,w.route_code,w.status wave_status,
+                SELECT w.id wave_id,w.wave_code,DATE_FORMAT(w.service_date, '%Y-%m-%d') AS service_date,w.route_code,w.status wave_status,
                        COUNT(DISTINCT t.id) task_count,COUNT(ti.id) parcel_count,
                        COUNT(DISTINCT CASE WHEN t.status IN ('DRAFT','FROZEN','PUBLISHED','ACCEPTING','IN_PROGRESS') THEN t.driver_id END) driver_count
                 FROM dispatch_wave w LEFT JOIN driver_task t ON t.wave_id=w.id
@@ -81,6 +83,7 @@ public class DispatchOperationsService {
                 WHERE w.station_id=? AND w.service_date=? GROUP BY w.id,w.wave_code,w.service_date,w.route_code,w.status ORDER BY w.id DESC
                 """, stationId, serviceDate);
     }
+
 
     @Transactional
     public DraftResult createDraft(DraftRequest request) {
@@ -100,18 +103,49 @@ public class DispatchOperationsService {
             ps.setLong(1, waveId); ps.setLong(2, request.driverId()); ps.setLong(3, stationId); ps.setString(4, request.waveCode() + "-D" + request.driverId()); ps.setObject(5, request.serviceDate()); return ps;
         }, taskKey);
         long taskId = taskKey.getKey().longValue();
-        int seq = 1;
-        for (String trackingNo : request.trackingNumbers()) {
-            List<ParcelRow> parcels = jdbc.query("SELECT id,status,current_station_id,current_custody_type FROM parcel WHERE tracking_no=? FOR UPDATE", (rs, n) -> new ParcelRow(rs.getLong(1), rs.getString(2), rs.getLong(3), rs.getString(4)), trackingNo);
-            if (parcels.isEmpty()) throw new BizException("PARCEL.NOT.FOUND", "Parcel not found: " + trackingNo);
-            ParcelRow parcel = parcels.get(0);
-            if (parcel.stationId() != stationId || !"STATION".equals(parcel.custody()) || !"READY_FOR_DISPATCH".equals(parcel.status())) {
-                throw new BizException("PARCEL.STATE.INVALID", "Parcel is not ready for dispatch: " + trackingNo);
-            }
-            jdbc.update("INSERT INTO driver_task_item(task_id,parcel_id,stop_sequence,item_status) VALUES (?,?,?,'ASSIGNED')", taskId, parcel.id(), seq++);
-            jdbc.update("UPDATE parcel SET status='ASSIGNED',version=version+1 WHERE id=?", parcel.id());
-            appendEvent(parcel.id(), "READY_FOR_DISPATCH", "ASSIGNED", "DISPATCH_ASSIGNED", "wave-assign-" + waveId + "-" + parcel.id());
+        List<String> trackingNos = request.trackingNumbers();
+        // 1. Batch load and validate parcels with station & status checks
+        List<ParcelRow> parcels = jdbc.query(
+            "SELECT id, status, current_station_id, current_custody_type, tracking_no FROM parcel WHERE tracking_no IN (" +
+            String.join(",", trackingNos.stream().map(t -> "'" + t + "'").toList()) + ") FOR UPDATE",
+            (rs, n) -> new ParcelRow(rs.getLong(1), rs.getString(2), rs.getLong(3), rs.getString(4))
+        );
+
+        if (parcels.size() != trackingNos.size()) {
+            throw new BizException("PARCEL.NOT.FOUND", "Some tracking numbers were not found or invalid");
         }
+
+        for (ParcelRow parcel : parcels) {
+            if (parcel.stationId() != stationId || !"STATION".equals(parcel.custody()) || !"READY_FOR_DISPATCH".equals(parcel.status())) {
+                throw new BizException("PARCEL.STATE.INVALID", "Parcel is not ready for dispatch: id " + parcel.id());
+            }
+        }
+
+        // 2. Batch insert driver_task_item
+        List<Object[]> taskItemArgs = new ArrayList<>();
+        for (int i = 0; i < parcels.size(); i++) {
+            taskItemArgs.add(new Object[]{taskId, parcels.get(i).id(), i + 1, "ASSIGNED"});
+        }
+        jdbc.batchUpdate("INSERT INTO driver_task_item(task_id,parcel_id,stop_sequence,item_status) VALUES (?,?,?,'ASSIGNED')", taskItemArgs);
+
+        // 3. Chunked batch update parcel status (Chunk size = 5000)
+        List<Long> parcelIds = parcels.stream().map(ParcelRow::id).toList();
+        for (int i = 0; i < parcelIds.size(); i += 5000) {
+            List<Long> chunk = parcelIds.subList(i, Math.min(i + 5000, parcelIds.size()));
+            String inClause = chunk.stream().map(String::valueOf).collect(Collectors.joining(","));
+            jdbc.update("UPDATE parcel SET status='ASSIGNED', version=version+1 WHERE id IN (" + inClause + ")");
+        }
+
+        // 4. Batch append parcel events
+        List<Object[]> eventArgs = new ArrayList<>();
+        for (ParcelRow parcel : parcels) {
+            eventArgs.add(new Object[]{parcel.id(), "READY_FOR_DISPATCH", "ASSIGNED", "DISPATCH_ASSIGNED", "wave-assign-" + waveId + "-" + parcel.id()});
+        }
+        jdbc.batchUpdate("""
+            INSERT INTO parcel_event(parcel_id,from_status,to_status,event_type,idempotency_key)
+            VALUES (?,?,?,?,?)
+            """, eventArgs);
+
         return new DraftResult(waveId, taskId, request.trackingNumbers().size(), "DRAFT");
     }
 

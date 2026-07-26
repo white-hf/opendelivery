@@ -202,6 +202,11 @@ public class OperationsController {
         return AppResponse.success("Parcel reassigned", planning.reassign(waveId,parcelId,body,request));
     }
 
+    @PostMapping("/planning/waves/{waveId}/drivers/{driverId}/optimize-route")
+    public AppResponse<?> optimizeDriverRoute(@PathVariable long waveId, @PathVariable long driverId, jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Driver route optimized via OSRM", planning.optimizeDriverRoute(waveId, driverId, request));
+    }
+
     @PostMapping("/planning/waves/{waveId}/freeze")
     public AppResponse<?> freezePlanningWave(@PathVariable long waveId,
             @RequestBody MapPlanningService.ReasonRequest body, jakarta.servlet.http.HttpServletRequest request) {
@@ -297,7 +302,7 @@ public class OperationsController {
     }
 
     @GetMapping("/delivery-areas")
-    public AppResponse<?> deliveryAreas() { return AppResponse.success(deliveryAreas.areas()); }
+    public AppResponse<?> deliveryAreas(@RequestParam(required = false) String status) { return AppResponse.success(deliveryAreas.areas(status)); }
 
     @GetMapping("/delivery-areas/{areaId}/versions")
     public AppResponse<?> deliveryAreaVersions(@PathVariable long areaId) { return AppResponse.success(deliveryAreas.versions(areaId)); }

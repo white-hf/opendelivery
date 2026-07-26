@@ -12,18 +12,19 @@ type Unit={id:number;external_unit_no:string;unit_type:string;expected_piece_cou
 type UnitParcel={unit_id:number;parcel_id:number;tracking_no:string;parcel_status:string;link_source:string;item_status?:string;task_code?:string;driver_name?:string};
 type Unlinked={unit_id:number;external_unit_no:string;tracking_no:string;parcel_status:string;station_code?:string};
 type Detail={trip:Trip&Record<string,unknown>;units:Unit[];parcels:UnitParcel[];unlinkedDeclarations:Unlinked[]};
-type Area={id:number;area_code:string;area_name:string;version_id?:number;version_status?:string};
+type Area={id:number;area_code:string;area_name:string;status?:string};
 const nextTrip:Record<string,string>={EXPECTED:'ARRIVED',ARRIVED:'UNLOADING',UNLOADING:'READY_FOR_SCAN',READY_FOR_SCAN:'CLOSED'};
 const nextUnit:Record<string,string>={EXPECTED:'ARRIVED',ARRIVED:'OPENED',OPENED:'CLEARED'};
 
-export function ArrivalWorkspace({session,station,serviceDate}:{session:Session;station:string;serviceDate:string}){
+export function ArrivalWorkspace({session,station,serviceDate}:{session:Session;station:number|string;serviceDate:string}){
  const {t}=useTranslation();const cache=useQueryClient();
  const [createOpen,setCreateOpen]=useState(false);const [tripId,setTripId]=useState<number>();const [unitOpen,setUnitOpen]=useState(false);
  const [fillUnit,setFillUnit]=useState<Unit>();const [selectedUnit,setSelectedUnit]=useState<number>();
  const trips=useQuery({queryKey:['arrival-trips',station,serviceDate],queryFn:()=>api<Trip[]>(`/ops/v1/arrival-trips?serviceDate=${serviceDate}`,session,{},station)});
  const detail=useQuery({queryKey:['arrival-trip',station,tripId],enabled:!!tripId,queryFn:()=>api<Detail>(`/ops/v1/arrival-trips/${tripId}`,session,{},station)});
- const areas=useQuery({queryKey:['delivery-areas',station],queryFn:()=>api<Area[]>('/ops/v1/delivery-areas',session,{},station)});
- const areaOptions=useMemo(()=>(areas.data??[]).filter(a=>a.version_status==='PUBLISHED'&&a.version_id!=null).map(a=>({value:a.version_id as number,label:`${a.area_code} · ${a.area_name}`})),[areas.data]);
+ const areas=useQuery({queryKey:['delivery-areas',station],queryFn:()=>api<Area[]>('/ops/v1/delivery-areas?status=ACTIVE',session,{},station)});
+ const areaOptions=useMemo(()=>(areas.data??[]).map(a=>({value:a.id,label:`${a.area_code} · ${a.area_name}`})),[areas.data]);
+
  const unitLabels=useMemo(()=>new Map((detail.data?.units??[]).map(u=>[u.id,u.external_unit_no])),[detail.data]);
  const refresh=async()=>Promise.all([cache.invalidateQueries({queryKey:['arrival-trips',station,serviceDate]}),cache.invalidateQueries({queryKey:['arrival-trip',station,tripId]})]);
  const command=useMutation({mutationFn:({path,body}:{path:string;body:unknown})=>api(path,session,{method:'POST',body:JSON.stringify(body)},station),onSuccess:async()=>{message.success(t('arrival.saved'));setCreateOpen(false);setUnitOpen(false);setFillUnit(undefined);await refresh();},onError:(e:Error)=>message.error(e.message)});
@@ -63,8 +64,8 @@ export function ArrivalWorkspace({session,station,serviceDate}:{session:Session;
   <Drawer width={480} open={unitOpen} onClose={()=>setUnitOpen(false)} title={t('arrival.addUnit')}><Form layout="vertical" onFinish={v=>command.mutate({path:`/ops/v1/arrival-trips/${tripId}/handling-units`,body:{...v,trackingNumbers:String(v.trackingNumbers??'').split(/[,\n]/).map(x=>x.trim()).filter(Boolean)}})}><Form.Item name="externalUnitNo" label={t('arrival.unitNo')} rules={[{required:true}]}><Input/></Form.Item><Form.Item name="unitType" label={t('arrival.unitType')} initialValue="PALLET"><Select options={['PALLET','CAGE','BAG','LOOSE'].map(value=>({value,label:value}))}/></Form.Item><Form.Item name="expectedPieceCount" label={t('arrival.expectedPieces')}><InputNumber min={0} style={{width:'100%'}}/></Form.Item><Form.Item name="trackingNumbers" label={t('arrival.trackingList')}><Input.TextArea rows={6}/></Form.Item><Form.Item name="reason" label={t('common.reason')} rules={[{required:true}]}><Input.TextArea/></Form.Item><Button block type="primary" htmlType="submit" loading={command.isPending}>{t('common.save')}</Button></Form></Drawer>
   <Modal open={!!fillUnit} onCancel={()=>setFillUnit(undefined)} title={`${t('arrival.areaFill')} · ${fillUnit?.external_unit_no??''}`} footer={null} destroyOnClose>
    <Alert type="info" showIcon message={t('arrival.areaFillHelp')} style={{marginBottom:12}}/>
-   <Form layout="vertical" onFinish={v=>command.mutate({path:`/ops/v1/handling-units/${fillUnit!.id}/area-fill`,body:{areaVersionIds:v.areaVersionIds,reason:v.reason}})}>
-    <Form.Item name="areaVersionIds" label={t('arrival.selectAreas')} rules={[{required:true}]}><Select mode="multiple" options={areaOptions} optionFilterProp="label" placeholder={t('arrival.selectAreas')}/></Form.Item>
+    <Form layout="vertical" onFinish={v=>command.mutate({path:`/ops/v1/handling-units/${fillUnit!.id}/area-fill`,body:{deliveryAreaIds:v.deliveryAreaIds,reason:v.reason}})}>
+     <Form.Item name="deliveryAreaIds" label={t('arrival.selectAreas')} rules={[{required:true}]}><Select mode="multiple" options={areaOptions} optionFilterProp="label" placeholder={t('arrival.selectAreas')}/></Form.Item>
     <Form.Item name="reason" label={t('common.reason')} rules={[{required:true}]}><Input.TextArea/></Form.Item>
     <Button block type="primary" htmlType="submit" loading={command.isPending}>{t('common.save')}</Button>
    </Form>

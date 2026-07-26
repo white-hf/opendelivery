@@ -29,8 +29,12 @@ public class DeliveryAreaOperationsService {
     }
 
     public List<Map<String,Object>> areas() {
+        return areas(null);
+    }
+
+    public List<Map<String,Object>> areas(String status) {
         Long stationId=requireStation();
-        return jdbc.queryForList("""
+        StringBuilder sql = new StringBuilder("""
                 SELECT a.id,a.area_code,a.area_name,a.area_level,a.status,
                        a.id AS version_id, 1 AS version_no, 'PUBLISHED' AS version_status,
                        ST_AsGeoJSON(a.boundary) geo_json,
@@ -43,8 +47,13 @@ public class DeliveryAreaOperationsService {
                   WHERE pref.status = 'ACTIVE'
                   GROUP BY delivery_area_id
                 ) p ON p.delivery_area_id = a.id
-                WHERE a.station_id=? ORDER BY a.area_level,a.area_code
-                """,stationId);
+                WHERE a.station_id=?
+                """);
+        if (status != null && !status.isBlank()) {
+            sql.append(" AND a.status='").append(status.trim().toUpperCase()).append("'");
+        }
+        sql.append(" ORDER BY a.area_level,a.area_code");
+        return jdbc.queryForList(sql.toString(), stationId);
     }
 
     public List<Map<String,Object>> versions(long areaId) {

@@ -11,9 +11,9 @@ CREATE TEMPORARY TABLE r02_city(
     center_lng DECIMAL(10,6), center_lat DECIMAL(10,6)
 );
 INSERT INTO r02_city VALUES
- ('YHZ-01','HALIFAX','NS','B3H',-63.575200,44.648800),
- ('YYZ-01','TORONTO','ON','M5V',-79.387100,43.642600),
- ('YVR-01','VANCOUVER','BC','V6B',-123.113900,49.279700);
+ ('YHZ-01','HALIFAX','NS','B3H',-63.585000,44.646000),
+ ('YYZ-01','TORONTO','ON','M5V',-79.390000,43.645000),
+ ('YVR-01','VANCOUVER','BC','V6B',-123.118000,49.280000);
 
 INSERT INTO driver(home_station_id,credential_id,password_hash,driver_name,phone,status)
 SELECT s.id,CONCAT('demo.',LOWER(LEFT(c.station_code,3)),'.driver',n.n),
@@ -31,20 +31,25 @@ SELECT d.home_station_id,d.id,CURRENT_DATE,
 FROM driver d WHERE d.credential_id LIKE 'demo.%.driver_'
 ON DUPLICATE KEY UPDATE availability_status=VALUES(availability_status),parcel_capacity=VALUES(parcel_capacity),note=VALUES(note);
 
+-- Realistic Urban Land Boundaries for Canada Postal FSA Zones (Halifax: B3J/B3H/B3K/B3L, Toronto: M5V/M5H/M5G/M4Y, Vancouver: V6B/V6C/V6E/V6Z)
 INSERT INTO delivery_area(station_id,area_code,area_name,area_level,status,boundary,geojson_snapshot)
 SELECT src.station_id, src.area_code, src.area_name, src.area_level, src.status, src.boundary, src.geojson_snapshot
 FROM (
     SELECT s.id AS station_id,
            CONCAT('DEMO-R02-',LEFT(c.station_code,3),'-A',n.n) AS area_code,
-           CONCAT(ELT(n.n,'Downtown West','Downtown East','North Residential','South Residential'),' · Demo') AS area_name,
+           CONCAT(
+             IF(c.station_code='YHZ-01', ELT(n.n,'B3J · Downtown Halifax','B3H · South End Halifax','B3K · North End Halifax','B3L · West End Halifax'),
+             IF(c.station_code='YYZ-01', ELT(n.n,'M5V · Fashion District Toronto','M5H · Financial District Toronto','M5G · Discovery District Toronto','M4Y · Church & Wellesley Toronto'),
+                                         ELT(n.n,'V6B · Downtown Vancouver','V6C · Waterfront Vancouver','V6E · West End Vancouver','V6Z · Yaletown Vancouver'))
+             ),' · Postal Area') AS area_name,
            1 AS area_level,
            'ACTIVE' AS status,
            ST_GeomFromText(CONCAT('MULTIPOLYGON(((',
-             c.center_lng + IF(n.n IN (1,3),-0.030,0.000),' ',c.center_lat + IF(n.n IN (1,2),0.000,-0.025),',',
-             c.center_lng + IF(n.n IN (1,3),0.000,0.030),' ',c.center_lat + IF(n.n IN (1,2),0.000,-0.025),',',
-             c.center_lng + IF(n.n IN (1,3),0.000,0.030),' ',c.center_lat + IF(n.n IN (1,2),0.025,0.000),',',
-             c.center_lng + IF(n.n IN (1,3),-0.030,0.000),' ',c.center_lat + IF(n.n IN (1,2),0.025,0.000),',',
-             c.center_lng + IF(n.n IN (1,3),-0.030,0.000),' ',c.center_lat + IF(n.n IN (1,2),0.000,-0.025),')))'),4326,'axis-order=long-lat') AS boundary,
+             c.center_lng + IF(n.n=1,-0.008, IF(n.n=2,-0.016, IF(n.n=3,-0.012,-0.024))),' ', c.center_lat + IF(n.n=1,-0.005, IF(n.n=2,-0.018, IF(n.n=3,0.006,-0.008))),',',
+             c.center_lng + IF(n.n=1,0.006,  IF(n.n=2,0.002,  IF(n.n=3,0.008, -0.008))),' ', c.center_lat + IF(n.n=1,-0.005, IF(n.n=2,-0.018, IF(n.n=3,0.006,-0.008))),',',
+             c.center_lng + IF(n.n=1,0.006,  IF(n.n=2,0.002,  IF(n.n=3,0.008, -0.008))),' ', c.center_lat + IF(n.n=1,0.008,  IF(n.n=2,-0.006, IF(n.n=3,0.022, 0.010))),',',
+             c.center_lng + IF(n.n=1,-0.008, IF(n.n=2,-0.016, IF(n.n=3,-0.012,-0.024))),' ', c.center_lat + IF(n.n=1,0.008,  IF(n.n=2,-0.006, IF(n.n=3,0.022, 0.010))),',',
+             c.center_lng + IF(n.n=1,-0.008, IF(n.n=2,-0.016, IF(n.n=3,-0.012,-0.024))),' ', c.center_lat + IF(n.n=1,-0.005, IF(n.n=2,-0.018, IF(n.n=3,0.006,-0.008))),')))'),4326,'axis-order=long-lat') AS boundary,
            JSON_OBJECT('type','MultiPolygon','properties',JSON_OBJECT('fixture','DEMO-R02')) AS geojson_snapshot
     FROM r02_city c JOIN station s ON s.station_code=c.station_code
     CROSS JOIN (SELECT 1 n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4) n
@@ -70,7 +75,7 @@ BEGIN
       INSERT IGNORE INTO waybill(partner_id,external_waybill_no,recipient_name,recipient_phone,address_line1,city,province,postal_code,country_code,service_code,routing_status,resolved_station_id,routing_reason_code,routed_at,status)
       SELECT p.id,CONCAT('DEMO-R02-',LEFT(v_code,3),'-',LPAD(i,4,'0')),
        CONCAT(ELT(1+MOD(i-1,12),'Emma','Liam','Olivia','Noah','Ava','William','Sophia','James','Mia','Lucas','Charlotte','Benjamin'),' ',ELT(1+MOD(i*7,10),'Martin','Lee','Patel','Wilson','Chen','Brown','Roy','Taylor','Singh','Garcia')),
-       CONCAT('+1-902-555-',LPAD(i,4,'0')),CONCAT(100+i,' ',ELT(1+MOD(i,8),'Barrington St','Spring Garden Rd','Queen St','King St','Robson St','Granville St','Dresden Row','Water St')),
+       CONCAT('+1-902-555-',LPAD(i,4,'0')),CONCAT(100+i,' ',ELT(1+MOD(i,8),'Spring Garden Rd','Barrington St','Queen St','Robson St','Granville St','Dresden Row','South Park St','University Ave')),
        v_city,v_province,CONCAT(v_postal,' ',ELT(1+MOD(i,6),'1A1','2B2','3C3','4E4','5G5','6H6')),'CA',IF(MOD(i,9)=0,'EXPRESS','STANDARD'),'ROUTED',v_station,'DEMO_STATION',CURRENT_TIMESTAMP(3),'ACTIVE'
       FROM upstream_partner p WHERE p.partner_code='DEMO-R02-UPSTREAM';
       SELECT w.id INTO v_waybill FROM waybill w JOIN upstream_partner p ON p.id=w.partner_id WHERE p.partner_code='DEMO-R02-UPSTREAM' AND w.external_waybill_no=CONCAT('DEMO-R02-',LEFT(v_code,3),'-',LPAD(i,4,'0'));
@@ -79,8 +84,10 @@ BEGIN
       SELECT id INTO v_parcel FROM parcel WHERE tracking_no=CONCAT('DEMO-R02-',LEFT(v_code,3),'-',LPAD(i,5,'0'));
       IF MOD(i,24)<>0 THEN
         INSERT INTO waybill_geocode(waybill_id,delivery_point,provider_code,precision_code,confidence,normalized_address,geocoded_at)
-        VALUES(v_waybill,ST_GeomFromText(CONCAT('POINT(',v_lng + IF(MOD(i,24)=23,0.060,-0.028 + MOD(i*13,57)/1000),' ',v_lat -0.023 + MOD(i*17,47)/1000,')'),4326,'axis-order=long-lat'),'DEMO_GEOCODER','ROOFTOP',0.9700,'R02 normalized demo address',CURRENT_TIMESTAMP(3))
-        ON DUPLICATE KEY UPDATE confidence=VALUES(confidence),geocoded_at=VALUES(geocoded_at);
+        VALUES(v_waybill,ST_GeomFromText(CONCAT('POINT(',
+          v_lng + IF(MOD(i,4)=0, -0.004 + MOD(i,10)*0.0010, IF(MOD(i,4)=1, -0.012 + MOD(i,12)*0.0010, IF(MOD(i,4)=2, -0.002 + MOD(i,8)*0.0008, -0.018 + MOD(i,14)*0.0011))), ' ',
+          v_lat + IF(MOD(i,4)=0, -0.002 + MOD(i,8)*0.0009, IF(MOD(i,4)=1, -0.014 + MOD(i,10)*0.0008, IF(MOD(i,4)=2, 0.008 + MOD(i,12)*0.0011, -0.004 + MOD(i,9)*0.0009))), ')'),4326,'axis-order=long-lat'),'DEMO_GEOCODER','ROOFTOP',0.9700,'R02 normalized demo address',CURRENT_TIMESTAMP(3))
+        ON DUPLICATE KEY UPDATE delivery_point=VALUES(delivery_point),confidence=VALUES(confidence),geocoded_at=VALUES(geocoded_at);
         IF MOD(i,24)<>23 AND NOT EXISTS(SELECT 1 FROM parcel_area_assignment WHERE parcel_id=v_parcel AND ended_at IS NULL) THEN
           INSERT INTO parcel_area_assignment(parcel_id,delivery_area_id,assignment_source,assignment_reason)
           SELECT v_parcel,a.id,'GEO_POLYGON','R02 fixture spatial match'
