@@ -62,14 +62,25 @@ public class DispatchOperationsService {
 
     public List<Map<String, Object>> waves(int limit, long afterId) {
         long stationId = requireStationContext();
-        // ESCAPE-HATCH (ADR-Persistence): Set-based aggregate query for wave dispatch progress
+        LocalDate today = LocalDate.now();
+        LocalDate threeDaysAgo = today.minusDays(3);
+        // ESCAPE-HATCH (ADR-Persistence): High-performance indexed query using idx_wave_station_date_status
         return jdbc.queryForList("""
                 SELECT w.id wave_id,w.wave_code,DATE_FORMAT(w.service_date, '%Y-%m-%d') AS service_date,w.route_code,w.status wave_status,
-                       COUNT(DISTINCT t.id) task_count,COUNT(ti.id) parcel_count
-                FROM dispatch_wave w LEFT JOIN driver_task t ON t.wave_id=w.id
+                       COUNT(DISTINCT t.id) task_count,COUNT(ti.id) parcel_count,
+                       CASE WHEN w.service_date = ? THEN 'TODAY' ELSE 'OVERDUE' END AS group_type
+                FROM dispatch_wave w 
+                LEFT JOIN driver_task t ON t.wave_id=w.id
                 LEFT JOIN driver_task_item ti ON ti.task_id=t.id
-                WHERE w.station_id=? AND w.id > ? GROUP BY w.id,w.wave_code,w.service_date,w.route_code,w.status ORDER BY w.id DESC LIMIT ?
-                """, stationId, afterId, Math.min(Math.max(limit, 1), 200));
+                WHERE w.station_id=? AND (
+                    w.service_date = ?
+                    OR (w.service_date >= ? AND w.status IN ('DRAFT','FROZEN','IN_PROGRESS'))
+                    OR w.id > ?
+                )
+                GROUP BY w.id,w.wave_code,w.service_date,w.route_code,w.status 
+                ORDER BY w.service_date DESC, w.id DESC 
+                LIMIT ?
+                """, today, stationId, today, threeDaysAgo, afterId, Math.min(Math.max(limit, 1), 200));
     }
 
     public List<Map<String, Object>> waves(LocalDate serviceDate) {

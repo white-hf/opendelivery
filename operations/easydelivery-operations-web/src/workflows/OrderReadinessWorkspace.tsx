@@ -18,13 +18,28 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
  const [searchQuery,setSearchQuery]=useState('');
  const [selectedZoneCode,setSelectedZoneCode] = useState<string | undefined>();
 
- // 1. Get Waves for Cascade filtering
- const waves = useQuery({
-   queryKey: ['dispatch-waves-list', station, serviceDate],
-   queryFn: () => api<Wave[]>(`/ops/v1/dispatch/waves?limit=100`, session, {}, station).then(res => {
-     return (res ?? []).filter(w => w.service_date === serviceDate);
-   })
- });
+  // 1. Get Waves for Cascade filtering (Fetches today + overdue active waves from backend)
+  const waves = useQuery({
+    queryKey: ['dispatch-waves-list', station],
+    queryFn: () => api<Wave[]>(`/ops/v1/dispatch/waves?limit=100`, session, {}, station)
+  });
+
+  // Group options for waves dropdown
+  const waveOptions = useMemo(() => {
+    const rawList = waves.data ?? [];
+    return [
+      { value: undefined as any, label: t('orders.allWavesOption', { defaultValue: '🌐 全站点所有包裹 (不限波次)' }) },
+      ...rawList.map(w => {
+        const isToday = w.service_date === serviceDate;
+        const statusText = w.wave_status ?? w.status ?? 'DRAFT';
+        const dateTag = isToday ? '🟢 今日' : `⚠️ ${w.service_date}`;
+        return {
+          value: w.wave_id ?? w.id,
+          label: `${dateTag} · ${w.wave_code ?? w.waveCode ?? `WAVE-#${w.wave_id ?? w.id}`} (${statusText})`
+        };
+      })
+    ];
+  }, [waves.data, serviceDate, t]);
 
  // Allow optional wave filter (default all parcels across station)
 
@@ -114,20 +129,14 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
              <span style={{ fontWeight: 600, fontSize: '15px' }}>{t('orders.title')}</span>
              <Space wrap>
                <span style={{ color: '#667085' }}>{t('orders.activeWave')}:</span>
-                <Select
-                  value={waveId}
-                  onChange={val => { setWaveId(val); setFilter('all'); }}
-                  style={{ width: 240 }}
-                  allowClear
-                  placeholder={t('orders.allWaves', { defaultValue: '全站点所有包裹 (不限波次)' })}
-                  options={[
-                    { value: undefined as any, label: t('orders.allWavesOption', { defaultValue: '🌐 全站点所有包裹 (不限波次)' }) },
-                    ...(waves.data ?? []).map(w => ({ 
-                      value: w.wave_id ?? w.id, 
-                      label: `${w.wave_code ?? w.waveCode ?? `WAVE-#${w.wave_id ?? w.id}`} (${w.wave_status ?? w.status ?? 'DRAFT'})` 
-                    }))
-                  ]}
-                />
+                 <Select
+                   value={waveId}
+                   onChange={val => { setWaveId(val); setFilter('all'); }}
+                   style={{ width: 280 }}
+                   allowClear
+                   placeholder={t('orders.allWaves', { defaultValue: '全站点所有包裹 (不限波次)' })}
+                   options={waveOptions}
+                 />
                 
                 {/* Geographic Zoning selection - Operational Naming */}
                 <span style={{ color: '#667085', marginLeft: '12px' }}>{t('orders.geographicZoning', {defaultValue: '配送区域'} )}:</span>
