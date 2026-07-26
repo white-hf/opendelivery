@@ -3,88 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EasyDelivery 运营调度工作台 - 快速上手培训指南</title>
+    <title>网点运营主管 - 每日班中调度标准作业指南 (SOP)</title>
     <style>
         :root {
-            --primary-color: #2563eb;
+            --primary: #2563eb;
             --primary-light: #eff6ff;
-            --success-color: #16a34a;
-            --warning-color: #ea580c;
-            --text-main: #1e293b;
+            --success: #16a34a;
+            --warning: #ea580c;
+            --danger: #dc2626;
+            --text-dark: #0f172a;
             --text-muted: #64748b;
-            --border-color: #e2e8f0;
-            --bg-body: #f8fafc;
+            --border: #e2e8f0;
+            --bg: #f8fafc;
         }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: var(--bg-body);
-            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text-dark);
             margin: 0;
             padding: 24px;
             line-height: 1.6;
         }
         .container {
-            max-width: 900px;
+            max-width: 920px;
             margin: 0 auto;
             background: #ffffff;
-            padding: 32px 40px;
+            padding: 36px 44px;
             border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+            border: 1px solid var(--border);
         }
         .header {
             border-bottom: 2px solid var(--primary-light);
             padding-bottom: 20px;
-            margin-bottom: 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            margin-bottom: 28px;
         }
         .header h1 {
-            margin: 0;
+            margin: 0 0 8px 0;
             font-size: 24px;
-            color: var(--primary-color);
-            display: flex;
-            align-items: center;
-            gap: 10px;
+            color: var(--primary);
         }
-        .badge {
-            background: var(--primary-light);
-            color: var(--primary-color);
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: 600;
+        .header p {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 14px;
         }
-        .section-title {
-            font-size: 17px;
-            font-weight: 700;
-            color: var(--text-main);
-            margin-top: 32px;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            border-left: 4px solid var(--primary-color);
-            padding-left: 12px;
+        .timeline-step {
+            position: relative;
+            padding-left: 36px;
+            margin-bottom: 32px;
         }
-        .step-card {
-            background: #ffffff;
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 16px;
+        .timeline-step::before {
+            content: '';
+            position: absolute;
+            left: 13px;
+            top: 28px;
+            bottom: -24px;
+            width: 2px;
+            background: var(--border);
         }
-        .step-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 10px;
+        .timeline-step:last-child::before {
+            display: none;
         }
-        .step-num {
-            width: 26px;
-            height: 26px;
-            background: var(--primary-color);
+        .time-badge {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 28px;
+            height: 28px;
+            background: var(--primary);
             color: #ffffff;
             border-radius: 50%;
             display: flex;
@@ -92,16 +79,50 @@
             justify-content: center;
             font-weight: bold;
             font-size: 13px;
+            box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
         }
-        .step-title {
-            font-size: 16px;
+        .step-header-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin: 0 0 6px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .time-tag {
+            background: #f1f5f9;
+            color: #475569;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
             font-weight: 600;
-            color: var(--text-main);
         }
-        .step-desc {
-            color: var(--text-muted);
+        .card {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px 20px;
+            margin-top: 10px;
+        }
+        .action-list {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+        .action-list li {
+            margin-bottom: 6px;
             font-size: 14px;
-            margin-bottom: 10px;
+            color: #334155;
+        }
+        .system-entry {
+            display: inline-block;
+            background: var(--primary-light);
+            color: var(--primary);
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 6px;
         }
         .tip-box {
             background: #f0fdf4;
@@ -110,33 +131,16 @@
             padding: 10px 14px;
             font-size: 13px;
             color: #166534;
+            margin-top: 10px;
         }
-        .action-button-demo {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: #1677ff;
-            color: white;
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-        .quick-nav {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 12px;
-            margin-bottom: 24px;
-        }
-        .nav-item {
-            background: var(--primary-light);
-            border: 1px solid #bfdbfe;
+        .warning-box {
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            border-radius: 8px;
             padding: 10px 14px;
-            border-radius: 10px;
             font-size: 13px;
-            font-weight: 600;
-            color: var(--primary-color);
-            text-align: center;
+            color: #9a3412;
+            margin-top: 10px;
         }
     </style>
 </head>
@@ -144,89 +148,103 @@
 
 <div class="container">
     <div class="header">
-        <h1>EasyDelivery 调度工作台 - 快速上手指南</h1>
-        <span class="badge">运营现场操作手册</span>
+        <h1>🚚 网点运营主管 - 班中标准作业流程 (SOP)</h1>
+        <p>基于实际班次时间线的规范化日常操作指南</p>
     </div>
 
-    <p style="color: var(--text-muted); font-size: 14px;">
-        欢迎使用 EasyDelivery 运营调度工作台！本手册帮助您在 3 分钟内掌握“看流转 ➔ 区域指派 ➔ 圈选改派 ➔ 智能路线规划”四步核心操作。
-    </p>
-
-    <div class="quick-nav">
-        <div class="nav-item">1. 看流转 (今日看板)</div>
-        <div class="nav-item">2. 区域指派 (3.1 工作台)</div>
-        <div class="nav-item">3. 圈选划转 (3.2 工作台)</div>
-        <div class="nav-item">4. 路线规划 (OSRM)</div>
-    </div>
-
-    <!-- 阶段 1 -->
-    <div class="section-title">一、 查看站点实时流转状态（今日看板）</div>
-    <div class="step-card">
-        <div class="step-header">
-            <div class="step-num">1</div>
-            <div class="step-title">查看 7 阶段 SOP 状态</div>
+    <!-- 阶段 1：班前预备 -->
+    <div class="timeline-step">
+        <div class="time-badge">1</div>
+        <div class="step-header-title">
+            第一步：早班到岗与大盘盘点
+            <span class="time-tag">⏰ 07:30 - 08:00</span>
         </div>
-        <div class="step-desc">
-            登录系统后默认进入<b>【今日看板】</b>。顶部横栏展示了今日作业的 7 个阶段（推单 ➔ 到仓 ➔ 分拣 ➔ 派送 ➔ 妥投 ➔ 异常 ➔ 日结）。
-        </div>
-        <div class="tip-box">
-            💡 <b>操作提示：</b> 点击任意阶段卡片，可直接跳转至对应的作业页面处理具体业务。
-        </div>
-    </div>
-
-    <!-- 阶段 2 -->
-    <div class="section-title">二、 按责任片区指派包裹（3.1 派送计划工作台）</div>
-    <div class="step-card">
-        <div class="step-header">
-            <div class="step-num">2</div>
-            <div class="step-title">一键按责任区域指派</div>
-        </div>
-        <div class="step-desc">
-            进入<b>【3.1 派送计划工作台】</b>，选择当前波次后，点击左侧面板中的 <span class="action-button-demo">一键按责任区域指派</span> 按钮。系统会自动将包裹按画好的责任片区指派给对应司机。
-        </div>
-    </div>
-
-    <!-- 阶段 3 -->
-    <div class="section-title">三、 现场多边形圈选与划转改派（3.2 司机包裹动态调配工作台）</div>
-    <div class="step-card">
-        <div class="step-header">
-            <div class="step-num">3</div>
-            <div class="step-title">开启地图套索圈选包裹</div>
-        </div>
-        <div class="step-desc">
-            当出现临时改派或司机负载不均时，进入<b>【3.2 司机包裹动态调配工作台】</b>：
-            <ul style="margin-top: 6px; margin-bottom: 6px; padding-left: 20px;">
-                <li>点击地图左上角 <span class="action-button-demo" style="background:#722ed1">开启地图套索圈选</span> 按钮。</li>
-                <li>在地图上按住鼠标左键，画圈框选需要改派的点位。</li>
-                <li>圈选完成后在上方弹出栏下拉选择【目标司机】，点击【确认划转】完成改派。</li>
+        <div class="card">
+            <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">【日常目标】：确认今日总件数、卸车实收差异与到岗运力。</p>
+            <ul class="action-list">
+                <li>打开 <span class="system-entry">今日看板</span>，先看顶部 <b>今日应处理总件数</b> 与 <b>干线到仓实收件数</b>。</li>
+                <li>如果发现“缺失/少货件数”，直接点击<b>实收件卡片</b>跳转排查干线卸车差异。</li>
+                <li>查看下方 <b>当班司机出勤表</b>，核对今日实际到岗出勤司机名单（确认绿色“出勤在岗”状态）。</li>
             </ul>
         </div>
-        <div class="tip-box">
-            💡 <b>操作提示：</b> 点击地图右上角【展开包裹明细】，可以在右侧表格中精准核对圈选包裹的单号与地址。
-        </div>
     </div>
 
-    <!-- 阶段 4 -->
-    <div class="section-title">四、 生成司机最优派送路线与序号（OSRM 智能排线）</div>
-    <div class="step-card">
-        <div class="step-header">
-            <div class="step-num">4</div>
-            <div class="step-title">点击一键路线规划</div>
+    <!-- 阶段 2：波次派发 -->
+    <div class="timeline-step">
+        <div class="time-badge">2</div>
+        <div class="step-header-title">
+            第二步：早波次包件自动指派
+            <span class="time-tag">⏰ 08:00 - 08:30</span>
         </div>
-        <div class="step-desc">
-            指派完成后，选择目标司机，点击 <span class="action-button-demo" style="background:#1677ff">🧭 OSRM 智能规划当前司机路线</span>：
-            <ul style="margin-top: 6px; margin-bottom: 6px; padding-left: 20px;">
-                <li>系统会在地图上标出带有 <b>#1, #2, #3...</b> 数字的水滴 Marker。</li>
-                <li>地图会自动画出行驶轨迹折线，司机端 App 会同步更新派送顺序。</li>
+        <div class="card">
+            <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">【日常目标】：将分拣完成的包裹快速下发至司机名下。</p>
+            <ul class="action-list">
+                <li>进入 <span class="system-entry">3.1 派送计划工作台</span>，下拉选择当前早波次批次。</li>
+                <li>点击左侧面板的 <b>【一键按责任区域指派】</b>。</li>
+                <li>系统会自动把属于各片区责任司机的包裹分配到位。左侧列表可实时查看每位司机的已配负载件数。</li>
             </ul>
         </div>
-        <div class="tip-box">
-            💡 <b>操作提示：</b> 路线规划按单司机独立执行，不会影响其他司机的已排线路。
+    </div>
+
+    <!-- 阶段 3：现场调配与改派 -->
+    <div class="timeline-step">
+        <div class="time-badge">3</div>
+        <div class="step-header-title">
+            第三步：现场异常与司机负载调配（划转）
+            <span class="time-tag">⏰ 08:30 - 09:00</span>
+        </div>
+        <div class="card">
+            <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">【日常目标】：解决现场司机包裹过多、少货改派或临时请假运力不均衡问题。</p>
+            <ul class="action-list">
+                <li>进入 <span class="system-entry">3.2 司机包裹动态调配工作台</span>，在左侧选择被调整的司机。</li>
+                <li>点击地图左上角 <b>【开启地图套索圈选】</b>，在地图上按住鼠标框选需要拿出来的包裹点位。</li>
+                <li>圈选完成后，在上方工具条的【目标司机】下拉菜单中选择接手司机，点击 <b>【确认划转】</b>。</li>
+            </ul>
+            <div class="warning-box">
+                ⚠️ <b>改派核对：</b> 划转前可点击地图右上角【展开包裹明细】，核对包裹单号与地址后再提交。
+            </div>
         </div>
     </div>
 
-    <div style="text-align: center; margin-top: 30px; border-top: 1px solid var(--border-color); padding-top: 16px; color: var(--text-muted); font-size: 12px;">
-        EasyDelivery 运营团队 · 保持高效与精准
+    <!-- 阶段 4：路线规划与发车 -->
+    <div class="timeline-step">
+        <div class="time-badge">4</div>
+        <div class="step-header-title">
+            第四步：生成司机最优派送路线并发车
+            <span class="time-tag">⏰ 09:00 - 09:15</span>
+        </div>
+        <div class="card">
+            <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">【日常目标】：为司机生成科学的派送顺序，指导现场装车发车。</p>
+            <ul class="action-list">
+                <li>在调配工作台中选中要发车的司机。</li>
+                <li>点击 <b>【🧭 OSRM 智能规划当前司机路线】</b>。</li>
+                <li>地图将自动生成蓝色行驶轨迹连线，并标出 <b>#1, #2, #3...</b> 数字水滴水滴图标。</li>
+                <li>告知司机打开手持端 APP，列表已自动按此顺序排好，司机直接出库发车。</li>
+            </ul>
+            <div class="tip-box">
+                💡 <b>发车提示：</b> 路线规划针对单司机执行，排完一个发车一个，无需等待全网点所有人。
+            </div>
+        </div>
+    </div>
+
+    <!-- 阶段 5：班中监控与收尾 -->
+    <div class="timeline-step">
+        <div class="time-badge">5</div>
+        <div class="step-header-title">
+            第五步：班中妥投监控与阻断工单跟进
+            <span class="time-tag">⏰ 10:00 - 18:00</span>
+        </div>
+        <div class="card">
+            <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">【日常目标】：实时跟踪在途妥投率，及时处理滞留件与阻断工单。</p>
+            <ul class="action-list">
+                <li>定期刷新 <span class="system-entry">今日看板</span>，观察“已派出/妥投率”卡片。</li>
+                <li>关注“阻断性异常工单”数量，如有件数，点击钻取进入工单中心协调客服或司机重试。</li>
+            </ul>
+        </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 40px; border-top: 1px solid var(--border); padding-top: 20px; color: var(--text-muted); font-size: 12px;">
+        EasyDelivery 运营管理团队 · 标准作业程序 (SOP)
     </div>
 </div>
 
