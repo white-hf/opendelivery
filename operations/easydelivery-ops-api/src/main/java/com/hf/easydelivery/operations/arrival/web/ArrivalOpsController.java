@@ -49,6 +49,13 @@ public class ArrivalOpsController {
         return AppResponse.success("Arrival trip updated", physicalArrival.moveTrip(tripId, body, request));
     }
 
+    @PatchMapping("/arrival-trips/{tripId}/transport")
+    public AppResponse<?> updateArrivalTransport(@PathVariable long tripId,
+                                                  @RequestBody PhysicalArrivalService.TransportUpdateRequest body,
+                                                  HttpServletRequest request) {
+        return AppResponse.success("Arrival transport updated", physicalArrival.updateTransport(tripId, body, request));
+    }
+
     @PostMapping("/arrival-trips/{tripId}/handling-units")
     public AppResponse<?> createHandlingUnit(@PathVariable long tripId,
                                               @RequestBody PhysicalArrivalService.UnitRequest body,

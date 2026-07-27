@@ -13,6 +13,9 @@ import org.springframework.context.annotation.Profile;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Service
 @Profile("!memory")
@@ -63,6 +66,48 @@ public class OperationsService {
         appendEvent(row.parcelId(), "RECEIVED", "AT_STATION", "INBOUND_RECEIPT",
                 "manifest-receipt-" + row.manifestId() + "-" + row.parcelId());
         return new ReceiptResult(row.parcelId(), false, "AT_STATION");
+    }
+
+    public Map<String, Object> searchParcel(String trackingNo) {
+        Long stationId = access.selectedStationId();
+        if (stationId == null) throw new BizException("STATION.CONTEXT.REQUIRED", "Station context is required");
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT p.id parcel_id, p.tracking_no, p.status, p.current_custody_type AS custody,
+                       w.id waybill_id, w.recipient_name, w.recipient_phone, w.address_line1,
+                       w.address_line2, w.city, w.province, w.postal_code, w.country_code
+                FROM parcel p JOIN waybill w ON w.id=p.waybill_id
+                WHERE p.tracking_no=? AND p.current_station_id=?
+                """, trackingNo, stationId);
+        if (rows.isEmpty()) throw new BizException("PARCEL.NOT.FOUND", "Tracking number not found at selected station");
+        Map<String, Object> result = new LinkedHashMap<>(rows.get(0));
+        List<Map<String, Object>> timeline = jdbc.queryForList("""
+                SELECT occurred_at AS time, event_type AS title, actor_type AS user,
+                       from_status, to_status
+                FROM parcel_status_event WHERE parcel_id=? ORDER BY occurred_at, sequence_no
+                """, rows.get(0).get("parcel_id"));
+        result.put("timeline", timeline);
+        return result;
+    }
+
+    @Transactional
+    public Map<String, Object> overrideParcelAddress(String trackingNo, AddressOverrideRequest request) {
+        Long stationId = access.selectedStationId();
+        if (stationId == null) throw new BizException("STATION.CONTEXT.REQUIRED", "Station context is required");
+        List<Long> ids = jdbc.query("""
+                SELECT p.id FROM parcel p WHERE p.tracking_no=? AND p.current_station_id=? FOR UPDATE
+                """, (rs, n) -> rs.getLong(1), trackingNo, stationId);
+        if (ids.isEmpty()) throw new BizException("PARCEL.NOT.FOUND", "Tracking number not found at selected station");
+        if (request == null || request.addressLine1() == null || request.addressLine1().isBlank()
+                || request.postalCode() == null || request.postalCode().isBlank()) {
+            throw new BizException("PARAM.INVALID", "Address line and postal code are required");
+        }
+        jdbc.update("""
+                UPDATE waybill w JOIN parcel p ON p.waybill_id=w.id
+                SET w.recipient_name=?, w.recipient_phone=?, w.address_line1=?,
+                    w.postal_code=?, w.version=w.version+1
+                WHERE p.id=?
+                """, request.recipientName(), request.recipientPhone(), request.addressLine1(), request.postalCode(), ids.get(0));
+        return searchParcel(trackingNo);
     }
 
     @Transactional
@@ -171,4 +216,5 @@ public class OperationsService {
     public record WaveResult(long waveId, long taskId, int parcelCount, String status) {}
     public record CaseSummary(String caseNo, String caseType, String priority, String status,
                               String ownerType, Long ownerId, java.time.LocalDateTime slaDueAt) {}
+    public record AddressOverrideRequest(String recipientName, String recipientPhone, String addressLine1, String postalCode) {}
 }

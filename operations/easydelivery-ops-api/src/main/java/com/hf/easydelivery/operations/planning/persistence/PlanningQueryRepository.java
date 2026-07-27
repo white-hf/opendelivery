@@ -38,8 +38,8 @@ public class PlanningQueryRepository {
         String viewportSql = viewport ? " AND ST_X(g.delivery_point) BETWEEN ? AND ? AND ST_Y(g.delivery_point) BETWEEN ? AND ?" : "";
         String waveSql = waveId != null ? " AND t.wave_id = ?" : "";
         String taskJoinSql = waveId != null
-                ? "LEFT JOIN driver_task t ON t.id=ti.task_id AND t.wave_id = ?"
-                : "LEFT JOIN driver_task t ON t.id=ti.task_id AND t.status <> 'CANCELLED'";
+                ? "LEFT JOIN driver_task t ON t.id=ti.task_id AND t.wave_id = ? "
+                : "LEFT JOIN driver_task t ON t.id=ti.task_id AND t.status <> 'CANCELLED' ";
         String slaSql = "";
         if ("TODAY_DUE".equalsIgnoreCase(slaFilter) || "EXPRESS_ONLY".equalsIgnoreCase(slaFilter)) {
             slaSql = " AND (p.promised_date <= ? OR w.service_code IN ('EXPRESS', 'SAME_DAY', 'URGENT'))";

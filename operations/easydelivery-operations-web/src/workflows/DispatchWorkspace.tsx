@@ -35,14 +35,14 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
    })
  });
 
- // Automatically load the existing wave if found for today
- useEffect(() => {
+  // Load the existing wave context for today without skipping the SOP entry step.
+  // Operators should always land on step 1 and explicitly advance when ready.
+  useEffect(() => {
    if (wavesList.data && wavesList.data.length > 0 && !waveId) {
      const targetWave = wavesList.data[0];
      const targetId = targetWave.wave_id ?? targetWave.id;
      if (targetId) {
        setWaveId(targetId);
-       setStage(1); // Auto transition to parcel assignment stage
      }
    }
  }, [wavesList.data, waveId]);
@@ -62,19 +62,19 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
     queryFn: () => api<Trip[]>(`/ops/v1/arrival-trips?serviceDate=${serviceDate}`, session, {}, station)
   });
 
-  const [selectedTripId, setSelectedTripId] = useState<number | undefined>(undefined);
+ const [selectedTripId, setSelectedTripId] = useState<number | undefined>(undefined);
+ const [tripSelectionTouched, setTripSelectionTouched] = useState(false);
 
   const matchedTrip = useMemo(() => {
-    if (selectedTripId) {
+    if (tripSelectionTouched) {
+      if (!selectedTripId) return undefined;
       return tripsQuery.data?.find(t => t.id === selectedTripId);
     }
     if (wave.data?.wave.arrival_trip_id) {
       return tripsQuery.data?.find(t => t.id === wave.data!.wave.arrival_trip_id);
     }
-    const waveCode = wave.data?.wave.wave_code;
-    if (!waveCode || !tripsQuery.data) return tripsQuery.data?.[0];
-    return tripsQuery.data.find(t => t.external_trip_no === waveCode) ?? tripsQuery.data?.[0];
-  }, [tripsQuery.data, wave.data?.wave.wave_code, wave.data?.wave.arrival_trip_id, selectedTripId]);
+    return undefined;
+  }, [tripsQuery.data, wave.data?.wave.arrival_trip_id, selectedTripId, tripSelectionTouched]);
 
   const tripId = matchedTrip?.id;
 
@@ -86,7 +86,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
   });
   const refresh=async()=>Promise.all([cache.invalidateQueries({queryKey:['planning-parcels',station,serviceDate]}),cache.invalidateQueries({queryKey:['planning-shifts',station,serviceDate]}),cache.invalidateQueries({queryKey:['planning-wave',station,waveId]}),cache.invalidateQueries({queryKey:['dispatch-waves-list',station,serviceDate]})]);
   const command=useMutation({
-    mutationFn:({path,body}:{path:string;body:unknown})=>api<any>(path,session,{method:'POST',body:JSON.stringify(body)},station),
+    mutationFn:({path,body,method='POST'}:{path:string;body:unknown;method?:'POST'|'PATCH'|'PUT'})=>api<any>(path,session,{method,body:JSON.stringify(body)},station),
     onSuccess:async(res, variables)=>{
       let msg = t('dispatch.commandSuccess');
       if (res && typeof res.changedCount === 'number') {
@@ -550,18 +550,40 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
               <Input value={defaultWaveCode} readOnly style={{ background: '#f5f5f5', borderRadius: '6px' }} size="large" />
             </div>
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '6px', color: '#262626' }}>关联到仓干线车次 (Trip No)</label>
+              <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '6px', color: '#262626' }}>关联到仓干线车次 (Trip No，可选)</label>
               <Select
                 size="large"
                 style={{ width: '100%' }}
-                placeholder="请选择关联的到仓干线车次..."
+                placeholder="可稍后在到货清单关联"
                 value={tripId}
-                onChange={(val) => setSelectedTripId(val)}
+                allowClear
+                onChange={(val) => { setTripSelectionTouched(true); setSelectedTripId(val); }}
                 options={(tripsQuery.data ?? []).map(t => ({
                   value: t.id,
                   label: `🚚 车次: ${t.external_trip_no} (${t.vehicle_plate || '暂无车牌'}) [${t.unit_count ?? 0}个板笼]`
                 }))}
               />
+              {waveId && tripSelectionTouched && (
+                <Button
+                  size="small"
+                  type="link"
+                  style={{ paddingLeft: 0, marginTop: 6 }}
+                  loading={command.isPending}
+                  onClick={() => {
+                    command.mutate({
+                      path: `/ops/v1/planning/waves/${waveId}/arrival-trip`,
+                      method: 'PATCH',
+                      body: {
+                        arrivalBatchNo: matchedTrip?.external_trip_no ?? null,
+                        reason: 'Operator linked arrival trip after wave creation'
+                      }
+                    });
+                    setTripSelectionTouched(false);
+                  }}
+                >
+                  保存干线车次关联
+                </Button>
+              )}
             </div>
 
             <Button 

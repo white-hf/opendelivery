@@ -12,6 +12,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.context.annotation.Profile;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +34,7 @@ public class MapPlanningService {
     private final DispatchWaveQueryRepository waveQueryRepository;
     private final PlanningQueryRepository planningQueryRepository;
 
+    @Autowired
     public MapPlanningService(JdbcTemplate jdbc, OperationsAccess access, ObjectMapper mapper, DispatchWaveRepository waveRepository, DispatchWaveQueryRepository waveQueryRepository, PlanningQueryRepository planningQueryRepository) {
         this.jdbc = jdbc;
         this.access = access;
@@ -105,17 +107,7 @@ public class MapPlanningService {
         required(body.serviceDate(), "serviceDate");
         String code = body.waveCode();
         if (code == null || code.isBlank()) {
-            String prefix;
-            if (body.arrivalBatchNo() != null && !body.arrivalBatchNo().isBlank()) {
-                prefix = body.arrivalBatchNo();
-            } else {
-                List<String> trips = jdbc.query("SELECT external_trip_no FROM arrival_trip WHERE station_id=? AND DATE(expected_at)=? ORDER BY id DESC LIMIT 1", (rs, n) -> rs.getString(1), stationId, body.serviceDate());
-                if (!trips.isEmpty()) {
-                    prefix = trips.get(0);
-                } else {
-                    prefix = "W" + body.serviceDate().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
-                }
-            }
+            String prefix = "W" + body.serviceDate().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
             int seq = 1;
             while (true) {
                 String candidate = prefix + "-W" + seq;
@@ -148,22 +140,39 @@ public class MapPlanningService {
             throw new BizException("WAVE.CODE.EXISTS", "Wave code already exists at selected station");
         }
 
-        // Auto-create corresponding Inbound Arrival Trip and its 10 default Pallets in the background
-        try {
-            if (arrivalTripId != null) return waveSummary(waveEntity.getId());
-            jdbc.update("INSERT IGNORE INTO arrival_trip(station_id, external_trip_no, status, expected_at, note) VALUES (?, ?, 'EXPECTED', ?, 'Auto-created by dispatch wave planning')",
-                    stationId, finalCode, java.sql.Timestamp.valueOf(body.serviceDate().atTime(8, 0)));
-            Long tripId = jdbc.queryForObject("SELECT id FROM arrival_trip WHERE station_id=? AND external_trip_no=?", Long.class, stationId, finalCode);
-            if (tripId != null) {
-                for (int i = 1; i <= 10; i++) {
-                    String unitNo = finalCode + "-U" + String.format("%02d", i);
-                    jdbc.update("INSERT IGNORE INTO handling_unit(trip_id, station_id, external_unit_no, unit_type, status) VALUES (?, ?, ?, 'PALLET', 'EXPECTED')",
-                            tripId, stationId, unitNo);
-                }
-            }
-        } catch (Exception ignored) {}
-
         return waveSummary(waveEntity.getId());
+    }
+
+    /**
+     * Explicitly links (or clears) the inbound linehaul trip for an existing
+     * dispatch wave.  This is intentionally separate from wave creation:
+     * operations may receive the trip record after the wave already exists.
+     */
+    @Transactional
+    public Map<String, Object> linkArrivalTrip(long waveId, LinkArrivalTripRequest body, HttpServletRequest http) {
+        Wave wave = wave(waveId, true);
+        String tripNo = body == null || body.arrivalBatchNo() == null
+                ? null : body.arrivalBatchNo().trim();
+        Long tripId = null;
+        if (tripNo != null && !tripNo.isBlank()) {
+            tripId = jdbc.query("""
+                    SELECT id FROM arrival_trip
+                    WHERE station_id = ? AND external_trip_no = ?
+                    """, rs -> rs.next() ? rs.getLong(1) : null, wave.stationId(), tripNo);
+            if (tripId == null) {
+                throw new BizException("ARRIVAL.TRIP.NOT_FOUND", "Selected arrival trip does not belong to the station");
+            }
+        }
+        DispatchWaveEntity entity = waveRepository.findById(waveId)
+                .orElseThrow(() -> new BizException("WAVE.NOT.FOUND", "Wave not found: " + waveId));
+        Long previousTripId = entity.getArrivalTripId();
+        entity.setArrivalTripId(tripId);
+        waveRepository.saveAndFlush(entity);
+        audit(http, wave.stationId(), "PLANNING_WAVE_TRIP_LINK", waveId,
+                body == null ? null : body.reason(),
+                Map.of("previousArrivalTripId", previousTripId == null ? "" : previousTripId,
+                        "arrivalTripId", tripId == null ? "" : tripId));
+        return waveSummary(waveId);
     }
 
     public Map<String, Object> waveSummary(long waveId) {
@@ -536,6 +545,7 @@ public class MapPlanningService {
     private record Shift(int capacity,String availability){}
     public record ShiftRequest(long driverId,LocalDate serviceDate,String availabilityStatus,int parcelCapacity,String note){}
     public record WaveRequest(String waveCode,LocalDate serviceDate,String routeCode,String arrivalBatchNo){}
+    public record LinkArrivalTripRequest(String arrivalBatchNo, String reason){}
     public record AssignmentRequest(long driverId,List<Long> parcelIds,List<Long> areaVersionIds,String reason){}
     public record ReassignRequest(long driverId,String reason){}
     public record ReasonRequest(String reason){}

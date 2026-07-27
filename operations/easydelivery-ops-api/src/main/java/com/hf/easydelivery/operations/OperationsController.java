@@ -76,6 +76,17 @@ public class OperationsController {
         return AppResponse.success(service.openCases());
     }
 
+    @GetMapping("/parcels/search")
+    public AppResponse<?> searchParcel(@RequestParam String trackingNo) {
+        return AppResponse.success(service.searchParcel(trackingNo));
+    }
+
+    @PostMapping("/parcels/{trackingNo}/address-override")
+    public AppResponse<?> overrideParcelAddress(@PathVariable String trackingNo,
+            @RequestBody OperationsService.AddressOverrideRequest request) {
+        return AppResponse.success("Parcel address updated", service.overrideParcelAddress(trackingNo, request));
+    }
+
     @GetMapping("/stations")
     public AppResponse<?> stations(@RequestHeader(value = "X-Ops-Api-Key", required = false) String apiKey) {
         return AppResponse.success(routing.stations());
@@ -178,6 +189,13 @@ public class OperationsController {
     @GetMapping("/planning/waves/{waveId}")
     public AppResponse<?> planningWave(@PathVariable long waveId) {
         return AppResponse.success(planning.waveSummary(waveId));
+    }
+
+    @PatchMapping("/planning/waves/{waveId}/arrival-trip")
+    public AppResponse<?> linkPlanningWaveArrivalTrip(@PathVariable long waveId,
+            @RequestBody MapPlanningService.LinkArrivalTripRequest body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return AppResponse.success("Wave arrival trip association saved", planning.linkArrivalTrip(waveId, body, request));
     }
 
     @GetMapping("/planning/unplanned")

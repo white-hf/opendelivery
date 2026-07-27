@@ -29,9 +29,6 @@ public class DispatchWaveEntity {
     @Column(name = "status", nullable = false, length = 24)
     private String status;
 
-    @Column(name = "created_by")
-    private Long createdBy;
-
     @Column(name = "published_at")
     private LocalDateTime publishedAt;
 
@@ -59,8 +56,6 @@ public class DispatchWaveEntity {
     public void setRouteCode(String routeCode) { this.routeCode = routeCode; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
-    public Long getCreatedBy() { return createdBy; }
-    public void setCreatedBy(Long createdBy) { this.createdBy = createdBy; }
     public LocalDateTime getPublishedAt() { return publishedAt; }
     public void setPublishedAt(LocalDateTime publishedAt) { this.publishedAt = publishedAt; }
     public Integer getVersion() { return version; }

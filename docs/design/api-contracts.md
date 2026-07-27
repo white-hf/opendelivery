@@ -310,6 +310,9 @@ GeoJSON 接受 `FeatureCollection`、`Feature`、`Polygon` 或 `MultiPolygon`，
 
 以下接口均要求运营 Bearer Token 和 `X-Station-Code`，资源 ID 跨站访问返回 403。日期使用 `YYYY-MM-DD`；写操作建议携带 `X-Request-Id`。
 
+| `GET /ops/v1/parcels/search?trackingNo=` | tracking number | 查询当前站点真实包裹、运单地址、托管状态和状态事件时间线；不存在返回 `PARCEL.NOT.FOUND` |
+| `POST /ops/v1/parcels/{trackingNo}/address-override` | `recipientName,recipientPhone,addressLine1,postalCode` | 修改当前站点包裹的收件人与地址；不存在或不属于本站拒绝，不使用演示数据 |
+
 | 方法与路径 | 输入 | 输出/规则 |
 |---|---|---|
 | `GET /ops/v1/planning/parcels` | `serviceDate`；可选 `west/south/east/north/limit≤2000` | 包裹 ID/追踪号/状态/custody/地址、经纬度、区域版本、任务司机和 `MISSING_GEOCODE/UNMATCHED_AREA/OPEN_CASE` |
@@ -317,6 +320,7 @@ GeoJSON 接受 `FeatureCollection`、`Feature`、`Polygon` 或 `MultiPolygon`，
 | `PUT /ops/v1/planning/shifts` | `driverId,serviceDate,availabilityStatus,parcelCapacity,note` | upsert 班次；容量 1–1000，司机必须属于本站 |
 | `POST /ops/v1/planning/waves` | `waveCode,serviceDate,routeCode?` | 创建无任务的 `DRAFT` 批次，同站编码唯一 |
 | `GET /ops/v1/planning/waves/{id}` | — | 批次、司机任务容量汇总和区域快照 |
+| `PATCH /ops/v1/planning/waves/{id}/arrival-trip` | `arrivalBatchNo?`、`reason` | 显式关联/清除本站到仓干线车次；不存在或跨站点返回 4xx，写入操作审计；不会自动保存下拉选择 |
 | `POST .../{id}/assignments` | `driverId,parcelIds[],areaVersionIds[],reason` | 支持逐件和整区；事务校验可计划状态、区域/司机站点、出勤、当日总容量和活动任务唯一 |
 | `POST .../{id}/parcels/{parcelId}/reassign` | `driverId,reason` | 仅草稿；原 item 标为 `REASSIGNED`，新任务新增活动 item 并审计 |
 | `POST .../{id}/freeze` | `reason` | 非空任务、出勤和当日总容量预检通过后进入 `FROZEN` |

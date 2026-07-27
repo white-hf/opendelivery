@@ -96,4 +96,16 @@ public class ArrivalTripEntity {
     public void moveTo(String targetStatus) {
         this.status = targetStatus;
     }
+
+    public void updateTransport(String vehiclePlate, String sealNo, LocalDateTime expectedAt, String note) {
+        this.vehiclePlate = vehiclePlate;
+        this.sealNo = sealNo;
+        this.expectedAt = expectedAt;
+        this.note = note;
+    }
+
+    public String getVehiclePlate() { return vehiclePlate; }
+    public String getSealNo() { return sealNo; }
+    public LocalDateTime getExpectedAt() { return expectedAt; }
+    public String getNote() { return note; }
 }

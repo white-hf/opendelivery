@@ -9,7 +9,7 @@ import { aggregateEqualsDetail, parcelsOfUnit } from './arrivalCoverage';
 import { PlanningMap, type PlanningParcel } from './PlanningMap';
 import type { PageKey } from '../auth/permissions';
 
-type Trip = { id: number; external_trip_no: string; vehicle_plate?: string; seal_no?: string; expected_at?: string; arrived_at?: string; status: string; unit_count: number; expected_piece_count: number; linked_piece_count: number };
+type Trip = { id: number; external_trip_no: string; vehicle_plate?: string; seal_no?: string; expected_at?: string; arrived_at?: string; status: string; note?: string; unit_count: number; expected_piece_count: number; linked_piece_count: number };
 type Unit = { id: number; external_unit_no: string; unit_type: string; expected_piece_count?: number; status: string; linked_piece_count: number; driver_count: number; wave_count: number; declared_piece_count: number; scanned_piece_count: number; exception_piece_count: number };
 type UnitParcel = { unit_id: number; parcel_id: number; tracking_no: string; parcel_status: string; link_source: string; item_status?: string; task_code?: string; driver_name?: string; driver_id?: number; stop_sequence?: number; longitude?: number; latitude?: number; area_code?: string; area_id?: number };
 type Unlinked = { unit_id: number; external_unit_no: string; tracking_no: string; parcel_status: string; station_code?: string };
@@ -24,6 +24,7 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
   const cache = useQueryClient();
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [editTransportOpen, setEditTransportOpen] = useState(false);
   const [tripId, setTripId] = useState<number>();
   const [unitOpen, setUnitOpen] = useState(false);
   const [fillUnit, setFillUnit] = useState<Unit>();
@@ -44,8 +45,8 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
   const refresh = async () => Promise.all([cache.invalidateQueries({ queryKey: ['arrival-trips', station, serviceDate] }), cache.invalidateQueries({ queryKey: ['arrival-trip', station, tripId] })]);
 
   const command = useMutation({
-    mutationFn: ({ path, body }: { path: string; body: unknown }) => api(path, session, { method: 'POST', body: JSON.stringify(body) }, station),
-    onSuccess: async () => { message.success(t('arrival.saved')); setCreateOpen(false); setUnitOpen(false); setFillUnit(undefined); await refresh(); },
+    mutationFn: ({ path, body, method = 'POST' }: { path: string; body: unknown; method?: string }) => api(path, session, { method, body: JSON.stringify(body) }, station),
+    onSuccess: async () => { message.success(t('arrival.saved')); setCreateOpen(false); setEditTransportOpen(false); setUnitOpen(false); setFillUnit(undefined); await refresh(); },
     onError: (e: Error) => message.error(e.message)
   });
 
@@ -155,7 +156,10 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
             title={
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontWeight: 600, fontSize: '13px' }}>📦 车次笼板/笼车 ({detail.data?.units.length ?? 0})</span>
-                <Button size="small" onClick={() => setUnitOpen(true)}>+ 添加笼板</Button>
+                <Space size={6}>
+                  <Button size="small" onClick={() => setEditTransportOpen(true)}>修改车辆/时间</Button>
+                  <Button size="small" onClick={() => setUnitOpen(true)}>+ 添加笼板</Button>
+                </Space>
               </div>
             }
           >
@@ -352,6 +356,17 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
           <Form.Item name="expectedAt" label={t('arrival.expected')} initialValue={dayjs(`${serviceDate}T08:00:00`)}><DatePicker showTime style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="note" label={t('common.reason')}><Input.TextArea /></Form.Item>
           <Button block type="primary" htmlType="submit" loading={command.isPending}>{t('common.save')}</Button>
+        </Form>
+      </Drawer>
+
+      <Drawer width={480} open={editTransportOpen} destroyOnClose onClose={() => setEditTransportOpen(false)} title="修改到仓运输信息">
+        <Form key={`${tripId ?? 'none'}-${currentTrip?.updated_at ?? ''}`} layout="vertical" initialValues={{ vehiclePlate: currentTrip?.vehicle_plate, sealNo: currentTrip?.seal_no, expectedAt: currentTrip?.expected_at ? dayjs(currentTrip.expected_at) : undefined, note: currentTrip?.note }} onFinish={v => command.mutate({ path: `/ops/v1/arrival-trips/${tripId}/transport`, method: 'PATCH', body: { ...v, expectedAt: v.expectedAt?.toISOString(), reason: v.reason } })}>
+          <Form.Item name="vehiclePlate" label="车牌号"><Input /></Form.Item>
+          <Form.Item name="sealNo" label="封签号"><Input /></Form.Item>
+          <Form.Item name="expectedAt" label="预计到仓时间"><DatePicker showTime style={{ width: '100%' }} /></Form.Item>
+          <Form.Item name="note" label="备注"><Input.TextArea /></Form.Item>
+          <Form.Item name="reason" label="修改原因" rules={[{ required: true, message: '请输入修改原因' }]}><Input.TextArea /></Form.Item>
+          <Button block type="primary" htmlType="submit" loading={command.isPending}>保存修改</Button>
         </Form>
       </Drawer>
 

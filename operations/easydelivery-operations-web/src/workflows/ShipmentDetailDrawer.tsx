@@ -17,6 +17,7 @@ export function ShipmentDetailDrawer({
     const [loading, setLoading] = useState(false);
     const [editing, setEditing] = useState(false);
     const [data, setData] = useState<any>(null);
+    const [notFound, setNotFound] = useState(false);
     const [form] = Form.useForm();
 
     useEffect(() => {
@@ -26,6 +27,7 @@ export function ShipmentDetailDrawer({
         }
         setLoading(true);
         setEditing(false);
+        setNotFound(false);
         // Fetch parcel/shipment details
         api<any>(`/ops/v1/parcels/search?trackingNo=${encodeURIComponent(trackingNo)}`, session, {}, station)
             .then((res) => {
@@ -37,30 +39,7 @@ export function ShipmentDetailDrawer({
                     postal_code: res.postal_code ?? res.postalCode ?? '',
                 });
             })
-            .catch(() => {
-                // Fallback mock data if backend search endpoint returns empty or for prototype demo
-                const mock = {
-                    tracking_no: trackingNo,
-                    custody: 'STATION_WAREHOUSE',
-                    status: 'RECEIVED',
-                    recipient_name: 'Sarah Jenkins',
-                    recipient_phone: '+1 (902) 555-0192',
-                    address_line1: '1234 Barrington St, Halifax, NS',
-                    postal_code: 'B3J 1Y2',
-                    timeline: [
-                        { time: '2026-07-24 08:30:00', title: '到仓扫码入库 (Received at Halifax Station)', user: 'warehouse.yhz' },
-                        { time: '2026-07-24 06:15:00', title: '干线班车到达 (Linehaul Arrival Trip #TRIP-20260724)', user: 'system' },
-                        { time: '2026-07-23 18:00:00', title: '上游发车 (In Transit from Hub)', user: 'hub.dispatch' }
-                    ]
-                };
-                setData(mock);
-                form.setFieldsValue({
-                    recipient_name: mock.recipient_name,
-                    recipient_phone: mock.recipient_phone,
-                    address_line1: mock.address_line1,
-                    postal_code: mock.postal_code,
-                });
-            })
+            .catch(() => { setData(null); setNotFound(true); })
             .finally(() => setLoading(false));
     }, [trackingNo, station, session]);
 
@@ -69,16 +48,17 @@ export function ShipmentDetailDrawer({
             setLoading(true);
             await api(`/ops/v1/parcels/${encodeURIComponent(trackingNo!)}/address-override`, session, {
                 method: 'POST',
-                body: JSON.stringify(values),
+                body: JSON.stringify({
+                    recipientName: values.recipient_name,
+                    recipientPhone: values.recipient_phone,
+                    addressLine1: values.address_line1,
+                    postalCode: values.postal_code,
+                }),
             }, station);
-            message.success('运单地址与收件人修改成功！坐标已重新 Geocode 校验');
+            message.success('运单地址与收件人修改成功');
             setEditing(false);
-            onClose();
         } catch (e: any) {
-            // Demo fallback confirmation
-            message.success('运单地址与联系人修改保存成功！(坐标 Geocode 重新校验完成)');
-            setEditing(false);
-            onClose();
+            message.error(e.message || '运单地址修改失败');
         } finally {
             setLoading(false);
         }
@@ -99,6 +79,8 @@ export function ShipmentDetailDrawer({
         >
             {loading && !data ? (
                 <Spin style={{ display: 'block', margin: '40px auto' }} />
+            ) : notFound ? (
+                <Alert type="warning" showIcon message="未找到该运单" description="请确认 tracking number 正确，且包裹属于当前站点。" />
             ) : data ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <Alert

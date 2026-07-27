@@ -157,6 +157,25 @@ public class PhysicalArrivalService {
         audit(http,trip.getStationId(),"ARRIVAL_TRIP_"+target,"ARRIVAL_TRIP",trip.getId(),body.reason(),Map.of("from",from,"to",target));
         return detail(trip.getId());}
 
+    @Transactional
+    public Map<String,Object> updateTransport(long tripId, TransportUpdateRequest body, HttpServletRequest http) {
+        ArrivalTripEntity trip = tripForUpdate(tripId);
+        if (List.of("CLOSED", "CANCELLED").contains(trip.getStatus())) {
+            throw new BizException("ARRIVAL.TRIP.READ_ONLY", "Closed or cancelled trips cannot be edited");
+        }
+        String reason = required(body == null ? null : body.reason(), "reason");
+        String before = json(Map.of("vehiclePlate", trip.getVehiclePlate() == null ? "" : trip.getVehiclePlate(),
+                "sealNo", trip.getSealNo() == null ? "" : trip.getSealNo(),
+                "expectedAt", trip.getExpectedAt() == null ? "" : trip.getExpectedAt().toString()));
+        trip.updateTransport(body.vehiclePlate(), body.sealNo(), body.expectedAt(), body.note());
+        tripRepo.saveAndFlush(trip);
+        audit(http, trip.getStationId(), "ARRIVAL_TRIP_TRANSPORT_UPDATED", "ARRIVAL_TRIP", trip.getId(), reason,
+                Map.of("before", before, "vehiclePlate", body.vehiclePlate() == null ? "" : body.vehiclePlate(),
+                        "sealNo", body.sealNo() == null ? "" : body.sealNo(),
+                        "expectedAt", body.expectedAt() == null ? "" : body.expectedAt().toString()));
+        return detail(trip.getId());
+    }
+
     @Transactional public Map<String,Object> createUnit(long tripId,UnitRequest body,HttpServletRequest http){
         ArrivalTripEntity trip=tripForUpdate(tripId);
         if(List.of("CLOSED","CANCELLED").contains(trip.getStatus()))throw new BizException("ARRIVAL.STATE.INVALID","Cannot add a unit to a closed trip");
@@ -215,4 +234,5 @@ public class PhysicalArrivalService {
         }
     }
     public record StateRequest(String targetStatus,String reason){}
+    public record TransportUpdateRequest(String vehiclePlate, String sealNo, LocalDateTime expectedAt, String note, String reason) {}
 }

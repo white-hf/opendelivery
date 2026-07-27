@@ -223,6 +223,9 @@ GeoJSON may be a `FeatureCollection`, `Feature`, `Polygon`, or `MultiPolygon` an
 
 All endpoints require an operator bearer token and `X-Station-Code`; cross-station resource IDs return 403. Dates use `YYYY-MM-DD`, and commands should carry `X-Request-Id`.
 
+| `GET /ops/v1/parcels/search?trackingNo=` | tracking number | Reads the real parcel, address, custody status, and status-event timeline for the selected station; missing records return `PARCEL.NOT.FOUND` |
+| `POST /ops/v1/parcels/{trackingNo}/address-override` | `recipientName,recipientPhone,addressLine1,postalCode` | Updates recipient/address data for a parcel at the selected station; missing or cross-station records are rejected and no demo data is used |
+
 | Method and path | Input | Output/rules |
 |---|---|---|
 | `GET /ops/v1/planning/parcels` | `serviceDate`; optional `west/south/east/north/limit≤2000` | Parcel identity/state/custody/address, coordinates, area version, task/driver, and `MISSING_GEOCODE/UNMATCHED_AREA/OPEN_CASE` |
@@ -230,6 +233,7 @@ All endpoints require an operator bearer token and `X-Station-Code`; cross-stati
 | `PUT /ops/v1/planning/shifts` | `driverId,serviceDate,availabilityStatus,parcelCapacity,note` | Upserts a shift; capacity is 1–1000 and driver must belong to the station |
 | `POST /ops/v1/planning/waves` | `waveCode,serviceDate,routeCode?` | Creates an empty `DRAFT`; code is unique within a station |
 | `GET /ops/v1/planning/waves/{id}` | — | Batch, driver/capacity summaries, and immutable area references |
+| `PATCH /ops/v1/planning/waves/{id}/arrival-trip` | `arrivalBatchNo?`, `reason` | Explicitly links/clears a same-station inbound trip; unknown or cross-station trips return 4xx and the operation is audited. A dropdown change is not saved implicitly. |
 | `POST .../{id}/assignments` | `driverId,parcelIds[],areaVersionIds[],reason` | Parcel/whole-area assignment with transactional state, station, shift, daily capacity, and unique-active-task gates |
 | `POST .../{id}/parcels/{parcelId}/reassign` | `driverId,reason` | Draft only; retires the source item, creates the target item, and audits the move |
 | `POST .../{id}/freeze` | `reason` | Moves to `FROZEN` only after non-empty task, shift, and daily capacity preflight |

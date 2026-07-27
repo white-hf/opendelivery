@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Table, Tag, Button, Modal, Form, Input, Select, Space, Card, Tabs, Badge, App } from 'antd';
+import { Table, Tag, Button, Modal, Form, Input, Select, Card, Badge, App } from 'antd';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Session } from '../api/client';
 
@@ -51,7 +51,7 @@ const DEFAULT_CITIES = [
   { value: 'VANCOUVER', label: 'VANCOUVER (温哥华)' },
 ];
 
-export function SystemConfigWorkspace({ session, station }: { session: Session; station: number | string }) {
+export function SystemConfigWorkspace({ session, station, mode }: { session: Session; station: number | string; mode: 'drivers' | 'stations' }) {
 
   const { message } = App.useApp();
   const queryClient = useQueryClient();
@@ -76,6 +76,7 @@ export function SystemConfigWorkspace({ session, station }: { session: Session; 
   const stationsQuery = useQuery({
     queryKey: ['stations'],
     queryFn: () => api<Array<{ station_code: string; station_name: string; city: string; province_code: string; country_code: string }>>('/ops/v1/stations', session),
+    enabled: mode === 'stations',
   });
 
   const currentStationObj = stationsQuery.data?.find((s) => s.station_code === station);
@@ -83,11 +84,13 @@ export function SystemConfigWorkspace({ session, station }: { session: Session; 
   const driversQuery = useQuery({
     queryKey: ['system-drivers', station],
     queryFn: () => api<any[]>('/ops/v1/system/drivers', session, {}, station),
+    enabled: mode === 'drivers',
   });
 
   const serviceAreasQuery = useQuery({
     queryKey: ['station-service-areas', station],
     queryFn: () => api<any[]>('/ops/v1/system/service-areas', session, {}, station),
+    enabled: mode === 'stations',
   });
 
   const handleCreateStation = async (values: any) => {
@@ -199,14 +202,9 @@ export function SystemConfigWorkspace({ session, station }: { session: Session; 
 
   return (
     <div style={{ padding: '16px' }}>
-      <Card title="⚙️ 站点与司机系统配置中心">
-        <Tabs
-          items={[
-            {
-              key: 'stations',
-              label: '🏢 站点物理网络与服务覆盖范围 (Stations & Service Areas)',
-              children: (
-                <div>
+      <Card title={mode === 'drivers' ? '👨‍✈️ 司机配置' : '🏢 站点配置与服务覆盖'}>
+        {mode === 'stations' ? (
+          <div>
                   <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
                     <span>全网末端配送站点及其包揽的路由服务范围</span>
                     <Button type="primary" onClick={() => setStationModalOpen(true)}>+ 新增末端站点</Button>
@@ -257,14 +255,9 @@ export function SystemConfigWorkspace({ session, station }: { session: Session; 
                       size="small"
                     />
                   </div>
-                </div>
-              ),
-            },
-            {
-              key: 'drivers',
-              label: '👨‍✈️ 司机管理 (Drivers)',
-              children: (
-                <div>
+          </div>
+        ) : (
+          <div>
                   <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
                     <span>已录入司机列表（属于当前站点）</span>
                     <Button type="primary" onClick={() => setDriverModalOpen(true)}>+ 新建司机账号</Button>
@@ -275,15 +268,12 @@ export function SystemConfigWorkspace({ session, station }: { session: Session; 
                     columns={driverColumns}
                     rowKey="id"
                   />
-                </div>
-              ),
-            },
-          ]}
-        />
+          </div>
+        )}
       </Card>
 
       {/* 新增司机 Modal */}
-      <Modal
+      {mode === 'drivers' && <Modal
         title="新增司机账号"
         open={driverModalOpen}
         onCancel={() => setDriverModalOpen(false)}
@@ -303,10 +293,10 @@ export function SystemConfigWorkspace({ session, station }: { session: Session; 
             <Input.Password placeholder="默认: password123" autoComplete="new-password" />
           </Form.Item>
         </Form>
-      </Modal>
+      </Modal>}
 
       {/* 新增服务范围 Modal */}
-      <Modal
+      {mode === 'stations' && <Modal
         title="扩展站点覆盖范围"
         open={areaModalOpen}
         onCancel={() => setAreaModalOpen(false)}
@@ -363,10 +353,10 @@ export function SystemConfigWorkspace({ session, station }: { session: Session; 
             <Input placeholder="例如 B3K (留空代表覆盖全城)" style={{ textTransform: 'uppercase' }} />
           </Form.Item>
         </Form>
-      </Modal>
+      </Modal>}
 
       {/* 新增末端站点 Modal */}
-      <Modal
+      {mode === 'stations' && <Modal
         title="新增末端配送站点 (Station)"
         open={stationModalOpen}
         onCancel={() => setStationModalOpen(false)}
@@ -469,7 +459,7 @@ export function SystemConfigWorkspace({ session, station }: { session: Session; 
             <Input placeholder="例如 100 King St W, Hamilton, ON" />
           </Form.Item>
         </Form>
-      </Modal>
+      </Modal>}
     </div>
   );
 }

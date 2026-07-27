@@ -1,6 +1,8 @@
-# EasyDelivery Monorepo Backend & Operations Engine
+# EasyDelivery — Open Last Mile Operations Platform
 
-This Java 17 / Spring Boot 3.3 monorepo provides decoupled multi-service backend architectures and a high-performance React/Vite Operations Management Web Workbench (`easydelivery-operations-web`) for the **EasyDelivery** logistics platform.
+EasyDelivery is an open-source Last Mile system designed around the real operating SOP: receive upstream orders, route them to a station, receive the linehaul, plan a delivery wave, assign areas and drivers, scan and approve handover, monitor delivery, process failures/returns, and close the business day. The product goal is a simple, auditable operating loop for station teams—not a collection of disconnected screens.
+
+This repository is one part of the wider EasyDelivery open-source system. Related products include the Driver App and its backend APIs, address parsing/geocoding services, upstream partner connectors, and operational data services. Together they provide the order-to-delivery workflow for multi-city, single-station operations.
 
 ---
 
@@ -17,6 +19,8 @@ The repository is partitioned into domain-driven multi-module architectures:
   - `easydelivery-ops-api`: Operations API engine handling station arrival, order readiness, OSRM route optimization, map dispatch planning, exceptions case center, and control tower monitoring.
   - `easydelivery-operations-web`: React 18 + Vite + Ant Design + Google Maps沉浸式全屏地图调度工作台.
 - **`easydelivery-common`**: Shared JPA entities, DTOs, response schemas, exception handlers, Flyway schema migrations, and OSRM TSP integration components.
+
+The Operations Web is intentionally organized by the daily SOP. The control tower identifies the next operational action; arrival, readiness, dispatch, scanning, handover, delivery, exception, and closeout workspaces execute that action with station-scoped data and audit trails.
 
 ---
 
@@ -86,8 +90,12 @@ Open [http://localhost:5173/](http://localhost:5173/) in your browser to access 
 ## 6. PRD Governance & Documentation
 
 Governance documentation is organized under `docs/`:
-- **PRD Baselines** (`docs/prd/`): System baselines, architecture, and page specifications (e.g. `docs/prd/operations-web-specification.md`).
-- **Iteration Specs** (`docs/<domain>/iterations/`): Short-lived sprint specifications (e.g. `docs/operations/iterations/iteration-r08-osrm-route-optimization.md`).
+- **[PRD Baselines](./docs/prd/)**: Long-lived product, architecture, workflow, and page specifications. Start with the [Operations Web Specification](./docs/prd/operations-web-specification.md) and [Operations System Product Model](./docs/prd/operations-system-product-model.md).
+- **[Iteration Specs](./docs/operations/iterations/)**: Reviewed sprint scope, API deltas, boundaries, and definition of done. See the [R08 route optimization iteration](./docs/operations/iterations/iteration-r08-osrm-route-optimization.md) as an example.
+- **[Delivery Summaries](./docs/operations/summaries/)**: Completed iteration outcomes and verification evidence.
+- **[Design Documents](./docs/design/)**: Architecture, API contracts, data model, persistence ADR, and reusable engineering principles.
+
+When a capability changes, update the relevant PRD baseline first, add or update a reviewed iteration specification, then implement and record verification in the iteration summary. The [agent onboarding guide](./docs/agent-onboarding.md) explains the repository workflow and constraints.
 
 ---
 
