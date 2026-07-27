@@ -435,13 +435,19 @@ export function PlanningMap({
 
         const visibleParcels = parcels.filter(p => {
             if (p.latitude == null || p.longitude == null) return false;
-            // If filtered by driver, filtered by specific area, or no area filter specified (e.g. Arrival workspace), show all matching parcel pins immediately!
-            if (selectedDriverName || serviceAreas.length <= 1 || !activeAreaId) return true;
-            // Otherwise, show pins for expanded active area
-            const matchedId = p.area_id ?? p.area_version_id;
-            if (matchedId != null && Number(matchedId) === Number(activeAreaId)) return true;
-            if (activeAreaItem && p.area_code && p.area_code === activeAreaItem.area_code) return true;
-            if (activeVs.length > 0 && isPointInPolygon({ lat: Number(p.latitude), lng: Number(p.longitude) }, activeVs)) return true;
+            // If filtered by specific driver, show all matching parcel pins for that driver!
+            if (selectedDriverName) return true;
+            // If specific activeAreaId is selected, show pins for expanded active area
+            if (activeAreaId != null) {
+                const matchedId = p.area_id ?? p.area_version_id;
+                if (matchedId != null && Number(matchedId) === Number(activeAreaId)) return true;
+                if (activeAreaItem && p.area_code && p.area_code === activeAreaItem.area_code) return true;
+                if (activeVs.length > 0 && isPointInPolygon({ lat: Number(p.latitude), lng: Number(p.longitude) }, activeVs)) return true;
+                return false;
+            }
+            // If no serviceAreas exist or only 1 small area, show markers directly
+            if (serviceAreas.length <= 1) return true;
+            // Default when multiple serviceAreas exist and no area clicked: aggregate into area clusters, hide individual parcel markers
             return false;
         });
 

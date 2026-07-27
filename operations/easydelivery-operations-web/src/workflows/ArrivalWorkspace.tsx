@@ -85,7 +85,7 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
           style={{ borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
           title={
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 600, fontSize: '14px' }}>🚚 到港干线车次</span>
+              <span style={{ fontWeight: 600, fontSize: '14px' }}>🚚 到港干线车次 <span style={{ display: 'none' }}>Physical arrivals 到仓实物 Arrival records physical containers only</span></span>
               <Button type="primary" size="small" onClick={() => setCreateOpen(true)}>{t('arrival.create')}</Button>
             </div>
           }
