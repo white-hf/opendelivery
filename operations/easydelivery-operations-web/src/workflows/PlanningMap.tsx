@@ -332,7 +332,9 @@ export function PlanningMap({
 
             // Render Watermark Area Labels & Google-style Circular Cluster Badges
             serviceAreas.forEach(area => {
-                const areaParcels = parcelsByArea.mapById.get(Number(area.id)) || parcelsByArea.mapByCode.get(area.area_code) || [];
+                const parcelsById = parcelsByArea.mapById.get(Number(area.id)) || [];
+                const parcelsByCode = parcelsByArea.mapByCode.get(area.area_code) || [];
+                const areaParcels = parcelsById.length > 0 ? parcelsById : parcelsByCode;
 
                 let geom: any;
                 try {

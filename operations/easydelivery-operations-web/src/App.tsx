@@ -41,7 +41,7 @@ function Login() {
     const [error, setError] = useState('');
 
     return <main className="login">
-        <Card title={<Space><i className="fa-solid fa-truck-fast" style={{ color: '#1677ff' }}></i><span>{t('app.title')}</span><span style={{ fontSize: '12px', background: '#1677ff', color: '#fff', padding: '2px 8px', borderRadius: '10px' }}>v0.8.0</span></Space>}>
+        <Card title={<Space><i className="fa-solid fa-truck-fast" style={{ color: '#1677ff' }}></i><span>{t('app.title')}</span><span style={{ fontSize: '12px', background: '#1677ff', color: '#fff', padding: '2px 8px', borderRadius: '10px' }}>v0.9.0</span></Space>}>
 
 
 
