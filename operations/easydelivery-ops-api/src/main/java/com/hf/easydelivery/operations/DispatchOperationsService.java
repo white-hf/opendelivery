@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import com.hf.easydelivery.operations.dispatch.persistence.DispatchWaveRepository;
+import com.hf.easydelivery.operations.dispatch.persistence.DispatchWaveQueryRepository;
 import com.hf.easydelivery.operations.dispatch.persistence.DriverTaskRepository;
 
 @Service
@@ -27,15 +28,18 @@ public class DispatchOperationsService {
     private final OperationsAccess access;
     private final DeliveryOperations deliveryOperations;
     private final DispatchWaveRepository waveRepository;
+    private final DispatchWaveQueryRepository waveQueryRepository;
     private final DriverTaskRepository taskRepository;
 
     public DispatchOperationsService(JdbcTemplate jdbc, OperationsAccess access, DeliveryOperations deliveryOperations,
-                                     DispatchWaveRepository waveRepository, DriverTaskRepository taskRepository) {
+                                     DispatchWaveRepository waveRepository, DriverTaskRepository taskRepository,
+                                     DispatchWaveQueryRepository waveQueryRepository) {
         this.jdbc = jdbc;
         this.access = access;
         this.deliveryOperations = deliveryOperations;
         this.waveRepository = waveRepository;
         this.taskRepository = taskRepository;
+        this.waveQueryRepository = waveQueryRepository;
     }
 
     public List<Map<String, Object>> candidates(int limit, long afterId) {
@@ -62,25 +66,7 @@ public class DispatchOperationsService {
 
     public List<Map<String, Object>> waves(int limit, long afterId) {
         long stationId = requireStationContext();
-        LocalDate today = LocalDate.now();
-        LocalDate threeDaysAgo = today.minusDays(3);
-        // ESCAPE-HATCH (ADR-Persistence): High-performance indexed query using idx_wave_station_date_status
-        return jdbc.queryForList("""
-                SELECT w.id wave_id,w.wave_code,DATE_FORMAT(w.service_date, '%Y-%m-%d') AS service_date,w.route_code,w.status wave_status,
-                       COUNT(DISTINCT t.id) task_count,COUNT(ti.id) parcel_count,
-                       CASE WHEN w.service_date = ? THEN 'TODAY' ELSE 'OVERDUE' END AS group_type
-                FROM dispatch_wave w 
-                LEFT JOIN driver_task t ON t.wave_id=w.id
-                LEFT JOIN driver_task_item ti ON ti.task_id=t.id
-                WHERE w.station_id=? AND (
-                    w.service_date = ?
-                    OR (w.service_date >= ? AND w.status IN ('DRAFT','FROZEN','IN_PROGRESS'))
-                    OR w.id > ?
-                )
-                GROUP BY w.id,w.wave_code,w.service_date,w.route_code,w.status 
-                ORDER BY w.service_date DESC, w.id DESC 
-                LIMIT ?
-                """, today, stationId, today, threeDaysAgo, afterId, Math.min(Math.max(limit, 1), 200));
+        return waveQueryRepository.list(stationId, limit, afterId);
     }
 
     public List<Map<String, Object>> waves(LocalDate serviceDate) {

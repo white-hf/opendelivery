@@ -1,5 +1,7 @@
 # Shared Platform Documentation Hub
 
+- [Reusable engineering playbook](../reusable-engineering-playbook/README.en.md) (portable project baseline)
+
 The shared platform owns cross-product facts and delivery rules, not driver or Operations UI.
 
 - [Two-product plan and joint gate](../iterations/two-product-execution-plan.en.md)
@@ -7,6 +9,8 @@ The shared platform owns cross-product facts and delivery rules, not driver or O
 - [Data model and performance](../design/data-model.en.md)
 - [State machines and custody](../design/state-machines-and-operations.en.md)
 - [API contracts](../design/api-contracts.en.md)
+- [Persistence architecture ADR](../design/persistence-architecture.en.md)
+- [T05 query-layer and ORM command-side refactoring](iterations/iteration-t05-query-layer-refactoring.en.md)
 - [Internationalization](../design/internationalization-design.en.md)
 - [Testing strategy](../testing-strategy.en.md)
 - [Release process](../release-process.en.md)

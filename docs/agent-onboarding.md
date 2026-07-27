@@ -4,7 +4,7 @@
 
 ## 0. 系统一句话
 
-Last-mile 物流：Java 17 / Spring Boot 3.3 Maven 多模块后端 + React 运营 Web，双产品（Driver API 服务司机本人；Operations API/Web 服务站点运营），共享 MySQL 8 `opendelivery`（Flyway 已到 V13）。当前目标：**三城市（YHZ/YYZ/YVR，一城一站）连续 5 个营业日试运营（0.5 MOV Gate）**。
+Last-mile 物流：Java 17 / Spring Boot 3.3 Maven 多模块后端 + React 运营 Web，双产品（Driver API 服务司机本人；Operations API/Web 服务站点运营），共享 MySQL 8 `opendelivery`（Flyway 已到 V22）。当前目标：**三城市（YHZ/YYZ/YVR，一城一站）连续 5 个营业日试运营（0.5 MOV Gate）**。
 
 ## 1. 阅读地图（按此顺序）
 
@@ -14,6 +14,8 @@ Last-mile 物流：Java 17 / Spring Boot 3.3 Maven 多模块后端 + React 运�
 |---|---|
 | `AGENTS.md`（仓库根） | 构建/测试命令、代码风格、数据访问约定 |
 | `docs/document-governance.md` | 强制交付顺序：产品/契约文档 → 迭代文档 `DRAFT→REVIEWED` → 开发 → 测试 → 执行总结；中英双语同步 |
+| `docs/shared/engineering-principles.md` | 可复用的分层、ORM 命令侧、Query Repository、SQL escape hatch 与质量门禁原则 |
+| `docs/reusable-engineering-playbook/README.md` | 可复制到新项目的完整架构、开发、测试、容错、非功能、研发流程和文档规范手册 |
 
 **第二步：产品与业务**
 
@@ -40,7 +42,7 @@ Last-mile 物流：Java 17 / Spring Boot 3.3 Maven 多模块后端 + React 运�
 | `docs/design/api-contracts.md` | Integration/Driver/Operations 全部 API 契约与错误码 |
 | `docs/design/data-model.md` | 表结构、索引、投影模式、容量原则 |
 | `docs/design/state-machines-and-operations.md` | 包裹/任务/批次/custody 状态机 |
-| `docs/design/persistence-architecture.md` | 持久层 ADR（JPA+逃生门），写数据访问代码前必读 |
+| `docs/design/persistence-architecture.md` | 持久层 ADR（JPA 命令侧 + 独立查询层 + 逃生门），写数据访问代码前必读 |
 
 ## 2. 代码架构
 
@@ -80,7 +82,7 @@ scripts/               真库 E2E（*-e2e.sh）与种子（db/00x_*.sql）
 
 1. 文档先行：无 `REVIEWED` 迭代文档不动产品代码；产品/契约/表/跨产品事件必须同步更新对应设计文档（中英）。
 2. 运营端不得替司机扫描或派送；Driver API 身份只从 token 取；到仓事实不改包裹状态与 custody。
-3. Flyway 只新增文件，下一个版本号先查 `db/migration` 最新号（当前 V13，下一可用 V14）；禁止回改已发布迁移。
+3. Flyway 只新增文件，下一个版本号先查 `db/migration` 最新号（当前 V22，下一可用 V23）；禁止回改已发布迁移。
 4. 幂等（重复请求不产生二次效果）、审计、三语言（前端所有新文案进 `i18n.ts` 三个 locale）、乐观锁是 DoD 默认项。
 5. 性能：集合操作必须集合级 SQL，禁止逐行循环写库；新查询核对索引左前缀；反范式投影与同事务同步。
 6. 不执行 `git commit/push` 等任何 git 写操作，除非用户明确要求。

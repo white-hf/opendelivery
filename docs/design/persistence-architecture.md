@@ -13,6 +13,13 @@
    - 空间函数（`ST_*`）与供应商特有语法；
    - 报表/聚合读模型（如到仓覆盖 `detail`、控制塔快照）。
 
+查询实现也必须独立于领域实体和 Controller：
+
+- 简单查询通过 Spring Data Repository 的派生查询、JPQL 或 Projection DTO；
+- 多表聚合、地图空间查询、大批量列表通过独立的 `*QueryRepository` / Read Adapter，SQL 只放在该层；
+- Application/Domain Service 只编排权限、事务和业务规则，不承载查询 SQL；
+- Controller 只负责 HTTP 参数、鉴权上下文和响应封装，不访问 Entity 或 JdbcTemplate。
+
 禁止逐行循环执行逐条 INSERT/UPDATE 来完成集合级操作——必须用一条集合级 SQL；也禁止为了"纯 JPA"把方言 SQL 塞进 `@Query` 注解里散落各处。
 
 ## 硬性规则
@@ -24,6 +31,7 @@
 - **事务**：`@Transactional` 只标注在 Service 公有方法；JPA 与 JdbcTemplate 共用同一 `DataSource` 与事务管理器，逃生门 SQL 与同事务的 JPA 操作互相可见。
 - **复合键**（如 `handling_unit_parcel`）用 `@IdClass` 映射；关联表实体化仅在它有自身属性（`link_source`）时。
 - **无业务行为变化**：重构迭代以既有 E2E 脚本与单测全绿为行为不变式证据。
+- **查询层隔离**：查询 Repository 返回专用 DTO，不把 Entity 作为页面响应模型；复杂查询必须说明索引、分页和执行计划考虑。
 
 ## 迁移步骤（每个上下文套用）
 
@@ -32,6 +40,7 @@
 3. Service 改注入 Repository；实体 CRUD/状态推进改写；方言/集合级/报表 SQL 保留并注释逃生门原因。
 4. 跑该上下文既有单测与 E2E 脚本，确认行为不变。
 5. 在执行总结记录迁移的类、逃生门清单和遗留项。
+6. 将 Service 中的查询 SQL 迁移到 `persistence.query` 包；为命令侧补齐 Entity/Repository，并保留可审计的 Query DTO。
 
 ## 为什么不是 jOOQ / MyBatis / 纯 JPA
 

@@ -3,10 +3,12 @@ package com.hf.easydelivery.common.store;
 import com.hf.easydelivery.common.dto.DeliveringListData;
 import com.hf.easydelivery.common.dto.Dispatch_type;
 import com.hf.easydelivery.common.exception.BizException;
+import com.hf.easydelivery.common.persistence.driver.DriverTaskQueryRepository;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,70 +26,31 @@ import java.util.UUID;
 public class JdbcDeliveryOperations implements DeliveryOperations {
     private static final DateTimeFormatter API_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private final JdbcTemplate jdbc;
+    private final DriverTaskQueryRepository queryRepository;
 
-    public JdbcDeliveryOperations(JdbcTemplate jdbc) {
+    public JdbcDeliveryOperations(JdbcTemplate jdbc, DriverTaskQueryRepository queryRepository) {
         this.jdbc = jdbc;
+        this.queryRepository = queryRepository;
     }
 
     @Override
     public List<DeliveringListData> getUnscannedParcels(int driverId) {
-        return queryDriverParcels(driverId, "ASSIGNED", "ASSIGNED");
+        return queryRepository.unscannedParcels(driverId);
     }
 
     @Override
     public List<DeliveringListData> getDeliveringParcels(int driverId) {
-        return queryDriverParcels(driverId, "OUT_FOR_DELIVERY", "OUT_FOR_DELIVERY");
-    }
-
-    private List<DeliveringListData> queryDriverParcels(int driverId, String parcelStatus, String itemStatus) {
-        return jdbc.query("""
-                SELECT p.id parcel_id, p.tracking_no, p.status parcel_status, p.route_code,
-                       p.current_station_id, p.updated_at, w.external_waybill_no, w.recipient_name,
-                       w.recipient_phone, w.address_line1, w.address_line2, w.city, w.province,
-                       w.postal_code, t.driver_id, ti.item_status, ti.stop_sequence
-                FROM driver_task_item ti
-                JOIN driver_task t ON t.id=ti.task_id
-                JOIN driver d ON d.id=t.driver_id
-                JOIN parcel p ON p.id=ti.parcel_id
-                JOIN waybill w ON w.id=p.waybill_id
-                WHERE t.driver_id=? AND t.status IN ('PUBLISHED','ACCEPTING','IN_PROGRESS')
-                  AND p.status=? AND ti.item_status=? AND d.is_test_driver=p.is_test
-                ORDER BY COALESCE(ti.stop_sequence, 2147483647), ti.id
-
-                """, (rs, rowNum) -> mapParcel(
-                rs.getLong("parcel_id"), rs.getString("external_waybill_no"), rs.getString("tracking_no"),
-                rs.getString("route_code"), rs.getTimestamp("updated_at").toLocalDateTime(),
-                rs.getLong("driver_id"), rs.getString("parcel_status"), rs.getString("recipient_name"),
-                rs.getString("recipient_phone"), joinAddress(rs.getString("address_line1"), rs.getString("address_line2"),
-                        rs.getString("city"), rs.getString("province")), rs.getString("postal_code"),
-                rs.getLong("current_station_id"), rs.getString("item_status"), rs.getInt("stop_sequence")), driverId, parcelStatus, itemStatus);
+        return queryRepository.deliveringParcels(driverId);
     }
 
     @Override
     public DeliveringListData getParcelByTrackingNo(String trackingNo) {
-        List<DeliveringListData> values = jdbc.query("""
-                SELECT p.id parcel_id, p.tracking_no, p.status parcel_status, p.route_code,
-                       p.current_station_id, p.updated_at, w.external_waybill_no, w.recipient_name,
-                       w.recipient_phone, w.address_line1, w.address_line2, w.city, w.province,
-                       w.postal_code, COALESCE(t.driver_id, 0) driver_id, COALESCE(ti.item_status, '') item_status,
-                       COALESCE(ti.stop_sequence, 0) stop_sequence
-                FROM parcel p JOIN waybill w ON w.id=p.waybill_id
-                LEFT JOIN driver_task_item ti ON ti.parcel_id=p.id AND ti.active_slot=1
-                LEFT JOIN driver_task t ON t.id=ti.task_id
-                WHERE p.tracking_no=?
-                """, (rs, rowNum) -> mapParcel(rs.getLong("parcel_id"), rs.getString("external_waybill_no"),
-                rs.getString("tracking_no"), rs.getString("route_code"), rs.getTimestamp("updated_at").toLocalDateTime(),
-                rs.getLong("driver_id"), rs.getString("parcel_status"), rs.getString("recipient_name"),
-                rs.getString("recipient_phone"), joinAddress(rs.getString("address_line1"), rs.getString("address_line2"),
-                        rs.getString("city"), rs.getString("province")), rs.getString("postal_code"),
-                rs.getLong("current_station_id"), rs.getString("item_status"), rs.getInt("stop_sequence")), trackingNo);
-        return values.stream().findFirst().orElse(null);
+        return queryRepository.parcelByTrackingNo(trackingNo);
     }
 
     @Override
     public DeliveringListData getParcelByOrderId(long orderId) {
-        List<String> tracking = jdbc.query("SELECT tracking_no FROM parcel WHERE id=?", (rs, n) -> rs.getString(1), orderId);
-        return tracking.isEmpty() ? null : getParcelByTrackingNo(tracking.get(0));
+        return queryRepository.parcelByOrderId(orderId);
     }
 
     @Override
@@ -128,23 +91,12 @@ public class JdbcDeliveryOperations implements DeliveryOperations {
 
     @Override
     public ScanBatch getBatch(long batchId) {
-        List<ScanBatch> batches = jdbc.query("""
-                SELECT s.id, s.driver_id, s.status, s.opened_at
-                FROM scan_session s WHERE s.id=?
-                """, (rs, n) -> new ScanBatch(rs.getLong("id"), rs.getInt("driver_id"), 1, 2,
-                scanStatusCode(rs.getString("status")), scannedTracking(rs.getLong("id")),
-                rs.getTimestamp("opened_at").toLocalDateTime().format(API_TIME)), batchId);
-        return batches.stream().findFirst().orElse(null);
+        return queryRepository.batch(batchId);
     }
 
     @Override
     public List<ScanBatch> getAllBatchesByDriver(int driverId) {
-        return jdbc.query("""
-                SELECT id, driver_id, status, opened_at FROM scan_session
-                WHERE driver_id=? ORDER BY opened_at
-                """, (rs, n) -> new ScanBatch(rs.getLong("id"), rs.getInt("driver_id"), 1, 2,
-                scanStatusCode(rs.getString("status")), scannedTracking(rs.getLong("id")),
-                rs.getTimestamp("opened_at").toLocalDateTime().format(API_TIME)), driverId);
+        return queryRepository.batchesByDriver(driverId);
     }
 
     @Override
@@ -174,7 +126,14 @@ public class JdbcDeliveryOperations implements DeliveryOperations {
                 WHERE s.id=? AND ti.parcel_id=? AND ti.item_status='ASSIGNED'
                 """, batchId, parcel.getOrder_id());
         String result = updated > 0 ? "EXPECTED" : "WRONG_TASK";
-        insertScanEvent(batchId, parcel.getOrder_id(), trackingNo, result, stableDeviceEventId);
+        try {
+            insertScanEvent(batchId, parcel.getOrder_id(), trackingNo, result, stableDeviceEventId);
+        } catch (DuplicateKeyException duplicateEvent) {
+            // The device-event unique key makes concurrent retries safe.
+            List<String> prior = jdbc.query("SELECT result_code FROM scan_event WHERE device_event_id=?", (rs, n) -> rs.getString(1), stableDeviceEventId);
+            if (!prior.isEmpty() && "EXPECTED".equals(prior.get(0))) return new ParcelScanResult(parcel, null, null);
+            return new ParcelScanResult(null, "SCAN.DUPLICATE.EVENT", "Device event was already processed");
+        }
         incrementScanCounts(batchId, result);
         if (updated == 0) return new ParcelScanResult(null, "SCAN.WRONG.TASK", "Parcel is not assigned to this task");
         parcel.setScan_status(1);
@@ -235,7 +194,7 @@ public class JdbcDeliveryOperations implements DeliveryOperations {
         String stableKey = (idempotencyKey != null && !idempotencyKey.isBlank())
                 ? idempotencyKey
                 : "delivery-" + orderId + "-" + authenticatedDriverId + "-" + deliveryResult + (deliveryResult == 0 ? "" : "-" + failedReason);
-        List<Long> existingAttempts = jdbc.query("SELECT id FROM delivery_attempt WHERE driver_id=? AND idempotency_key=?",
+        List<Long> existingAttempts = jdbc.query("SELECT id FROM delivery_attempt WHERE driver_id=? AND idempotency_key=? FOR UPDATE",
                 (rs, n) -> rs.getLong(1), authenticatedDriverId, stableKey);
         if (!existingAttempts.isEmpty()) return existingAttempts.get(0);
         List<Long> taskItems = jdbc.query("""

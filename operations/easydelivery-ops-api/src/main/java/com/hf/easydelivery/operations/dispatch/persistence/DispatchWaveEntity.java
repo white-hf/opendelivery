@@ -20,6 +20,12 @@ public class DispatchWaveEntity {
     @Column(name = "service_date", nullable = false)
     private LocalDate serviceDate;
 
+    @Column(name = "arrival_trip_id")
+    private Long arrivalTripId;
+
+    @Column(name = "route_code", length = 64)
+    private String routeCode;
+
     @Column(name = "status", nullable = false, length = 24)
     private String status;
 
@@ -47,6 +53,10 @@ public class DispatchWaveEntity {
     public void setWaveCode(String waveCode) { this.waveCode = waveCode; }
     public LocalDate getServiceDate() { return serviceDate; }
     public void setServiceDate(LocalDate serviceDate) { this.serviceDate = serviceDate; }
+    public Long getArrivalTripId() { return arrivalTripId; }
+    public void setArrivalTripId(Long arrivalTripId) { this.arrivalTripId = arrivalTripId; }
+    public String getRouteCode() { return routeCode; }
+    public void setRouteCode(String routeCode) { this.routeCode = routeCode; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
     public Long getCreatedBy() { return createdBy; }

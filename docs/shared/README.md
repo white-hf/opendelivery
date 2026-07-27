@@ -1,5 +1,7 @@
 # 共享平台文档中心
 
+- [可复用工程研发手册](../reusable-engineering-playbook/README.md)（新项目通用基线）
+
 共享平台只维护两个产品共同依赖的事实和交付规则，不拥有司机或运营 UI。
 
 - [双产品执行与联合 Gate](../iterations/two-product-execution-plan.md)
@@ -10,6 +12,7 @@
 - [持久层架构决策（ADR）](../design/persistence-architecture.md)
 - [T01 持久层 ORM 重构迭代](iterations/iteration-t01-persistence-orm.md)（[执行总结](summaries/iteration-t01-persistence-orm-summary.md)）
 - [T02 持久层重构·接入域迭代](iterations/iteration-t02-persistence-integration.md)
+- [T05 查询层与 ORM 命令侧分层重构](iterations/iteration-t05-query-layer-refactoring.md)
 - [多语言设计](../design/internationalization-design.md)
 - [测试策略](../testing-strategy.md)
 - [发布流程](../release-process.md)

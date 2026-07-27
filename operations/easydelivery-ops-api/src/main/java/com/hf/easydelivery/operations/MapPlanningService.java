@@ -3,6 +3,10 @@ package com.hf.easydelivery.operations;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hf.easydelivery.common.exception.BizException;
 import com.hf.easydelivery.config.OperationsAccess;
+import com.hf.easydelivery.operations.dispatch.persistence.DispatchWaveEntity;
+import com.hf.easydelivery.operations.dispatch.persistence.DispatchWaveRepository;
+import com.hf.easydelivery.operations.dispatch.persistence.DispatchWaveQueryRepository;
+import com.hf.easydelivery.operations.planning.persistence.PlanningQueryRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -25,29 +29,27 @@ public class MapPlanningService {
     private final JdbcTemplate jdbc;
     private final OperationsAccess access;
     private final ObjectMapper mapper;
+    private final DispatchWaveRepository waveRepository;
+    private final DispatchWaveQueryRepository waveQueryRepository;
+    private final PlanningQueryRepository planningQueryRepository;
 
-    public MapPlanningService(JdbcTemplate jdbc, OperationsAccess access, ObjectMapper mapper) {
+    public MapPlanningService(JdbcTemplate jdbc, OperationsAccess access, ObjectMapper mapper, DispatchWaveRepository waveRepository, DispatchWaveQueryRepository waveQueryRepository, PlanningQueryRepository planningQueryRepository) {
         this.jdbc = jdbc;
         this.access = access;
         this.mapper = mapper;
+        this.waveRepository = waveRepository;
+        this.waveQueryRepository = waveQueryRepository;
+        this.planningQueryRepository = planningQueryRepository;
+    }
+
+    /** Compatibility constructor for focused service tests that do not create waves. */
+    public MapPlanningService(JdbcTemplate jdbc, OperationsAccess access, ObjectMapper mapper) {
+        this(jdbc, access, mapper, null, null, null);
     }
 
     public List<Map<String, Object>> shifts(LocalDate serviceDate) {
         long stationId = station();
-        return jdbc.queryForList("""
-                SELECT d.id driver_id,d.credential_id driver_code,d.driver_name,
-                       s.id shift_id,COALESCE(s.availability_status,'AVAILABLE') availability_status,
-                       COALESCE(s.parcel_capacity, COALESCE(st.default_capacity, 200)) parcel_capacity,
-                       COUNT(DISTINCT CASE WHEN t.status IN ('DRAFT','FROZEN','PUBLISHED','ACCEPTING','IN_PROGRESS') THEN ti.id END) assigned_count
-                FROM driver d
-                JOIN station st ON st.id = d.home_station_id
-                LEFT JOIN driver_shift s ON s.driver_id=d.id AND s.service_date=?
-                LEFT JOIN driver_task t ON t.driver_id=d.id AND t.service_date=?
-                LEFT JOIN driver_task_item ti ON ti.task_id=t.id AND ti.item_status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY')
-                WHERE d.home_station_id=? AND d.status='ACTIVE'
-                GROUP BY d.id,d.credential_id,d.driver_name,s.id,s.availability_status,s.parcel_capacity,st.default_capacity
-                ORDER BY d.driver_name,d.id
-                """, serviceDate, serviceDate, stationId);
+        return planningQueryRepository.shifts(stationId, serviceDate);
     }
 
     @Transactional
@@ -73,64 +75,7 @@ public class MapPlanningService {
 
     public List<Map<String, Object>> mapParcels(LocalDate serviceDate, Double west, Double south, Double east, Double north, int limit, Long waveId, String slaFilter) {
         long stationId = station();
-        int safeLimit = Math.min(Math.max(limit, 1), 50000);
-        boolean viewport = west != null && south != null && east != null && north != null;
-        String viewportSql = viewport ? " AND ST_X(g.delivery_point) BETWEEN ? AND ? AND ST_Y(g.delivery_point) BETWEEN ? AND ?" : "";
-        String waveSql = waveId != null ? " AND t.wave_id = ?" : "";
-        // When waveId is explicitly selected, join task on waveId. When waveId is null (all waves), join task on active non-cancelled tasks.
-        String taskJoinSql = waveId != null 
-                ? "LEFT JOIN driver_task t ON t.id=ti.task_id AND t.wave_id = ?"
-                : "LEFT JOIN driver_task t ON t.id=ti.task_id AND t.status <> 'CANCELLED'";
-
-        String slaSql = "";
-        if ("TODAY_DUE".equalsIgnoreCase(slaFilter) || "EXPRESS_ONLY".equalsIgnoreCase(slaFilter)) {
-            slaSql = " AND (p.promised_date <= ? OR w.service_code IN ('EXPRESS', 'SAME_DAY', 'URGENT'))";
-        } else if ("STANDARD".equalsIgnoreCase(slaFilter) || "STANDARD_ONLY".equalsIgnoreCase(slaFilter)) {
-            slaSql = " AND (p.promised_date > ? OR p.promised_date IS NULL) AND (w.service_code IS NULL OR w.service_code NOT IN ('EXPRESS', 'SAME_DAY', 'URGENT'))";
-        }
-
-        String sql = """
-                SELECT p.id parcel_id,p.tracking_no,p.status,p.current_custody_type,p.promised_date,w.service_code,
-                       w.external_waybill_no,w.recipient_name,w.address_line1,w.city,w.postal_code,
-                       ST_Longitude(g.delivery_point) longitude,ST_Latitude(g.delivery_point) latitude,
-                       a.area_code,a.id area_id,a.id area_version_id,t.id task_id,t.driver_id,d.driver_name,
-                       ti.stop_sequence,
-                       CASE WHEN g.waybill_id IS NULL THEN 'MISSING_GEOCODE'
-                             WHEN COALESCE(p.current_area_id, paa.delivery_area_id) IS NULL THEN 'UNMATCHED_AREA'
-                             WHEN oc.id IS NOT NULL THEN 'OPEN_CASE' ELSE NULL END exception_code
-                FROM parcel p JOIN waybill w ON w.id=p.waybill_id
-                LEFT JOIN waybill_geocode g ON g.waybill_id=w.id
-                LEFT JOIN parcel_area_assignment paa ON paa.parcel_id=p.id AND paa.ended_at IS NULL
-                LEFT JOIN delivery_area a ON a.id=COALESCE(p.current_area_id, paa.delivery_area_id)
-                LEFT JOIN driver_task_item ti ON ti.parcel_id=p.id AND ti.item_status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY')
-                """ + taskJoinSql + """
-                LEFT JOIN driver d ON d.id=t.driver_id
-                LEFT JOIN operational_case oc ON oc.id=(SELECT MIN(c.id) FROM operational_case c WHERE c.parcel_id=p.id AND c.status NOT IN ('RESOLVED','CLOSED'))
-                WHERE p.current_station_id=? AND w.resolved_station_id=? AND w.routing_status IN ('ROUTED','OVERRIDDEN')
-                  AND (p.status IN ('RECEIVED','AT_STATION','SORTED','READY_FOR_DISPATCH') OR (p.status IN ('ASSIGNED','LOADED','OUT_FOR_DELIVERY') AND t.id IS NOT NULL))
-                """ + waveSql + slaSql + viewportSql + " ORDER BY p.id LIMIT ?";
-        
-        java.util.List<Object> params = new java.util.ArrayList<>();
-        if (waveId != null) {
-            params.add(waveId);
-        }
-        params.add(stationId);
-        params.add(stationId);
-        if (waveId != null) {
-            params.add(waveId);
-        }
-
-        if ("TODAY_DUE".equalsIgnoreCase(slaFilter) || "EXPRESS_ONLY".equalsIgnoreCase(slaFilter) || "STANDARD".equalsIgnoreCase(slaFilter) || "STANDARD_ONLY".equalsIgnoreCase(slaFilter)) {
-            params.add(serviceDate);
-        }
-        if (viewport) {
-            params.add(west);
-            params.add(east);
-            params.add(south);
-            params.add(north);
-        }
-        params.add(safeLimit);
-        return jdbc.queryForList(sql, params.toArray());
+        return planningQueryRepository.parcels(stationId, serviceDate, west, south, east, north, limit, waveId, slaFilter);
     }
 
     public List<Map<String, Object>> unplannedParcels(LocalDate serviceDate) {
@@ -164,7 +109,7 @@ public class MapPlanningService {
             if (body.arrivalBatchNo() != null && !body.arrivalBatchNo().isBlank()) {
                 prefix = body.arrivalBatchNo();
             } else {
-                List<String> trips = jdbc.query("SELECT trip_no FROM arrival_trip WHERE station_id=? AND service_date=? ORDER BY id DESC LIMIT 1", (rs, n) -> rs.getString(1), stationId, body.serviceDate());
+                List<String> trips = jdbc.query("SELECT external_trip_no FROM arrival_trip WHERE station_id=? AND DATE(expected_at)=? ORDER BY id DESC LIMIT 1", (rs, n) -> rs.getString(1), stationId, body.serviceDate());
                 if (!trips.isEmpty()) {
                     prefix = trips.get(0);
                 } else {
@@ -183,18 +128,29 @@ public class MapPlanningService {
             }
         }
         String finalCode = code;
-        GeneratedKeyHolder keys = new GeneratedKeyHolder();
+        Long selectedArrivalTripId = null;
+        if (body.arrivalBatchNo() != null && !body.arrivalBatchNo().isBlank()) {
+            selectedArrivalTripId = jdbc.query("SELECT id FROM arrival_trip WHERE station_id=? AND external_trip_no=? AND DATE(expected_at)=?", rs -> rs.next() ? rs.getLong(1) : null,
+                    stationId, body.arrivalBatchNo().trim(), body.serviceDate());
+            if (selectedArrivalTripId == null) throw new BizException("ARRIVAL.TRIP.NOT_FOUND", "Selected arrival trip does not belong to the station or service date");
+        }
+        final Long arrivalTripId = selectedArrivalTripId;
+        DispatchWaveEntity waveEntity = new DispatchWaveEntity();
+        waveEntity.setStationId(stationId);
+        waveEntity.setWaveCode(finalCode);
+        waveEntity.setServiceDate(body.serviceDate());
+        waveEntity.setArrivalTripId(arrivalTripId);
+        waveEntity.setRouteCode(body.routeCode());
+        waveEntity.setStatus("DRAFT");
         try {
-            jdbc.update(c -> {
-                var ps = c.prepareStatement("INSERT INTO dispatch_wave(station_id,wave_code,service_date,route_code,status) VALUES (?,?,?,?,'DRAFT')", Statement.RETURN_GENERATED_KEYS);
-                ps.setLong(1, stationId); ps.setString(2, finalCode); ps.setObject(3, body.serviceDate()); ps.setString(4, body.routeCode()); return ps;
-            }, keys);
+            waveEntity = waveRepository.saveAndFlush(waveEntity);
         } catch (DataIntegrityViolationException ex) {
             throw new BizException("WAVE.CODE.EXISTS", "Wave code already exists at selected station");
         }
 
         // Auto-create corresponding Inbound Arrival Trip and its 10 default Pallets in the background
         try {
+            if (arrivalTripId != null) return waveSummary(waveEntity.getId());
             jdbc.update("INSERT IGNORE INTO arrival_trip(station_id, external_trip_no, status, expected_at, note) VALUES (?, ?, 'EXPECTED', ?, 'Auto-created by dispatch wave planning')",
                     stationId, finalCode, java.sql.Timestamp.valueOf(body.serviceDate().atTime(8, 0)));
             Long tripId = jdbc.queryForObject("SELECT id FROM arrival_trip WHERE station_id=? AND external_trip_no=?", Long.class, stationId, finalCode);
@@ -207,24 +163,15 @@ public class MapPlanningService {
             }
         } catch (Exception ignored) {}
 
-        return waveSummary(keys.getKey().longValue());
+        return waveSummary(waveEntity.getId());
     }
 
     public Map<String, Object> waveSummary(long waveId) {
         Wave wave = wave(waveId, false);
-        return Map.of("wave", jdbc.queryForMap("SELECT id,wave_code,DATE_FORMAT(service_date, '%Y-%m-%d') AS service_date,route_code,status,frozen_at,published_at,version FROM dispatch_wave WHERE id=?", waveId),
-
-                "drivers", jdbc.queryForList("""
-                        SELECT t.id task_id,t.task_code,t.driver_id,d.driver_name,t.status,COUNT(ti.id) parcel_count,
-                               COALESCE(s.parcel_capacity, COALESCE(st.default_capacity, 200)) parcel_capacity,
-                               COALESCE(s.parcel_capacity, COALESCE(st.default_capacity, 200))-COUNT(ti.id) remaining_capacity
-                        FROM driver_task t JOIN driver d ON d.id=t.driver_id
-                        JOIN station st ON st.id=d.home_station_id
-                        LEFT JOIN driver_task_item ti ON ti.task_id=t.id AND ti.item_status='ASSIGNED'
-                        LEFT JOIN driver_shift s ON s.driver_id=t.driver_id AND s.service_date=t.service_date
-                        WHERE t.wave_id=? GROUP BY t.id,t.task_code,t.driver_id,d.driver_name,t.status,s.parcel_capacity,st.default_capacity ORDER BY d.driver_name
-                        """, wave.id()),
-                "areas", jdbc.queryForList("SELECT ta.task_id,ta.delivery_area_id AS delivery_area_version_id,a.area_code,ta.assignment_mode FROM driver_task_area ta JOIN delivery_area a ON a.id=ta.delivery_area_id JOIN driver_task t ON t.id=ta.task_id WHERE t.wave_id=?", waveId));
+        if (waveQueryRepository == null) {
+            throw new IllegalStateException("Wave query repository is required outside focused unit tests");
+        }
+        return waveQueryRepository.summary(wave.id());
     }
 
     @Transactional

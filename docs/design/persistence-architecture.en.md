@@ -13,6 +13,13 @@ Data access is split into two layers:
    - spatial functions (`ST_*`) and vendor-specific syntax;
    - reporting/aggregate read models (e.g. arrival coverage `detail`, control-tower snapshot).
 
+Query implementation is also isolated from domain entities and controllers:
+
+- simple reads use Spring Data derived queries, JPQL, or projection DTOs;
+- multi-table aggregates, spatial maps, and large lists use dedicated `*QueryRepository` / read adapters, with SQL kept there;
+- application/domain services orchestrate authorization, transactions, and business rules but do not contain query SQL;
+- controllers handle HTTP parameters, auth context, and response envelopes only; they do not access entities or `JdbcTemplate`.
+
 Never loop row-by-row issuing single INSERT/UPDATE statements for set work — use one set-based statement; and never scatter dialect SQL into `@Query` annotations just to stay "pure JPA".
 
 ## Hard rules
@@ -24,6 +31,7 @@ Never loop row-by-row issuing single INSERT/UPDATE statements for set work — u
 - **Transactions**: `@Transactional` only on public service methods; JPA and JdbcTemplate share one `DataSource` and transaction manager, so escape-hatch SQL and JPA operations in the same transaction see each other.
 - **Composite keys** (e.g. `handling_unit_parcel`) map with `@IdClass`; a join table becomes an entity only when it carries its own attributes (`link_source`).
 - **No behavior change**: a refactoring iteration proves its behavior invariant by keeping the existing E2E scripts and unit tests green.
+- **Query-layer isolation**: query repositories return dedicated DTOs rather than page responses backed by entities; complex queries must document indexing, pagination, and execution-plan considerations.
 
 ## Migration steps (applied per context)
 
@@ -32,6 +40,7 @@ Never loop row-by-row issuing single INSERT/UPDATE statements for set work — u
 3. Re-point the service at the repositories; rewrite entity CRUD/state moves; keep dialect/set-based/report SQL with an escape-hatch comment.
 4. Run the context's existing unit tests and E2E scripts; confirm behavior is unchanged.
 5. Record migrated classes, the escape-hatch list, and leftovers in the execution summary.
+6. Move service query SQL into `persistence.query`; complete command-side entities/repositories and keep auditable query DTOs.
 
 ## Why not jOOQ / MyBatis / pure JPA
 

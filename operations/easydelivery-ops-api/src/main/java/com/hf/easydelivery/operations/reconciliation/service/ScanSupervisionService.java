@@ -5,6 +5,7 @@ import com.hf.easydelivery.config.OperationsAccess;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import com.hf.easydelivery.operations.reconciliation.persistence.HandoverQueryRepository;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -15,10 +16,12 @@ import java.util.*;
 public class ScanSupervisionService {
     private final JdbcTemplate jdbc;
     private final OperationsAccess access;
+    private final HandoverQueryRepository queryRepository;
 
-    public ScanSupervisionService(JdbcTemplate jdbc, OperationsAccess access) {
+    public ScanSupervisionService(JdbcTemplate jdbc, OperationsAccess access, HandoverQueryRepository queryRepository) {
         this.jdbc = jdbc;
         this.access = access;
+        this.queryRepository = queryRepository;
     }
 
     private long station() {
@@ -107,46 +110,15 @@ public class ScanSupervisionService {
     public SupervisionResponse supervision(LocalDate serviceDate, Long waveIdFilter) {
         long stationId = station();
 
-        String waveSql = """
-                SELECT w.id AS wave_id, w.wave_code,
-                       t.id AS task_id, t.driver_id, d.driver_name AS driver_name
-                FROM dispatch_wave w
-                JOIN driver_task t ON t.wave_id = w.id
-                JOIN driver d ON d.id = t.driver_id
-                WHERE w.station_id = ? AND w.service_date = ?
-                """ + (waveIdFilter != null ? " AND w.id = ?" : "") + " ORDER BY w.id, t.id";
-
-        List<Object> args = new ArrayList<>(List.of(stationId, serviceDate));
-        if (waveIdFilter != null) {
-            args.add(waveIdFilter);
-        }
-
-        List<Map<String, Object>> taskRows = jdbc.queryForList(waveSql, args.toArray());
+        List<Map<String, Object>> taskRows = queryRepository.tasks(stationId, serviceDate, waveIdFilter);
 
         Map<Long, Integer> expectedByTask = new HashMap<>();
-        List<Map<String, Object>> expectedRows = jdbc.queryForList("""
-                SELECT task_id, COUNT(*) AS cnt
-                FROM driver_task_item
-                WHERE task_id IN (
-                    SELECT t.id FROM driver_task t
-                    JOIN dispatch_wave w ON w.id = t.wave_id
-                    WHERE w.station_id = ? AND w.service_date = ?
-                )
-                GROUP BY task_id
-                """, stationId, serviceDate);
+        List<Map<String, Object>> expectedRows = queryRepository.expected(stationId, serviceDate);
         for (Map<String, Object> r : expectedRows) {
             expectedByTask.put(((Number) r.get("task_id")).longValue(), ((Number) r.get("cnt")).intValue());
         }
 
-        List<Map<String, Object>> eventRows = jdbc.queryForList("""
-                SELECT s.task_id, e.result_code, COUNT(DISTINCT e.tracking_no) AS distinct_tracking, COUNT(e.id) AS cnt
-                FROM scan_session s
-                JOIN scan_event e ON e.session_id = s.id
-                JOIN driver_task t ON t.id = s.task_id
-                JOIN dispatch_wave w ON w.id = t.wave_id
-                WHERE w.station_id = ? AND w.service_date = ? AND s.session_type = 'LOAD'
-                GROUP BY s.task_id, e.result_code
-                """, stationId, serviceDate);
+        List<Map<String, Object>> eventRows = queryRepository.eventCounts(stationId, serviceDate);
 
         Map<Long, Map<String, Integer>> eventCountsByTask = new HashMap<>();
         Map<Long, Integer> validCountsByTask = new HashMap<>();
@@ -164,14 +136,7 @@ public class ScanSupervisionService {
         }
 
         Map<Long, Integer> openSessionsByTask = new HashMap<>();
-        List<Map<String, Object>> openSessionRows = jdbc.queryForList("""
-                SELECT s.task_id, COUNT(*) AS cnt
-                FROM scan_session s
-                JOIN driver_task t ON t.id = s.task_id
-                JOIN dispatch_wave w ON w.id = t.wave_id
-                WHERE w.station_id = ? AND w.service_date = ? AND s.status = 'OPEN' AND s.session_type = 'LOAD'
-                GROUP BY s.task_id
-                """, stationId, serviceDate);
+        List<Map<String, Object>> openSessionRows = queryRepository.openSessions(stationId, serviceDate);
         for (Map<String, Object> r : openSessionRows) {
             openSessionsByTask.put(((Number) r.get("task_id")).longValue(), ((Number) r.get("cnt")).intValue());
         }
@@ -299,13 +264,7 @@ public class ScanSupervisionService {
 
     public List<ScanEventDetail> sessionEvents(long sessionId) {
         long stationId = station();
-        Integer count = jdbc.queryForObject("""
-                SELECT COUNT(*) FROM scan_session s
-                JOIN driver_task t ON t.id = s.task_id
-                JOIN dispatch_wave w ON w.id = t.wave_id
-                WHERE s.id = ? AND w.station_id = ?
-                """, Integer.class, sessionId, stationId);
-        if (count == null || count == 0) {
+        if (!queryRepository.belongsToStation(sessionId, stationId)) {
             return Collections.emptyList();
         }
 

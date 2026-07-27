@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.hf.easydelivery.operations.casework.persistence.CaseQueryRepository;
 
 import java.util.List;
 import java.util.Map;
@@ -16,29 +17,20 @@ import java.util.Map;
 public class ConfigCaseOperationsService {
     private final JdbcTemplate jdbc;
     private final OperationsAccess access;
+    private final CaseQueryRepository queryRepository;
 
-    public ConfigCaseOperationsService(JdbcTemplate jdbc, OperationsAccess access) {
+    public ConfigCaseOperationsService(JdbcTemplate jdbc, OperationsAccess access, CaseQueryRepository queryRepository) {
         this.jdbc = jdbc;
         this.access = access;
+        this.queryRepository = queryRepository;
     }
 
     public List<Map<String, Object>> listOutboxEvents(String statusFilter, int limit) {
         int maxLimit = Math.min(Math.max(limit, 1), 200);
         if (statusFilter != null && !statusFilter.isBlank()) {
-            return jdbc.queryForList("""
-                    SELECT id, aggregate_type, aggregate_id, event_type, event_key, partner_id,
-                           status, attempt_count, next_attempt_at, locked_at, acknowledged_at, last_error, created_at
-                    FROM outbox_event
-                    WHERE status = ?
-                    ORDER BY id DESC LIMIT ?
-                    """, statusFilter, maxLimit);
+            return queryRepository.outboxEvents(statusFilter, maxLimit);
         }
-        return jdbc.queryForList("""
-                SELECT id, aggregate_type, aggregate_id, event_type, event_key, partner_id,
-                       status, attempt_count, next_attempt_at, locked_at, acknowledged_at, last_error, created_at
-                FROM outbox_event
-                ORDER BY id DESC LIMIT ?
-                """, maxLimit);
+        return queryRepository.outboxEvents(null, maxLimit);
     }
 
     @Transactional
@@ -95,20 +87,9 @@ public class ConfigCaseOperationsService {
     public List<Map<String, Object>> listAuditLogs(String resourceType, String resourceId, int limit) {
         int maxLimit = Math.min(Math.max(limit, 1), 200);
         if (resourceType != null && !resourceType.isBlank()) {
-            return jdbc.queryForList("""
-                    SELECT id, operator_user_id, actor_type, actor_id, station_id, action_code,
-                           resource_type, resource_id, outcome, reason_text, occurred_at
-                    FROM operation_audit_log
-                    WHERE resource_type = ?
-                    ORDER BY id DESC LIMIT ?
-                    """, resourceType, maxLimit);
+            return queryRepository.auditLogs(resourceType, resourceId, maxLimit);
         }
-        return jdbc.queryForList("""
-                SELECT id, operator_user_id, actor_type, actor_id, station_id, action_code,
-                       resource_type, resource_id, outcome, reason_text, occurred_at
-                FROM operation_audit_log
-                ORDER BY id DESC LIMIT ?
-                """, maxLimit);
+        return queryRepository.auditLogs(null, resourceId, maxLimit);
     }
 
     public record CaseActionRequest(String actionType, String notes, String newStatus) {}

@@ -6,7 +6,7 @@ import { PlanningMap, type PlanningParcel } from './PlanningMap';
 import { useTranslation } from 'react-i18next';
 
 type Shift={driver_id:number;driver_name:string;driver_code:string;availability_status:string;parcel_capacity?:number;assigned_count:number};
-type WaveResult={wave:{id:number;wave_code:string;status:string};drivers:Array<{task_id:number;driver_id:number;driver_name:string;parcel_count:number;parcel_capacity:number;remaining_capacity:number}>};
+type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status:string};drivers:Array<{task_id:number;driver_id:number;driver_name:string;parcel_count:number;parcel_capacity:number;remaining_capacity:number}>};
 
  export function DispatchWorkspace({session,station,initialDate,initialFilter}:{session:Session;station:number|string;initialDate?:string;initialFilter?:string}){
 
@@ -68,10 +68,13 @@ type WaveResult={wave:{id:number;wave_code:string;status:string};drivers:Array<{
     if (selectedTripId) {
       return tripsQuery.data?.find(t => t.id === selectedTripId);
     }
+    if (wave.data?.wave.arrival_trip_id) {
+      return tripsQuery.data?.find(t => t.id === wave.data!.wave.arrival_trip_id);
+    }
     const waveCode = wave.data?.wave.wave_code;
     if (!waveCode || !tripsQuery.data) return tripsQuery.data?.[0];
     return tripsQuery.data.find(t => t.external_trip_no === waveCode) ?? tripsQuery.data?.[0];
-  }, [tripsQuery.data, wave.data?.wave.wave_code, selectedTripId]);
+  }, [tripsQuery.data, wave.data?.wave.wave_code, wave.data?.wave.arrival_trip_id, selectedTripId]);
 
   const tripId = matchedTrip?.id;
 
@@ -204,11 +207,13 @@ type WaveResult={wave:{id:number;wave_code:string;status:string};drivers:Array<{
    return `${cleanDate}-WAVE-01`;
  }, [serviceDate]);
 
-  const createWave = async (values: { waveCode?: string; routeCode?: string }, targetStage = 1) => {
+  const createWave = async (values: { waveCode?: string; routeCode?: string; arrivalBatchNo?: string }, targetStage = 1) => {
     try {
       const finalWaveCode = (values.waveCode ?? defaultWaveCode).trim();
       const finalRouteCode = (values.routeCode ?? 'DYNAMIC-ROUTE').trim();
-      const result = await api<{ wave: { id: number } } | { id: number }>('/ops/v1/planning/waves', session, { method: 'POST', body: JSON.stringify({ waveCode: finalWaveCode, routeCode: finalRouteCode, serviceDate }) }, station);
+      const selectedTrip = tripsQuery.data?.find(t => t.id === selectedTripId);
+      const arrivalBatchNo = values.arrivalBatchNo ?? selectedTrip?.external_trip_no;
+      const result = await api<{ wave: { id: number } } | { id: number }>('/ops/v1/planning/waves', session, { method: 'POST', body: JSON.stringify({ waveCode: finalWaveCode, routeCode: finalRouteCode, serviceDate, arrivalBatchNo }) }, station);
       const newWaveId = 'wave' in result ? result.wave.id : result.id;
       setWaveId(newWaveId);
       setStage(targetStage);
@@ -570,7 +575,8 @@ type WaveResult={wave:{id:number;wave_code:string;status:string};drivers:Array<{
                 const defaultCode = `${cleanDate}-WAVE-0${nextSeq}`;
                 const code = prompt("请输入新建派送波次编码 (同站唯一):", defaultCode);
                 if (code && code.trim()) {
-                  createWave({ waveCode: code.trim() });
+                  const selectedTrip = tripsQuery.data?.find(t => t.id === selectedTripId);
+                  createWave({ waveCode: code.trim(), arrivalBatchNo: selectedTrip?.external_trip_no });
                 }
               }}
             >
