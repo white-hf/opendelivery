@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Session } from '../api/client';
 import { PlanningMap, type PlanningParcel } from './PlanningMap';
 import { useTranslation } from 'react-i18next';
+import { MobileActionBar } from './MobileActionBar';
 
 type Area={id:number;area_code:string;area_name:string;status:string;version_id?:number;version_status?:string};
 type Wave={id?:number;wave_id?:number;wave_code?:string;waveCode?:string;service_date:string;status:string;wave_status?:string};
@@ -228,7 +229,7 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
 
        {/* Floating Sidebar Drawer Panel */}
        {sidebarOpen && (
-         <div style={{
+         <div className="order-mobile-sidebar" style={{
            position: 'absolute',
            top: '12px',
            right: '12px',
@@ -350,6 +351,7 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
      </div>
 
      {/* Resolve Exception Drawer */}
+     <MobileActionBar label="打开订单工作列表" count={visible.length} onClick={() => setSidebarOpen(true)} />
      <Drawer width={520} open={!!focus} onClose={() => setFocus(undefined)} title={`${t('orders.detail')} · ${focus?.tracking_no}`}>
        {focus ? (
          <Space direction="vertical" style={{ width: '100%' }} size="middle">

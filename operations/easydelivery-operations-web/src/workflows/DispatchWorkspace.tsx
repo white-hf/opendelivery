@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Session } from '../api/client';
 import { PlanningMap, type PlanningParcel } from './PlanningMap';
 import { useTranslation } from 'react-i18next';
+import { MobileActionBar } from './MobileActionBar';
 
 type Shift={driver_id:number;driver_name:string;driver_code:string;availability_status:string;parcel_capacity?:number;assigned_count:number};
 type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status:string};drivers:Array<{task_id:number;driver_id:number;driver_name:string;parcel_count:number;parcel_capacity:number;remaining_capacity:number}>};
@@ -1062,6 +1063,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
   </div>
 
 
+  <MobileActionBar label="打开派送包裹列表" count={filteredVisibleParcels.length} onClick={() => setListOpen(true)} />
   <Drawer 
     title={<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <span style={{ fontSize: '18px', fontWeight: 600 }}>{t('dispatch.manageCapacity')}</span>

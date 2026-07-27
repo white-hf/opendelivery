@@ -8,6 +8,7 @@ import { ManifestWorkspace } from './ManifestWorkspace';
 import { aggregateEqualsDetail, parcelsOfUnit } from './arrivalCoverage';
 import { PlanningMap, type PlanningParcel } from './PlanningMap';
 import type { PageKey } from '../auth/permissions';
+import { MobileActionBar } from './MobileActionBar';
 
 type Trip = { id: number; external_trip_no: string; vehicle_plate?: string; seal_no?: string; expected_at?: string; arrived_at?: string; status: string; note?: string; unit_count: number; expected_piece_count: number; linked_piece_count: number };
 type Unit = { id: number; external_unit_no: string; unit_type: string; expected_piece_count?: number; status: string; linked_piece_count: number; driver_count: number; wave_count: number; declared_piece_count: number; scanned_piece_count: number; exception_piece_count: number };
@@ -312,6 +313,7 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
       </div>
 
       {/* ↗️ 右侧可收缩包裹明细 Drawer (与订单准备页面体验一致) */}
+      <MobileActionBar label="查看到仓包裹明细" count={unitParcels.length} onClick={() => setDrawerOpen(true)} />
       <Drawer
         title={
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
