@@ -496,17 +496,31 @@ export function PlanningMap({
             markersRef.current.push(marker);
         });
 
-        // 2. Draw Polyline route connecting sequenced stops ONLY when focusing on a specific selected driver
-        if (selectedDriverName && sequenced.length > 1 && map.current) {
-            const routePath = sequenced.map(p => ({ lat: Number(p.latitude), lng: Number(p.longitude) }));
-            routePolylineRef.current = new google.maps.Polyline({
-                map: map.current,
-                path: routePath,
-                clickable: false,
-                strokeColor: '#1890ff',
-                strokeOpacity: 0.85,
-                strokeWeight: 3.5,
-                zIndex: 120
+        // 2. Draw Polyline route connecting sequenced stops per driver
+        // Group sequenced parcels by driver to draw distinct, unmixed routes for each driver
+        const driverGroups = new Map<string, PlanningParcel[]>();
+        sequenced.forEach(p => {
+            const dKey = p.driver_name || (p.driver_id ? `DRIVER-${p.driver_id}` : 'UNKNOWN');
+            if (selectedDriverName && p.driver_name !== selectedDriverName) return;
+            if (!driverGroups.has(dKey)) driverGroups.set(dKey, []);
+            driverGroups.get(dKey)!.push(p);
+        });
+
+        if (map.current) {
+            driverGroups.forEach((dParcels) => {
+                if (dParcels.length > 1) {
+                    const routePath = dParcels.map(p => ({ lat: Number(p.latitude), lng: Number(p.longitude) }));
+                    const routePolyline = new google.maps.Polyline({
+                        map: map.current,
+                        path: routePath,
+                        clickable: false,
+                        strokeColor: '#1890ff',
+                        strokeOpacity: 0.85,
+                        strokeWeight: 3.5,
+                        zIndex: 120
+                    });
+                    drawingRef.current.push(routePolyline);
+                }
             });
         }
 

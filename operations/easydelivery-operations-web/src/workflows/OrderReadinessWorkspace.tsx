@@ -192,6 +192,7 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
             parcels={all} 
             serviceAreas={areas.data ?? []}
             selected={selected} 
+            selectedDriverName={focus?.driver_name}
             activeAreaId={areas.data?.find(a => a.area_code === selectedZoneCode)?.id}
             onSelectArea={(areaId) => {
               if (!areaId) {
