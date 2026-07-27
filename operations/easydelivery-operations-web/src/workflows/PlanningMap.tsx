@@ -406,7 +406,7 @@ export function PlanningMap({
                 }
             });
         }
-    }, [ready, serviceAreas, activeAreaId, parcelsByArea, onSelectArea, station]);
+    }, [ready, serviceAreas, activeAreaId, parcelsByArea, onSelectArea, station, parcels]);
 
     // Draw Individual Parcel Points
     useEffect(() => {
