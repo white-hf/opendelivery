@@ -13,6 +13,7 @@ export type PlanningParcel = {
     driver_id?: number;
     driver_name?: string;
     area_code?: string;
+    area_id?: number;
     area_version_id?: number;
     stop_sequence?: number;
     promised_date?: string;
