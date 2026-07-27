@@ -717,25 +717,62 @@ type WaveResult={wave:{id:number;wave_code:string;status:string};drivers:Array<{
 
 
 
-      {/* STEP 3 面板 */}
+      {/* STEP 3 面板：纯区域指派极简控制 */}
       {stage === 2 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div className="op-card" style={{ background: '#e6f4ff', borderColor: '#91caef' }}>
-            <div style={{ fontWeight: 'bold', color: '#0958d9', marginBottom: '8px' }}>
-              <i className="fa-solid fa-user-plus"></i> 按区域指派给对应责任司机
+          {/* 主动作 1: 一键全局按责任区域自动指派 */}
+          <Card 
+            size="small" 
+            style={{ borderRadius: '10px', background: 'linear-gradient(135deg, #e6f4ff 0%, #f0f5ff 100%)', borderColor: '#91caef', boxShadow: '0 2px 8px rgba(22,119,255,0.08)' }}
+          >
+            <div style={{ fontWeight: 'bold', color: '#0958d9', fontSize: '14px', marginBottom: '4px' }}>
+              <i className="fa-solid fa-wand-magic-sparkles" style={{ marginRight: 6 }}></i>
+              一键按责任区域指派全站包裹
             </div>
+            <div style={{ fontSize: '12px', color: '#595959', marginBottom: '10px', lineHeight: '1.5' }}>
+              系统根据全站司机配置的责任区域偏好与负载容量，自动将对应的区域包裹一键配对指派给司机。
+            </div>
+            <Button 
+              type="primary"
+              block
+              size="middle"
+              style={{ fontWeight: 'bold', height: '38px', borderRadius: '8px' }}
+              loading={command.isPending}
+              onClick={() => {
+                const firstWave = wavesList.data?.[0];
+                const targetWaveId = waveId 
+                  ?? (wave.data as any)?.wave?.id 
+                  ?? (wave.data as any)?.wave?.wave_id
+                  ?? firstWave?.wave_id 
+                  ?? firstWave?.id 
+                  ?? 0;
+
+                command.mutate({
+                  path: `/ops/v1/planning/waves/${targetWaveId}/assign-defaults`,
+                  body: {}
+                });
+              }}
+            >
+              ⚡ 立即执行全站一键责任区域指派
+            </Button>
+          </Card>
+
+          {/* 主动作 2: 指定司机与区域的单项指派 */}
+          <div className="op-card" style={{ borderRadius: '10px' }}>
+            <div style={{ fontWeight: 'bold', color: '#1f1f1f', fontSize: '13px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span><i className="fa-solid fa-location-dot" style={{ color: '#1677ff', marginRight: 6 }}></i> 手动按区域指派</span>
+              <Button 
+                type="link" 
+                size="small" 
+                style={{ padding: 0, fontSize: '12px' }}
+                onClick={() => setCapacityOpen(true)}
+              >
+                ⚙️ 司机容量
+              </Button>
+            </div>
+
             <div style={{ marginBottom: '10px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 'bold' }}>1. 选择目标司机</label>
-                <Button 
-                  type="link" 
-                  size="small" 
-                  style={{ padding: 0, fontSize: '12px' }}
-                  onClick={() => setCapacityOpen(true)}
-                >
-                  ⚙️ 管理出勤与容量上限
-                </Button>
-              </div>
+              <label style={{ fontSize: '12px', color: '#595959', fontWeight: 600, display: 'block', marginBottom: '4px' }}>1. 选择目标司机</label>
               <Select 
                 value={driver} 
                 onChange={(val) => {
@@ -746,11 +783,12 @@ type WaveResult={wave:{id:number;wave_code:string;status:string};drivers:Array<{
                 style={{ width: '100%' }} 
                 allowClear
                 placeholder="选择目标司机" 
-                options={available.map(s=>({value:s.driver_id,label:`${s.driver_name} (已分: ${s.assigned_count}/${s.parcel_capacity ?? 200} 件)`}))}
+                options={available.map(s => ({ value: s.driver_id, label: `${s.driver_name} (已分: ${s.assigned_count}/${s.parcel_capacity ?? 200} 件)` }))}
               />
             </div>
-            <div style={{ marginBottom: '10px' }}>
-              <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>2. 选择分配区域</label>
+
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ fontSize: '12px', color: '#595959', fontWeight: 600, display: 'block', marginBottom: '4px' }}>2. 选择分配区域</label>
               <Select 
                 value={areaVersion} 
                 onChange={(val) => {
@@ -763,11 +801,13 @@ type WaveResult={wave:{id:number;wave_code:string;status:string};drivers:Array<{
                 options={areas}
               />
             </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <Button 
                 type="primary" 
-                style={{ flex: 1 }}
+                block
                 disabled={!driver || !areaVersion}
+                style={{ borderRadius: '6px' }}
                 onClick={() => {
                   if (waveId && driver && areaVersion) {
                     command.mutate({
@@ -777,34 +817,12 @@ type WaveResult={wave:{id:number;wave_code:string;status:string};drivers:Array<{
                   }
                 }}
               >
-                指派所选区域包裹
-              </Button>
-              <Button 
-                style={{ borderColor: '#1677ff', color: '#1677ff' }}
-                loading={command.isPending}
-                onClick={() => {
-                  const firstWave = wavesList.data?.[0];
-                  const targetWaveId = waveId 
-                    ?? (wave.data as any)?.wave?.id 
-                    ?? (wave.data as any)?.wave?.wave_id
-                    ?? firstWave?.wave_id 
-                    ?? firstWave?.id 
-                    ?? 0;
-
-                  command.mutate({
-                    path: `/ops/v1/planning/waves/${targetWaveId}/assign-defaults`,
-                    body: {}
-                  });
-                }}
-              >
-                一键按责任区域指派
+                🎯 指派所选区域包裹
               </Button>
 
               <Button
-                type="primary"
-                ghost
+                type="dashed"
                 block
-                style={{ marginTop: '8px' }}
                 disabled={!driver}
                 onClick={() => {
                   const firstWave = wavesList.data?.[0];
@@ -817,49 +835,9 @@ type WaveResult={wave:{id:number;wave_code:string;status:string};drivers:Array<{
                   }
                 }}
               >
-                <i className="fa-solid fa-route" style={{ marginRight: 6 }}></i>
-                🧭 OSRM 智能规划当前司机路线
+                🧭 OSRM 智能计算当前司机派送路线
               </Button>
             </div>
-          </div>
-
-          <div className="op-card">
-            <div style={{ fontWeight: 'bold', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span><i className="fa-solid fa-draw-polygon"></i> 辅助: 地图圈选部分包裹</span>
-              {selected.size > 0 && <Tag color="purple">已圈选 {selected.size} 件</Tag>}
-            </div>
-            <div style={{ fontSize: '12px', color: '#8c8c8c', marginBottom: '8px' }}>
-              在右侧地图画圈圈选局部点位，单独改派给其他司机。
-            </div>
-            <Button 
-              block 
-              type={lassoActive ? 'primary' : 'default'}
-              danger={lassoActive}
-              onClick={() => setLassoActive(!lassoActive)}
-            >
-              <i className="fa-solid fa-draw-polygon" style={{ marginRight: 6 }}></i>
-              {lassoActive ? '关闭地图套索' : '开启地图套索圈选'}
-            </Button>
-            {selected.size > 0 && driver && waveId && (
-              <Button
-                type="primary"
-                block
-                style={{ marginTop: '8px', background: '#722ed1', borderColor: '#722ed1' }}
-                onClick={() => {
-                  command.mutate({
-                    path: `/ops/v1/planning/waves/${waveId}/assignments`,
-                    body: {
-                      driverId: driver,
-                      parcelIds: [...selected],
-                      areaVersionIds: [],
-                      reason: 'Lasso map parcel assignment'
-                    }
-                  });
-                }}
-              >
-                👉 指派圈中的 {selected.size} 件给目标司机
-              </Button>
-            )}
           </div>
 
           <Button className="btn-primary btn-block" style={{ marginTop: '12px' }} onClick={() => setStage(3)}>
