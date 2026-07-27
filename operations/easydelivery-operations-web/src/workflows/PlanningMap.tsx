@@ -497,16 +497,15 @@ export function PlanningMap({
         });
 
         // 2. Draw Polyline route connecting sequenced stops per driver
-        // Group sequenced parcels by driver to draw distinct, unmixed routes for each driver
-        const driverGroups = new Map<string, PlanningParcel[]>();
-        sequenced.forEach(p => {
-            const dKey = p.driver_name || (p.driver_id ? `DRIVER-${p.driver_id}` : 'UNKNOWN');
-            if (selectedDriverName && p.driver_name !== selectedDriverName) return;
-            if (!driverGroups.has(dKey)) driverGroups.set(dKey, []);
-            driverGroups.get(dKey)!.push(p);
-        });
+        // Only draw connected route lines when explicitly focusing on a single driver!
+        if (map.current && selectedDriverName) {
+            const driverGroups = new Map<string, PlanningParcel[]>();
+            sequenced.forEach(p => {
+                const dKey = p.driver_name || (p.driver_id ? `DRIVER-${p.driver_id}` : 'UNKNOWN');
+                if (!driverGroups.has(dKey)) driverGroups.set(dKey, []);
+                driverGroups.get(dKey)!.push(p);
+            });
 
-        if (map.current) {
             driverGroups.forEach((dParcels) => {
                 if (dParcels.length > 1) {
                     const routePath = dParcels.map(p => ({ lat: Number(p.latitude), lng: Number(p.longitude) }));
