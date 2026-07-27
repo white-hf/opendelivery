@@ -12,7 +12,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
  export function DispatchWorkspace({session,station,initialDate,initialFilter}:{session:Session;station:number|string;initialDate?:string;initialFilter?:string}){
 
  const { message } = App.useApp();
- const {t}=useTranslation();const cache=useQueryClient();const serviceDate=initialDate!;const [stage,setStage]=useState(0);const [selected,setSelected]=useState<Set<number>>(new Set());const [focus,setFocus]=useState<PlanningParcel>();const [driver,setDriver]=useState<number>();const [areaVersion,setAreaVersion]=useState<number>();const [waveId,setWaveId]=useState<number>();const [capacityOpen,setCapacityOpen]=useState(false);const [listOpen,setListOpen]=useState(false);
+ const {t}=useTranslation();const cache=useQueryClient();const serviceDate=initialDate!;const [stage,setStage]=useState(0);const [selected,setSelected]=useState<Set<number>>(new Set());const [focus,setFocus]=useState<PlanningParcel>();const [driver,setDriver]=useState<number>();const [areaVersion,setAreaVersion]=useState<number>();const [waveId,setWaveId]=useState<number>();const [capacityOpen,setCapacityOpen]=useState(false);const [listOpen,setListOpen]=useState(false);const [driverDrawerOpen,setDriverDrawerOpen]=useState(false);
  const [currentArea, setCurrentArea] = useState<number | undefined>(undefined);
  const [slaFilter, setSlaFilter] = useState<string>('ALL');
  const [lassoActive, setLassoActive] = useState<boolean>(false);
@@ -522,10 +522,10 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
   {(parcels.error||shifts.error||wave.error)&&<Alert type="error" showIcon message={(parcels.error??shifts.error??wave.error)?.message}/>} 
   
   {/* Main Workspace Body matching prototype HTML layout: left-control + right-map */}
-  <div style={{ display: 'grid', gridTemplateColumns: (stage === 0 || stage === 1) ? '1fr' : '440px 1fr', gap: '16px', minHeight: '640px' }}>
+  <div className="dispatch-workspace-body" style={{ display: 'grid', gridTemplateColumns: (stage === 0 || stage === 1) ? '1fr' : '440px 1fr', gap: '16px', minHeight: '640px' }}>
 
     {/* Left Control Panel */}
-    <div className="left-control" style={{ border: '1px solid #e8e8e8', borderRadius: '8px', padding: '16px', overflowY: 'auto', background: '#fff' }}>
+    <div className={`left-control ${stage >= 2 ? 'dispatch-driver-panel' : ''}`} style={{ border: '1px solid #e8e8e8', borderRadius: '8px', padding: '16px', overflowY: 'auto', background: '#fff' }}>
       <div style={{ paddingBottom: '12px', marginBottom: '16px', borderBottom: '1px solid #e8e8e8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontWeight: 'bold', fontSize: '14px' }}>
           <i className="fa-solid fa-wand-magic-sparkles" style={{ color: '#1677ff', marginRight: 8 }}></i>
@@ -922,7 +922,18 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
 
     {/* Right Map Panel with Collapsible Parcel Drawer */}
     {stage >= 2 && (
-      <div style={{ border: '1px solid #e8e8e8', borderRadius: '8px', overflow: 'hidden', position: 'relative', background: '#e5e9ec', display: 'flex', flexDirection: 'column' }}>
+      <div className="dispatch-map-panel" style={{ border: '1px solid #e8e8e8', borderRadius: '8px', overflow: 'hidden', position: 'relative', background: '#e5e9ec', display: 'flex', flexDirection: 'column' }}>
+
+        <div className="mobile-dispatch-controls">
+          <Button className="mobile-driver-button" type="primary" onClick={() => setDriverDrawerOpen(true)}>
+            <i className="fa-solid fa-user" style={{ marginRight: 6 }}></i>
+            {driver ? `司机：${available.find(s => s.driver_id === driver)?.driver_name ?? driver}` : '选择司机'}
+            <i className="fa-solid fa-chevron-down" style={{ marginLeft: 8, fontSize: 11 }}></i>
+          </Button>
+          <Tag color={currentArea ? 'blue' : 'default'}>
+            {currentArea ? `区域 ${areas.find(a => a.value === currentArea)?.label ?? currentArea}` : '全站包裹'}
+          </Tag>
+        </div>
 
         {/* Floating Map Controls & Collapsible Parcel Drawer Toggle */}
         <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 1000, display: 'flex', gap: '8px' }}>
@@ -966,7 +977,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
 
         {/* Collapsible Right-Side Floating Parcel Table Panel (Simulating Orders Workspace) */}
         {listOpen && (
-          <div style={{
+          <div className="dispatch-parcel-panel" style={{
             position: 'absolute', top: 0, right: 0, bottom: 0, width: '420px',
             background: '#fff', borderLeft: '1px solid #d9d9d9', boxShadow: '-4px 0 16px rgba(0,0,0,0.12)',
             zIndex: 1001, display: 'flex', flexDirection: 'column', padding: '12px'
@@ -1063,7 +1074,41 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
   </div>
 
 
-  <MobileActionBar label="打开派送包裹列表" count={filteredVisibleParcels.length} onClick={() => setListOpen(true)} />
+  {stage >= 2 && <MobileActionBar label="打开派送包裹列表" count={filteredVisibleParcels.length} onClick={() => setListOpen(true)} />}
+  <Drawer
+    title="选择派送司机"
+    placement="bottom"
+    height="72vh"
+    open={driverDrawerOpen}
+    onClose={() => setDriverDrawerOpen(false)}
+    className="mobile-driver-drawer"
+  >
+    <Button
+      block
+      type={!driver ? 'primary' : 'default'}
+      style={{ marginBottom: 8, textAlign: 'left' }}
+      onClick={() => { setDriver(undefined); setAreaVersion(undefined); setCurrentArea(undefined); setDriverDrawerOpen(false); }}
+    >
+      全站包裹（不筛选司机）
+    </Button>
+    <List
+      dataSource={available}
+      locale={{ emptyText: '暂无可用司机' }}
+      renderItem={(shift) => (
+        <List.Item
+          className={driver === shift.driver_id ? 'mobile-driver-option active' : 'mobile-driver-option'}
+          onClick={() => { setDriver(shift.driver_id); setAreaVersion(undefined); setCurrentArea(undefined); setDriverDrawerOpen(false); }}
+        >
+          <List.Item.Meta
+            avatar={<i className="fa-solid fa-id-badge" style={{ color: driver === shift.driver_id ? '#1677ff' : '#8c8c8c', fontSize: 20 }}></i>}
+            title={shift.driver_name}
+            description={`${shift.driver_code} · 已分 ${shift.assigned_count}/${shift.parcel_capacity ?? 200} 件`}
+          />
+          {driver === shift.driver_id && <Tag color="blue">当前</Tag>}
+        </List.Item>
+      )}
+    />
+  </Drawer>
   <Drawer 
     title={<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <span style={{ fontSize: '18px', fontWeight: 600 }}>{t('dispatch.manageCapacity')}</span>
