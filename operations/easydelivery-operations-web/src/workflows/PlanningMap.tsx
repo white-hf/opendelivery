@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Empty, Space, Tag } from 'antd';
 import { loadGoogleMaps, STATION_CENTERS } from './AreaMapEditor';
 import { parseAreaGeoJson } from './areaGeometry';
@@ -181,17 +181,6 @@ export function PlanningMap({
 
         return { mapById, mapByCode };
     }, [parcels, serviceAreas]);
-
-    const fitAll = useCallback(() => {
-        if (!map.current) return;
-        const bounds = new google.maps.LatLngBounds();
-        parcels.forEach(parcel => {
-            if (parcel.latitude != null && parcel.longitude != null) {
-                bounds.extend({ lat: Number(parcel.latitude), lng: Number(parcel.longitude) });
-            }
-        });
-        if (!bounds.isEmpty()) map.current.fitBounds(bounds, 48);
-    }, [parcels]);
 
     // Initialize Map
     useEffect(() => {
@@ -697,12 +686,10 @@ export function PlanningMap({
 
             <Space className="map-status" wrap style={{ marginTop: '8px' }}>
                 {selectedDriverName && <Tag color="blue">👤 正在查看司机【{selectedDriverName}】已分配的包裹 ({parcels.length} 件)</Tag>}
-                <Button size="small" onClick={fitAll} disabled={!ready || !locatable}>全图适应</Button>
                 {activeAreaId && <Button size="small" type="link" onClick={() => onSelectArea?.(undefined)}>重置区域视图</Button>}
             </Space>
 
         </div>
     );
 }
-
 

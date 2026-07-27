@@ -15,7 +15,7 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
  const [focus,setFocus]=useState<PlanningParcel>();
  const [filter,setFilter]=useState(initialFilter??'all');
  const [waveId,setWaveId]=useState<number|undefined>();
- const [sidebarOpen,setSidebarOpen]=useState(true);
+ const [sidebarOpen,setSidebarOpen]=useState(() => typeof window === 'undefined' || window.innerWidth > 767);
  const [searchQuery,setSearchQuery]=useState('');
  const [selectedZoneCode,setSelectedZoneCode] = useState<string | undefined>();
 
