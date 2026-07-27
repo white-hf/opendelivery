@@ -95,7 +95,11 @@ function Workspace() {
     const initial = new URLSearchParams(location.hash.slice(1));
     const [page, setPage] = useState<PageKey>(pages.includes(initial.get('page') as PageKey) ? initial.get('page') as PageKey : 'dashboard');
     const [filter, setFilter] = useState(initial.get('filter') ?? '');
-    const [serviceDate, setServiceDate] = useState(initial.get('date') ?? dayjs().format('YYYY-MM-DD'));
+    const initialDate = initial.get('date');
+    const safeInitialDate = initialDate && /^\d{4}-\d{2}-\d{2}$/.test(initialDate) && dayjs(initialDate).isValid()
+        ? initialDate
+        : dayjs().format('YYYY-MM-DD');
+    const [serviceDate, setServiceDate] = useState(safeInitialDate);
     const [stationId, setStationId] = useState<number>(session!.user.stationId ?? 1);
     const [searchTrackingNo, setSearchTrackingNo] = useState<string | null>(null);
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -212,7 +216,23 @@ function Workspace() {
                         style={{ width: 220 }}
                     />
 
-                    <DatePicker aria-label={t('date.serviceDate')} value={dayjs(serviceDate)} onChange={(_, dateString) => setServiceDate(typeof dateString === 'string' ? dateString : serviceDate)} />
+                    <DatePicker
+                        aria-label={t('date.serviceDate')}
+                        format="YYYY-MM-DD"
+                        allowClear={false}
+                        value={dayjs(serviceDate)}
+                        onChange={(_, dateString) => {
+                            const nextDate = typeof dateString === 'string' ? dateString : '';
+                            if (/^\d{4}-\d{2}-\d{2}$/.test(nextDate) && dayjs(nextDate).isValid()) {
+                                setServiceDate(nextDate);
+                                location.hash = new URLSearchParams({
+                                    page,
+                                    date: nextDate,
+                                    ...(filter ? { filter } : {})
+                                }).toString();
+                            }
+                        }}
+                    />
                 </Space>
 
                 {/* 全局快捷搜索框 */}

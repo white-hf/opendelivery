@@ -52,8 +52,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public AppResponse<Void> handleMissingParamException(MissingServletRequestParameterException ex) {
-        log.warn("Missing parameter: {}", ex.getParameterName());
+    public AppResponse<Void> handleMissingParamException(MissingServletRequestParameterException ex,
+                                                         jakarta.servlet.http.HttpServletRequest request) {
+        log.warn("Missing parameter: {} on {} {}", ex.getParameterName(), request.getMethod(), request.getRequestURI());
         return AppResponse.fail("PARAM.MISSING", "Required parameter is missing: " + ex.getParameterName());
     }
 

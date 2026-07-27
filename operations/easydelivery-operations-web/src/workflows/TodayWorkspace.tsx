@@ -45,7 +45,10 @@ export function TodayWorkspace({ session, station, serviceDate, onNavigate }: { 
 
   if (query.isLoading) return <Spin style={{ margin: '40px auto', display: 'block' }} />;
   if (query.error) return <Alert type="error" showIcon message={query.error.message} action={<Button onClick={() => void query.refetch()}>{t('common.retry')}</Button>} />;
-  const data = query.data!;
+  const data = query.data;
+  if (!data || !Array.isArray(data.stages)) {
+    return <Alert type="error" showIcon message={t('common.invalidResponse', { defaultValue: 'The operations dashboard returned an invalid response.' })} action={<Button onClick={() => void query.refetch()}>{t('common.retry')}</Button>} />;
+  }
 
   const driverData: DriverOverview[] = capacityQuery.data ?? [];
 
