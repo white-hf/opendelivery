@@ -18,28 +18,28 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
  const [searchQuery,setSearchQuery]=useState('');
  const [selectedZoneCode,setSelectedZoneCode] = useState<string | undefined>();
 
-  // 1. Get Waves for Cascade filtering (Fetches today + overdue active waves from backend)
+  // 1. Get Waves strictly filtered by current selected serviceDate
   const waves = useQuery({
-    queryKey: ['dispatch-waves-list', station],
-    queryFn: () => api<Wave[]>(`/ops/v1/dispatch/waves?limit=100`, session, {}, station)
+    queryKey: ['dispatch-waves-list', station, serviceDate],
+    queryFn: () => api<Wave[]>(`/ops/v1/dispatch/waves?limit=100`, session, {}, station).then(res => {
+      return (res ?? []).filter(w => w.service_date === serviceDate);
+    })
   });
 
-  // Group options for waves dropdown
+  // Group options for waves dropdown strictly for current selected date
   const waveOptions = useMemo(() => {
     const rawList = waves.data ?? [];
     return [
       { value: undefined as any, label: t('orders.allWavesOption', { defaultValue: '🌐 全站点所有包裹 (不限波次)' }) },
       ...rawList.map(w => {
-        const isToday = w.service_date === serviceDate;
         const statusText = w.wave_status ?? w.status ?? 'DRAFT';
-        const dateTag = isToday ? '🟢 今日' : `⚠️ ${w.service_date}`;
         return {
           value: w.wave_id ?? w.id,
-          label: `${dateTag} · ${w.wave_code ?? w.waveCode ?? `WAVE-#${w.wave_id ?? w.id}`} (${statusText})`
+          label: `${w.wave_code ?? w.waveCode ?? `WAVE-#${w.wave_id ?? w.id}`} (${statusText})`
         };
       })
     ];
-  }, [waves.data, serviceDate, t]);
+  }, [waves.data, t]);
 
  // Allow optional wave filter (default all parcels across station)
 
