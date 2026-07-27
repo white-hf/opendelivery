@@ -124,13 +124,13 @@ function Workspace() {
     const blocker = (key: PageKey) => navigation.data?.stages.find(stage => stage.target === key)?.blockers ?? 0;
     const available = new Set<PageKey>(['dashboard', 'orders', 'dispatch', 'dispatch-reassign', 'manifests', 'scanning', 'handover', 'delivery', 'closeout', 'cases', 'areas', 'drivers', 'stations']);
 
-    const item = (key: PageKey, index?: number) => ({
+    const item = (key: PageKey, index?: number, displayIndex?: number | string) => ({
         key,
         disabled: !available.has(key),
         label: (
             <span className="menu-label">
                 <i className={PAGE_ICONS[key] ?? 'fa-solid fa-circle'} style={{ fontSize: '13px', width: '18px', opacity: 0.85 }}></i>
-                {index != null && <span>{index + 1}</span>}
+                {(displayIndex != null || index != null) && <span>{displayIndex ?? (index! + 1)}</span>}
                 <em>{t(`nav.${key}`)}{!available.has(key) ? ` · ${t('common.planned')}` : ''}</em>
                 {blocker(key) > 0 && available.has(key) && <Badge count={blocker(key)} overflowCount={99} />}
             </span>
@@ -159,7 +159,7 @@ function Workspace() {
                         item('dispatch-reassign', undefined),
                     ],
                 },
-                item('manifests', 3),
+                item('manifests', 3, 4),
                 item('scanning', 4),
                 item('handover', 5),
                 item('delivery', 6),
