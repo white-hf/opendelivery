@@ -338,13 +338,24 @@ public class MapPlanningService {
             if (!plannableParcels.isEmpty()) {
                 long taskId = task(wave, driverId);
                 int seq = count(taskId) + 1;
+                
+                // High-performance JDBC Batch Insert for parcels
+                List<Object[]> batchTaskItems = new java.util.ArrayList<>();
                 for (Long pId : plannableParcels) {
-                    jdbc.update("INSERT IGNORE INTO driver_task_item(task_id,parcel_id,stop_sequence,item_status) VALUES (?,?,?,'ASSIGNED')", taskId, pId, seq++);
-                    activeAssignedParcelIds.add(pId); // Update local memory set so subsequent drivers don't double-grab
+                    batchTaskItems.add(new Object[]{taskId, pId, seq++, "ASSIGNED"});
+                    activeAssignedParcelIds.add(pId);
                 }
+                jdbc.batchUpdate("INSERT IGNORE INTO driver_task_item(task_id,parcel_id,stop_sequence,item_status) VALUES (?,?,?,?)", batchTaskItems);
+
+                // High-performance JDBC Batch Insert for area associations
+                List<Object[]> batchAreas = new java.util.ArrayList<>();
+                Long opUserId = operator(http);
+                String mode = "WHOLE_AREA";
                 for (Long areaId : areaIds) {
-                    jdbc.update("INSERT IGNORE INTO driver_task_area(task_id,delivery_area_id,assignment_mode,assigned_by) VALUES (?,?,'WHOLE_AREA',?)", taskId, areaId, operator(http));
+                    batchAreas.add(new Object[]{taskId, areaId, mode, opUserId});
                 }
+                jdbc.batchUpdate("INSERT IGNORE INTO driver_task_area(task_id,delivery_area_id,assignment_mode,assigned_by) VALUES (?,?,?,?)", batchAreas);
+
                 totalAssignedInCall += plannableParcels.size();
             }
         }

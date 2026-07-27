@@ -154,7 +154,7 @@ class MapPlanningAssignDefaultsIntegrationTest {
                     task_id BIGINT NOT NULL,
                     delivery_area_id BIGINT NOT NULL,
                     assignment_mode VARCHAR(32) DEFAULT 'WHOLE_AREA',
-                    assigned_by BIGINT NULL
+                    assigned_by VARCHAR(64) NULL
                 );
                 """);
 
