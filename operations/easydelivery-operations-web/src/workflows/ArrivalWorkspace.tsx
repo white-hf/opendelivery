@@ -11,7 +11,7 @@ import type { PageKey } from '../auth/permissions';
 
 type Trip = { id: number; external_trip_no: string; vehicle_plate?: string; seal_no?: string; expected_at?: string; arrived_at?: string; status: string; unit_count: number; expected_piece_count: number; linked_piece_count: number };
 type Unit = { id: number; external_unit_no: string; unit_type: string; expected_piece_count?: number; status: string; linked_piece_count: number; driver_count: number; wave_count: number; declared_piece_count: number; scanned_piece_count: number; exception_piece_count: number };
-type UnitParcel = { unit_id: number; parcel_id: number; tracking_no: string; parcel_status: string; link_source: string; item_status?: string; task_code?: string; driver_name?: string; longitude?: number; latitude?: number; area_code?: string; area_id?: number };
+type UnitParcel = { unit_id: number; parcel_id: number; tracking_no: string; parcel_status: string; link_source: string; item_status?: string; task_code?: string; driver_name?: string; driver_id?: number; stop_sequence?: number; longitude?: number; latitude?: number; area_code?: string; area_id?: number };
 type Unlinked = { unit_id: number; external_unit_no: string; tracking_no: string; parcel_status: string; station_code?: string };
 type Detail = { trip: Trip & Record<string, unknown>; units: Unit[]; parcels: UnitParcel[]; unlinkedDeclarations: Unlinked[] };
 type Area = { id: number; area_code: string; area_name: string; status?: string; geo_json?: string; geojson_snapshot?: any };
@@ -65,15 +65,17 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
   const mapParcels = useMemo<PlanningParcel[]>(() => {
     const rawList = selectedUnit ? unitParcels : (detail.data?.parcels ?? []);
     return rawList.filter(p => p.latitude != null && p.longitude != null).map(p => ({
-      parcel_id: p.parcel_id,
-      tracking_no: p.tracking_no,
-      status: p.parcel_status,
-      longitude: p.longitude!,
-      latitude: p.latitude!,
-      driver_name: p.driver_name,
-      area_code: p.area_code,
-      area_id: p.area_id
-    }));
+        parcel_id: Number(p.parcel_id),
+        tracking_no: p.tracking_no,
+        status: p.parcel_status,
+        longitude: Number(p.longitude),
+        latitude: Number(p.latitude),
+        driver_name: p.driver_name,
+        driver_id: p.driver_id,
+        stop_sequence: p.stop_sequence,
+        area_code: p.area_code,
+        area_id: p.area_id
+      }));
   }, [unitParcels, detail.data?.parcels, selectedUnit]);
 
   const selectUnit = (unitId: number | undefined) => {

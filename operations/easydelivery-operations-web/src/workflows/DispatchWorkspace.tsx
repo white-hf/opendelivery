@@ -665,34 +665,43 @@ type WaveResult={wave:{id:number;wave_code:string;status:string};drivers:Array<{
                         value={currentUnitId}
                         options={unitOptions}
                         onChange={(newUnitId) => {
-                          // 1. Clear this area from all other units in local state first
-                          setUnitSelectedAreas(prev => {
-                            const next = { ...prev };
-                            Object.keys(next).forEach(uId => {
-                              const numericId = Number(uId);
-                              next[numericId] = (next[numericId] ?? []).filter(aId => aId !== areaVerId);
-                            });
-                            if (newUnitId) {
-                              next[newUnitId] = [...(next[newUnitId] ?? []), areaVerId];
-                            }
-                            return next;
+                          // area-fill is a replace operation, not an append. Build
+                          // the complete mapping first; otherwise selecting a
+                          // second area for the same HU silently removes the first
+                          // area when the page is revisited.
+                          const next: Record<number, number[]> = Object.fromEntries(
+                            Object.entries(linkedAreasByUnit).map(([id, ids]) => [Number(id), [...ids]])
+                          );
+                          Object.keys(next).forEach(id => {
+                            next[Number(id)] = next[Number(id)].filter(aId => aId !== areaVerId);
                           });
-
-                          // 2. Clear old unit binding on server if changing unit
-                          if (currentUnitId && currentUnitId !== newUnitId) {
-                            command.mutate({
-                              path: `/ops/v1/handling-units/${currentUnitId}/area-fill`,
-                              body: { deliveryAreaIds: [], reason: 'Re-assigning area to another handling unit' }
-                            });
-                          }
-
-                          // 3. Bind to new unit if selected
                           if (newUnitId) {
-                            command.mutate({
-                              path: `/ops/v1/handling-units/${newUnitId}/area-fill`,
-                              body: { deliveryAreaIds: [areaVerId], reason: 'Manual area-centric assignment' }
-                            });
+                            next[newUnitId] = [...(next[newUnitId] ?? []), areaVerId];
                           }
+                          setUnitSelectedAreas(next);
+
+                          const affected = new Set<number>();
+                          if (currentUnitId) affected.add(currentUnitId);
+                          if (newUnitId) affected.add(newUnitId);
+                          Promise.all(Array.from(affected).map(unitId => api(
+                            `/ops/v1/handling-units/${unitId}/area-fill`,
+                            session,
+                            {
+                              method: 'POST',
+                              body: JSON.stringify({
+                                deliveryAreaIds: next[unitId] ?? [],
+                                reason: 'Manual area-centric assignment'
+                              })
+                            },
+                            station
+                          ))).then(async () => {
+                            message.success('板笼区域配置已保存');
+                            await Promise.all([
+                              cache.invalidateQueries({ queryKey: ['arrival-trip', station, tripId] }),
+                              cache.invalidateQueries({ queryKey: ['arrival-trips', station, serviceDate] }),
+                              refresh()
+                            ]);
+                          }).catch((error: Error) => message.error(`板笼区域保存失败: ${error.message}`));
                         }}
                       />
                     );
@@ -1067,4 +1076,3 @@ type WaveResult={wave:{id:number;wave_code:string;status:string};drivers:Array<{
   </Drawer>
  </div>;
 }
-

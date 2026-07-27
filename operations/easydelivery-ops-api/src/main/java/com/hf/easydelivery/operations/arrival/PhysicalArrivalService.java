@@ -81,7 +81,7 @@ public class PhysicalArrivalService {
                 "units",units,
                 "parcels",jdbc.queryForList("""
                         SELECT hp.handling_unit_id unit_id,p.id parcel_id,p.tracking_no,p.status parcel_status,hp.link_source,
-                               dti.item_status,dt.id task_id,dt.task_code,dr.id driver_id,dr.driver_name,
+                               dti.item_status,dti.stop_sequence,dt.id task_id,dt.task_code,dr.id driver_id,dr.driver_name,
                                ST_Longitude(g.delivery_point) longitude, ST_Latitude(g.delivery_point) latitude,
                                a.area_code, a.id area_id
                         FROM handling_unit_parcel hp
