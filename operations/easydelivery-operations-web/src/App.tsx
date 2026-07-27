@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react';
 import {
-    Alert, Badge, Button, Card, DatePicker, Form, Input, Layout, Menu, Select, Space, Spin, Table, Typography, App as AntdApp
+    Alert, Badge, Button, Card, DatePicker, Drawer, Form, Input, Layout, Menu, Select, Space, Spin, Table, Typography, App as AntdApp
 } from 'antd';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Session } from './api/client';
@@ -98,6 +98,7 @@ function Workspace() {
     const [serviceDate, setServiceDate] = useState(initial.get('date') ?? dayjs().format('YYYY-MM-DD'));
     const [stationId, setStationId] = useState<number>(session!.user.stationId ?? 1);
     const [searchTrackingNo, setSearchTrackingNo] = useState<string | null>(null);
+    const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
     const stations = useQuery({
         queryKey: ['stations'],
@@ -175,7 +176,7 @@ function Workspace() {
 
 
     return <Layout className="shell">
-        <Sider width={230}>
+        <Sider width={230} className="desktop-sider">
             <Typography.Title level={4} className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '16px 20px', margin: 0 }}>
                 <i className="fa-solid fa-truck-fast" style={{ color: '#1677ff' }}></i>
                 <span>OpenDelivery</span>
@@ -195,7 +196,10 @@ function Workspace() {
         </Sider>
         <Layout>
             <Header className="top" style={{ padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', borderBottom: '1px solid #e8e8e8' }}>
-                <Space size="middle">
+                <Space size="middle" className="top-context">
+                    <Button className="mobile-menu-trigger" type="text" aria-label="打开运营导航" onClick={() => setMobileNavOpen(true)}>
+                        <i className="fa-solid fa-bars" />
+                    </Button>
                     <Select
                         aria-label={t('station.label')}
                         value={stationId}
@@ -212,7 +216,7 @@ function Workspace() {
                 </Space>
 
                 {/* 全局快捷搜索框 */}
-                <div style={{ width: 320 }}>
+                <div className="desktop-search" style={{ width: 320 }}>
                     <Input
                         prefix={<i className="fa-solid fa-magnifying-glass" style={{ color: '#bfbfbf', marginRight: 4 }}></i>}
                         placeholder="🔍 全局搜索：单号 / 追踪号 / 电话"
@@ -225,14 +229,14 @@ function Workspace() {
                     />
                 </div>
 
-                <Space size="middle">
+                <Space size="middle" className="top-actions">
                     <Select value={i18n.language as SupportedLocale} onChange={(value: SupportedLocale) => void changeLocale(value)}
                         options={SUPPORTED_LOCALES.map((value) => ({ value, label: value }))} />
                     <span style={{ fontWeight: 600 }}><i className="fa-solid fa-user-circle" style={{ marginRight: 6, color: '#1677ff' }}></i>{session?.user.username}</span>
                     <Button type="text" danger onClick={() => void logout()}><i className="fa-solid fa-right-from-bracket" style={{ marginRight: 4 }}></i>{t('auth.signOut')}</Button>
                 </Space>
             </Header>
-            <Content className="body">
+            <Content className="body mobile-content">
                 <Page page={page} station={stationId} serviceDate={serviceDate} filter={filter} onNavigate={navigate} />
             </Content>
 
@@ -244,6 +248,24 @@ function Workspace() {
                 onClose={() => setSearchTrackingNo(null)}
             />
         </Layout>
+        <Drawer
+            title="运营导航"
+            placement="left"
+            width={280}
+            open={mobileNavOpen}
+            onClose={() => setMobileNavOpen(false)}
+            className="mobile-nav-drawer"
+        >
+            <Menu
+                mode="inline"
+                selectedKeys={[page]}
+                onClick={(event) => {
+                    navigate(event.key as PageKey);
+                    setMobileNavOpen(false);
+                }}
+                items={menuItems}
+            />
+        </Drawer>
     </Layout>;
 }
 

@@ -98,9 +98,9 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
 
   // Render Arrival View with Left Side Panel + Right Full Map View
   const arrivalContent = (
-    <div style={{ display: 'flex', gap: '12px', height: 'calc(100vh - 120px)', position: 'relative' }}>
+    <div className="arrival-workspace-layout" style={{ display: 'flex', gap: '12px', height: 'calc(100vh - 120px)', position: 'relative' }}>
       {/* 👈 左栏：干线车次 & 笼板/笼车纵向控制列表 (340px) */}
-      <div style={{ width: '360px', display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto' }}>
+      <div className="arrival-sidebar" style={{ width: '360px', display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto' }}>
         {/* 车次总览 Card */}
         <Card 
           size="small"

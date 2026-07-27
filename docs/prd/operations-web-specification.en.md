@@ -4,7 +4,7 @@
 
 Operations Web serves a multi-city, one-station-per-city MOV so each station can complete receiving, dispatch, handover, delivery monitoring, exceptions, callback recovery, and closeout without SQL or developer intervention. It calls `/ops/v1/**` and never accesses the database directly.
 
-MOV targets desktop (minimum 1366×768) and common landscape tablets. Mobile operations, customer portal, route map, live GPS, billing, and advanced BI are excluded. Chinese ships first, with i18n keys from day one.
+MOV is desktop-first (minimum 1366×768) with core mobile operating actions. Customer portal, live GPS, billing, and advanced BI remain out of scope. Chinese ships first, with i18n keys from day one.
 
 ## 2. Information Architecture
 
@@ -128,3 +128,6 @@ The batch detail drawer holds: batch fields, the state-advance action, the unit 
 Every page tests loading, empty, normal, partial, validation, 401, 403, 404, 409, 429, and network/500. Scanning adds device duplicate/offline recovery; lists demonstrate 10,000+ server-paginated records; batch validation may partially identify errors but the transaction fails atomically.
 
 MOV acceptance: a new operator with two hours of training completes readiness, receipt, dispatch, handover, exception, callback replay, and closeout without developers/database access; five-day pilot has zero P0 interaction defects.
+## Mobile access baseline
+
+The Operations Web supports mobile browsers for core operating actions; mobile is not a pixel-for-pixel copy of the desktop console. The mobile experience follows the business-day SOP with a single-column layout, drawer navigation, card lists, a bottom action bar, and map detail drawers. Complex bulk planning remains desktop-first. Responsive acceptance covers 320px, 375px, 414px, and 768px widths while preserving the existing `/ops/v1/**` APIs, station permissions, and audit rules.
