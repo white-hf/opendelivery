@@ -405,40 +405,6 @@ export function PlanningMap({
                     }
                 }
             });
-
-            // 3. Fallback Spatial Cluster Badge for unzoned parcel sets (e.g. Arrival cage selection without activeAreaId)
-            if (!activeAreaId && serviceAreas.length === 0 && parcels.length > 0) {
-                const locatablePts = parcels.filter(p => p.latitude != null && p.longitude != null);
-                if (locatablePts.length > 0) {
-                    const avgLat = locatablePts.reduce((acc, cur) => acc + Number(cur.latitude), 0) / locatablePts.length;
-                    const avgLng = locatablePts.reduce((acc, cur) => acc + Number(cur.longitude), 0) / locatablePts.length;
-                    const count = locatablePts.length;
-                    const size = count < 10 ? 38 : count < 50 ? 44 : 52;
-                    const radius = size / 2;
-
-                    const clusterSvg = `
-                        <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-                            <circle cx="${radius}" cy="${radius}" r="${radius - 2}" fill="#722ed1" fill-opacity="0.9" stroke="#ffffff" stroke-width="2.5" />
-                            <text x="${radius}" y="${radius + 5}" fill="#ffffff" font-size="14" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">
-                                ${count}
-                            </text>
-                        </svg>
-                    `;
-
-                    const fallbackClusterMarker = new google.maps.Marker({
-                        position: { lat: avgLat, lng: avgLng },
-                        map: map.current,
-                        title: `当前选择包裹: ${count} 件`,
-                        icon: {
-                            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(clusterSvg),
-                            anchor: new google.maps.Point(radius, radius)
-                        },
-                        zIndex: 70
-                    });
-
-                    markersRef.current.push(fallbackClusterMarker);
-                }
-            }
         }
     }, [ready, serviceAreas, activeAreaId, parcelsByArea, onSelectArea, station]);
 
