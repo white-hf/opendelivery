@@ -432,10 +432,9 @@ export function PlanningMap({
 
         const visibleParcels = parcels.filter(p => {
             if (p.latitude == null || p.longitude == null) return false;
-            // If filtered by driver or filtered by specific area, show all matching parcel pins immediately!
-            if (selectedDriverName || serviceAreas.length === 1) return true;
+            // If filtered by driver, filtered by specific area, or no area filter specified (e.g. Arrival workspace), show all matching parcel pins immediately!
+            if (selectedDriverName || serviceAreas.length <= 1 || !activeAreaId) return true;
             // Otherwise, show pins for expanded active area
-            if (!activeAreaId) return false;
             const matchedId = p.area_id ?? p.area_version_id;
             if (matchedId != null && Number(matchedId) === Number(activeAreaId)) return true;
             if (activeAreaItem && p.area_code && p.area_code === activeAreaItem.area_code) return true;
