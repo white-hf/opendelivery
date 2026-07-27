@@ -180,7 +180,7 @@ function Workspace() {
             <Typography.Title level={4} className="brand" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '16px 20px', margin: 0 }}>
                 <i className="fa-solid fa-truck-fast" style={{ color: '#1677ff' }}></i>
                 <span>OpenDelivery</span>
-                <span style={{ fontSize: '11px', background: '#1677ff', padding: '2px 6px', borderRadius: '4px', color: '#ffffff', fontWeight: 'bold' }}>v0.8.0</span>
+                <span style={{ fontSize: '11px', background: '#1677ff', padding: '2px 6px', borderRadius: '4px', color: '#ffffff', fontWeight: 'bold' }}>v0.9.0</span>
 
 
 
