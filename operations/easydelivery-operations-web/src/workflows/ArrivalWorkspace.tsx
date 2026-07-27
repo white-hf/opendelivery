@@ -58,7 +58,8 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
       longitude: p.longitude!,
       latitude: p.latitude!,
       driver_name: p.driver_name,
-      area_code: p.area_code
+      area_code: p.area_code,
+      area_id: p.area_id
     }));
   }, [unitParcels, detail.data?.parcels, selectedUnit]);
 
