@@ -444,11 +444,16 @@ export function PlanningMap({
         });
 
         // Separate sequenced parcels for custom Waterdrop Markers & Route Polyline
+        // When selectedDriverName is set, strictly restrict sequenced parcels to that driver only!
         const sequenced = visibleParcels
-            .filter(p => p.stop_sequence != null && p.stop_sequence > 0)
+            .filter(p => {
+                if (p.stop_sequence == null || p.stop_sequence <= 0) return false;
+                if (selectedDriverName && p.driver_name && p.driver_name !== selectedDriverName) return false;
+                return true;
+            })
             .sort((a, b) => (a.stop_sequence ?? 0) - (b.stop_sequence ?? 0));
 
-        const unsequenced = visibleParcels.filter(p => p.stop_sequence == null || p.stop_sequence <= 0);
+        const unsequenced = visibleParcels.filter(p => !sequenced.includes(p));
 
         // Clear previous route polyline
         if (routePolylineRef.current) {
