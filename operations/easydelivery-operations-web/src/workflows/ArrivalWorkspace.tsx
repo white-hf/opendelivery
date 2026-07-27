@@ -28,6 +28,9 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
   const [unitOpen, setUnitOpen] = useState(false);
   const [fillUnit, setFillUnit] = useState<Unit>();
   const [selectedUnit, setSelectedUnit] = useState<number>();
+  // Keep the map's area expansion in the arrival workspace, just like Order Readiness.
+  // A cluster click must reveal that area's parcels instead of being a no-op.
+  const [selectedAreaId, setSelectedAreaId] = useState<number>();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedParcelIds, setSelectedParcelIds] = useState<Set<number>>(new Set());
 
@@ -47,11 +50,21 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
   });
 
   const unitParcels = useMemo(() => parcelsOfUnit(detail.data?.parcels, selectedUnit), [detail.data?.parcels, selectedUnit]);
+  const unitAreaDistribution = useMemo(() => {
+    const distribution = new Map<number, Map<string, number>>();
+    (detail.data?.parcels ?? []).forEach(parcel => {
+      const byArea = distribution.get(parcel.unit_id) ?? new Map<string, number>();
+      const area = parcel.area_code || 'UNZONED';
+      byArea.set(area, (byArea.get(area) ?? 0) + 1);
+      distribution.set(parcel.unit_id, byArea);
+    });
+    return distribution;
+  }, [detail.data?.parcels]);
 
   // Convert unitParcels to PlanningParcel for Google Map rendering
   const mapParcels = useMemo<PlanningParcel[]>(() => {
     const rawList = selectedUnit ? unitParcels : (detail.data?.parcels ?? []);
-    return rawList.map(p => ({
+    return rawList.filter(p => p.latitude != null && p.longitude != null).map(p => ({
       parcel_id: p.parcel_id,
       tracking_no: p.tracking_no,
       status: p.parcel_status,
@@ -62,6 +75,12 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
       area_id: p.area_id
     }));
   }, [unitParcels, detail.data?.parcels, selectedUnit]);
+
+  const selectUnit = (unitId: number | undefined) => {
+    setSelectedUnit(unitId);
+    setSelectedAreaId(undefined);
+    setSelectedParcelIds(new Set());
+  };
 
   const countsMatch = detail.data ? aggregateEqualsDetail(detail.data.units, detail.data.parcels) : true;
 
@@ -99,7 +118,7 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
                   key={trip.id}
                   onClick={() => {
                     setTripId(trip.id);
-                    setSelectedUnit(undefined);
+                    selectUnit(undefined);
                   }}
                   style={{
                     padding: '10px 12px',
@@ -155,7 +174,7 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
             {/* 笼车卡片纵向列表 */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', flex: 1 }}>
               <div 
-                onClick={() => setSelectedUnit(undefined)}
+                onClick={() => selectUnit(undefined)}
                 style={{
                   padding: '8px 10px',
                   borderRadius: '6px',
@@ -175,7 +194,7 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
                 return (
                   <div
                     key={unit.id}
-                    onClick={() => setSelectedUnit(isUnitSel ? undefined : unit.id)}
+                    onClick={() => selectUnit(isUnitSel ? undefined : unit.id)}
                     style={{
                       padding: '10px',
                       borderRadius: '8px',
@@ -195,6 +214,13 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
                       <Tag color="cyan" style={{ fontSize: '11px', margin: 0 }}>连: {unit.linked_piece_count}</Tag>
                       <Tag color="green" style={{ fontSize: '11px', margin: 0 }}>扫: {unit.scanned_piece_count}</Tag>
                       {unit.exception_piece_count > 0 && <Tag color="red" style={{ fontSize: '11px', margin: 0 }}>异: {unit.exception_piece_count}</Tag>}
+                    </div>
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
+                      {Array.from(unitAreaDistribution.get(unit.id)?.entries() ?? []).map(([area, count]) => (
+                        <Tag key={area} color={area === 'UNZONED' ? 'orange' : 'purple'} style={{ fontSize: '10px', margin: 0 }}>
+                          {area}: {count}
+                        </Tag>
+                      ))}
                     </div>
 
                     {/* 🔗 快捷操作与跳转配置 */}
@@ -247,6 +273,8 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
           parcels={mapParcels}
           serviceAreas={areas.data ?? []}
           selected={selectedParcelIds}
+          activeAreaId={selectedAreaId}
+          onSelectArea={areaId => setSelectedAreaId(areaId)}
           onToggle={id => setSelectedParcelIds(prev => {
             const next = new Set(prev);
             if (next.has(id)) next.delete(id);

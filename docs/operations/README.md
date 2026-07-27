@@ -16,5 +16,6 @@
 | 退库闭环 | [失败包裹退库接收](iterations/failed-parcel-return-receipt.md) |
 | 当前总结 | [R03 执行总结](../summaries/iteration-r03-summary.md)、[R03-C 到仓关联总结](summaries/iteration-r03-c-unit-linkage-summary.md)、[O04 扫描监督总结](summaries/iteration-o04-scan-supervision-summary.md)、[R04 派送规划总结](summaries/iteration-r04-planning-efficiency-summary.md)、[O05 交接审批总结](summaries/iteration-o05-handover-approval-summary.md)、[O06 派送与回仓监督总结](summaries/iteration-o06-delivery-return-supervision-summary.md)、[O07 日终关站总结](summaries/iteration-o07-day-close-summary.md)、[O08 基础配置与异常中心总结](summaries/iteration-o08-config-case-center-summary.md) |
 | 退库总结 | [失败包裹退库接收执行总结](summaries/failed-parcel-return-receipt-summary.md) |
+| R09 地图修复 | [到仓地图聚合与笼板包裹分布](summaries/iteration-r09-arrival-map-distribution-summary.md) |
 
 后续运营专属文档进入本目录对应分类。共享状态机、数据库和联合 E2E 由 `docs/shared/` 索引管理。

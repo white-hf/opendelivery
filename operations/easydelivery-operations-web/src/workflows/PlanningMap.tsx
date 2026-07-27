@@ -336,6 +336,12 @@ export function PlanningMap({
                 const parcelsByCode = parcelsByArea.mapByCode.get(area.area_code) || [];
                 const areaParcels = parcelsById.length > 0 ? parcelsById : parcelsByCode;
 
+                console.log(`[PlanningMap Debug] Area cluster ${area.area_code} (ID ${area.id}):`, {
+                    countById: parcelsById.length,
+                    countByCode: parcelsByCode.length,
+                    areaParcelsCount: areaParcels.length
+                });
+
                 let geom: any;
                 try {
                     const str = typeof area.geo_json === 'string' ? area.geo_json : JSON.stringify(area.geojson_snapshot || area.geo_json);
@@ -433,6 +439,14 @@ export function PlanningMap({
             }
         }
 
+        console.log('[PlanningMap Debug] rendering parcels:', {
+            totalParcels: parcels.length,
+            serviceAreasCount: serviceAreas.length,
+            activeAreaId,
+            selectedDriverName,
+            parcelsSample: parcels.slice(0, 3)
+        });
+
         const visibleParcels = parcels.filter(p => {
             if (p.latitude == null || p.longitude == null) return false;
             // If filtered by specific driver, show all matching parcel pins for that driver!
@@ -450,6 +464,8 @@ export function PlanningMap({
             // Default when multiple serviceAreas exist and no area clicked: aggregate into area clusters, hide individual parcel markers
             return false;
         });
+
+        console.log('[PlanningMap Debug] visibleParcels count:', visibleParcels.length);
 
         // Separate sequenced parcels for custom Waterdrop Markers & Route Polyline
         // When selectedDriverName is set, strictly restrict sequenced parcels to that driver only!
