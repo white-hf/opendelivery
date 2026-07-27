@@ -93,12 +93,12 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
       if (res && typeof res.changedCount === 'number') {
         if (res.changedCount === 0) {
           if (variables.path.includes('assign-defaults')) {
-            message.warning('⚡ 一键自动指派完成：但实际没有匹配到任何包裹！请检查：1. 司机是否设置了「配送区域」偏好 2. 该偏好区域内今天是否有未分配的有效包裹 3. 司机容量是否已满。', 8);
+            message.warning('⚡ Auto-assignment completed but no parcels matched. Check driver area preferences, unassigned parcels, and capacity.', 8);
           } else {
-            message.warning(`👉 指派操作完成：但实际分配包裹数量为 0 件。请确认该区域是否有处于待派送状态（RECEIVED/AT_STATION/SORTED）且未被其他任务占用的有效包裹。`, 8);
+            message.warning('👉 Assignment completed with zero parcels. Check that the area has eligible, unassigned parcels.', 8);
           }
         } else {
-          msg += ` (成功处理了 ${res.changedCount} 件包裹，当前司机总计已分 ${res.assignedCount}/${res.capacity} 件)`;
+          msg += ` (${res.changedCount} parcels processed; driver total ${res.assignedCount}/${res.capacity})`;
           message.success(msg, 5);
         }
       } else {
@@ -108,7 +108,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
       await refresh();
       if (tripId) await tripDetailQuery.refetch();
     },
-    onError:(e:Error)=>message.error(`操作失败: ${e.message}`, 6)
+    onError:(e:Error)=>message.error(`Operation failed: ${e.message}`, 6)
   });
  const saveShift=useMutation({mutationFn:(value:{driverId:number;availabilityStatus:string;parcelCapacity:number})=>api('/ops/v1/planning/shifts',session,{method:'PUT',body:JSON.stringify({...value,serviceDate,note:'Operations planning'})},station),onSuccess:async()=>{message.success(t('dispatch.shiftSaved'));await refresh();}});
  const toggle=useCallback((id:number)=>setSelected(current=>{const next=new Set(current);if(next.has(id))next.delete(id);else next.add(id);return next;}),[]);
@@ -118,7 +118,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
   const areas = useMemo(() => {
     const fromQuery = (serviceAreasQuery.data ?? []).map((a: any) => ({
       value: a.id,
-      label: `${a.area_code} (${a.area_name || '区域'})`
+      label: `${a.area_code} (${a.area_name || 'area'})`
     }));
     if (fromQuery.length > 0) return fromQuery;
     return Array.from(new Map(all.filter((p: PlanningParcel) => p.area_id ?? p.area_version_id).map((p: PlanningParcel) => {
@@ -155,12 +155,12 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
     const units = tripDetailQuery.data?.units;
 
     if (!tripId || !units || units.length === 0) {
-      message.warning('当前波次未关联有效的干线批次，或该批次无板笼结构。');
+      message.warning('The current wave has no valid arrival trip or handling-unit structure.');
       return;
     }
 
     if (serviceAreasQuery.data?.length === 0) {
-      message.warning('当前站点下暂无配送区域，无法执行一键规则填充。');
+      message.warning('This station has no delivery areas for default assignment.');
       return;
     }
 
@@ -188,7 +188,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
       }
 
       setUnitSelectedAreas(unitAreasMap);
-      message.success('已按默认规则，一键完成全站区域与板笼分配！');
+    message.success('Default area and handling-unit assignment completed.');
 
       await Promise.all([
         cache.invalidateQueries({ queryKey: ['arrival-trip', station, tripId] }),
@@ -197,7 +197,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
       ]);
 
     } catch (e: any) {
-      message.error('一键规则填充失败: ' + e.message);
+    message.error('Default assignment failed: ' + e.message);
     }
   };
 
@@ -218,10 +218,10 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
       const newWaveId = 'wave' in result ? result.wave.id : result.id;
       setWaveId(newWaveId);
       setStage(targetStage);
-      message.success(`派送波次 [${finalWaveCode}] 已成功启动，进入下一阶段`);
+      message.success(`Dispatch wave [${finalWaveCode}] started. Continue to the next stage.`);
       return newWaveId;
     } catch (e: any) {
-      message.error('启动波次失败: ' + e.message);
+      message.error('Failed to start dispatch wave: ' + e.message);
       return null;
     }
   };
@@ -250,11 +250,11 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
 
 
   const stepItems = [
-    { title: '1. 新增每日波次', description: currentWaveCode ?? '创建或选择波次' },
-    { title: '2. 干线板笼规划', description: '持久化板笼/区域对应关系' },
+    { title: '1. Create daily wave', description: currentWaveCode ?? 'Create or select a wave' },
+    { title: '2. Plan handling units', description: 'Persist unit-to-area mappings' },
 
-    { title: '3. 司机指派与排线', description: `已指派 ${assigned}/${all.length} 件` },
-    { title: '4. 预检与发布', description: waveStatus ?? '门禁校验与锁单' }
+    { title: '3. Assign drivers and routes', description: `${assigned}/${all.length} assigned` },
+    { title: '4. Preflight and publish', description: waveStatus ?? 'Gate checks and lock' }
   ];
 
  const [shiftSearch, setShiftSearch] = useState('');
@@ -271,21 +271,21 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
 
  const capacityTableColumns = [
    {
-     title: '工号/ID',
+     title: 'Driver ID',
      dataIndex: 'driver_id',
      key: 'driver_id',
      width: '15%',
      render: (id: number, r: Shift) => <Typography.Text type="secondary">{r.driver_code ?? id}</Typography.Text>
    },
    {
-     title: '司机姓名',
+     title: 'Driver name',
      dataIndex: 'driver_name',
      key: 'driver_name',
      width: '30%',
      render: (name: string) => <strong style={{ color: '#101828' }}>{name}</strong>
    },
    {
-     title: '出勤状态',
+     title: 'Availability',
      dataIndex: 'availability_status',
      key: 'availability_status',
      width: '30%',
@@ -307,7 +307,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
      )
    },
    {
-     title: '最大运力 (件)',
+     title: 'Parcel capacity',
      dataIndex: 'parcel_capacity',
      key: 'parcel_capacity',
      width: '25%',
@@ -363,21 +363,21 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
 
   const readinessTableColumns = [
     {
-      title: '工号/ID',
+      title: 'Driver ID',
       dataIndex: 'driver_id',
       key: 'driver_id',
       width: '15%',
       render: (id: number, r: Shift) => <Typography.Text type="secondary">{r.driver_code ?? id}</Typography.Text>
     },
     {
-      title: '司机姓名',
+      title: 'Driver name',
       dataIndex: 'driver_name',
       key: 'driver_name',
       width: '25%',
       render: (name: string) => <strong style={{ color: '#1d2939' }}>{name}</strong>
     },
     {
-      title: '出勤状态',
+      title: 'Availability',
       dataIndex: 'availability_status',
       key: 'availability_status',
       width: '20%',
@@ -399,7 +399,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
       )
     },
     {
-      title: '运力负载 / 饱和度',
+      title: 'Capacity load',
       key: 'utilization',
       width: '40%',
       render: (_: unknown, r: Shift) => {
@@ -416,10 +416,10 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
               <span style={{ fontWeight: 500 }}>
-                已分 {assignedCount} / 容量 {cap > 0 ? cap : '—'} 件
+                Assigned {assignedCount} / capacity {cap > 0 ? cap : '—'}
               </span>
               <span style={{ color: isOverloaded ? '#d92d20' : '#475467' }}>
-                {isOverloaded ? `超载 ${assignedCount - cap} 件` : `余 ${cap - assignedCount} 件`}
+                {isOverloaded ? `Over capacity by ${assignedCount - cap}` : `${cap - assignedCount} remaining`}
               </span>
             </div>
             <Progress 
@@ -452,18 +452,18 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
     {/* Page Header */}
     <div style={{ padding: '12px 16px', background: '#fafafa', border: '1px solid #e8e8e8', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <div style={{ fontSize: '16px', fontWeight: 'bold' }}>
-        🌊 3.1 派送计划 (波次初始排线 SOP)
+        🌊 3.1 Dispatch planning (wave SOP)
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <span style={{ fontSize: '13px', color: '#8c8c8c' }}>
-          当前站点出勤司机: <b style={{ color: '#1677ff' }}>{available.length} 名</b> | 已指派在途件: <b>{assigned} 件</b>
+          Available drivers: <b style={{ color: '#1677ff' }}>{available.length}</b> | Assigned parcels: <b>{assigned}</b>
         </span>
         <Button 
           size="small" 
           icon={<i className="fa-solid fa-sliders" style={{ marginRight: 4 }}></i>}
           onClick={() => setCapacityOpen(true)}
         >
-          司机出勤与容量管理
+          Driver availability and capacity
         </Button>
       </div>
     </div>
@@ -475,8 +475,8 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
         <div className={`step-node ${stage === 0 ? 'active' : stage > 0 ? 'completed' : ''}`} onClick={() => setStage(0)}>
           <div className="step-num">{stage > 0 ? '✓' : '1'}</div>
           <div className="step-info">
-            <span className="step-title">1. 新增每日波次</span>
-            <span className="step-sub">{currentWaveCode ?? '未创建波次'}</span>
+            <span className="step-title">1. Create daily wave</span>
+            <span className="step-sub">{currentWaveCode ?? 'No wave created'}</span>
 
 
           </div>
@@ -487,8 +487,8 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
         <div className={`step-node ${stage === 1 ? 'active' : stage > 1 ? 'completed' : ''}`} onClick={() => ensureWaveAndProceed(1)}>
           <div className="step-num">{stage > 1 ? '✓' : '2'}</div>
           <div className="step-info">
-            <span className="step-title">2. 干线板笼规划</span>
-            <span className="step-sub">运营已调配持久化对应关系</span>
+            <span className="step-title">2. Plan handling units</span>
+            <span className="step-sub">Persist unit-to-area mapping</span>
           </div>
         </div>
         <i className="fa-solid fa-chevron-right" style={{ color: '#ccc', fontSize: '11px' }}></i>
@@ -497,8 +497,8 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
         <div className={`step-node ${stage === 2 ? 'active' : stage > 2 ? 'completed' : ''}`} onClick={() => ensureWaveAndProceed(2)}>
           <div className="step-num">{stage > 2 ? '✓' : '3'}</div>
           <div className="step-info">
-            <span className="step-title">3. 司机指派与排线</span>
-            <span className="step-sub">区域指派 + 默认司机 + 套索</span>
+            <span className="step-title">3. Assign drivers and routes</span>
+            <span className="step-sub">Area assignment and route tools</span>
           </div>
         </div>
         <i className="fa-solid fa-chevron-right" style={{ color: '#ccc', fontSize: '11px' }}></i>
@@ -507,14 +507,14 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
         <div className={`step-node ${stage === 3 ? 'active' : ''}`} onClick={() => ensureWaveAndProceed(3)}>
           <div className="step-num">4</div>
           <div className="step-info">
-            <span className="step-title">4. 预检与发布</span>
-            <span className="step-sub">门禁校验与锁单</span>
+            <span className="step-title">4. Preflight and publish</span>
+            <span className="step-sub">Gate checks and lock</span>
           </div>
         </div>
       </div>
 
       <Button type="primary" onClick={() => ensureWaveAndProceed(Math.min(3, stage + 1))}>
-        下一步 <i className="fa-solid fa-arrow-right"></i>
+        Next <i className="fa-solid fa-arrow-right"></i>
       </Button>
 
     </div>
@@ -529,12 +529,12 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
       <div style={{ paddingBottom: '12px', marginBottom: '16px', borderBottom: '1px solid #e8e8e8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontWeight: 'bold', fontSize: '14px' }}>
           <i className="fa-solid fa-wand-magic-sparkles" style={{ color: '#1677ff', marginRight: 8 }}></i>
-          {stage === 0 && '步骤 1: 新增每日波次'}
-          {stage === 1 && '步骤 2: 干线板笼规划'}
-          {stage === 2 && '步骤 3: 司机指派与排线'}
-          {stage === 3 && '步骤 4: 预检与发布'}
+          {stage === 0 && 'Step 1: Create daily wave'}
+          {stage === 1 && 'Step 2: Plan handling units'}
+          {stage === 2 && 'Step 3: Assign drivers and routes'}
+          {stage === 3 && 'Step 4: Preflight and publish'}
         </span>
-        <span style={{ fontSize: '11px', background: '#e6f4ff', color: '#0958d9', padding: '2px 6px', borderRadius: '4px' }}>当前编辑</span>
+        <span style={{ fontSize: '11px', background: '#e6f4ff', color: '#0958d9', padding: '2px 6px', borderRadius: '4px' }}>Editing</span>
       </div>
 
 
@@ -543,25 +543,25 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
         <div style={{ maxWidth: '640px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', gap: '16px', padding: '12px 0' }}>
           <div className="op-card" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)', borderRadius: '8px' }}>
             <div className="card-header">
-              <span>波次基本信息</span>
-              <Tag color="green">自动生成</Tag>
+              <span>Wave information</span>
+              <Tag color="green">Auto-generated</Tag>
             </div>
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '6px', color: '#262626' }}>波次代码 (Wave Code)</label>
+              <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '6px', color: '#262626' }}>Wave code</label>
               <Input value={defaultWaveCode} readOnly style={{ background: '#f5f5f5', borderRadius: '6px' }} size="large" />
             </div>
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '6px', color: '#262626' }}>关联到仓干线车次 (Trip No，可选)</label>
+              <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '6px', color: '#262626' }}>Arrival trip (optional)</label>
               <Select
                 size="large"
                 style={{ width: '100%' }}
-                placeholder="可稍后在到货清单关联"
+                placeholder="Can be linked later from inbound arrivals"
                 value={tripId}
                 allowClear
                 onChange={(val) => { setTripSelectionTouched(true); setSelectedTripId(val); }}
                 options={(tripsQuery.data ?? []).map(t => ({
                   value: t.id,
-                  label: `🚚 车次: ${t.external_trip_no} (${t.vehicle_plate || '暂无车牌'}) [${t.unit_count ?? 0}个板笼]`
+                  label: `🚚 ${t.external_trip_no} (${t.vehicle_plate || 'no plate'}) [${t.unit_count ?? 0} units]`
                 }))}
               />
               {waveId && tripSelectionTouched && (
@@ -582,7 +582,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
                     setTripSelectionTouched(false);
                   }}
                 >
-                  保存干线车次关联
+                  Save trip link
                 </Button>
               )}
             </div>
@@ -596,26 +596,26 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
                 const nextSeq = (wavesList.data ?? []).length + 1;
                 const cleanDate = serviceDate.replace(/-/g, '');
                 const defaultCode = `${cleanDate}-WAVE-0${nextSeq}`;
-                const code = prompt("请输入新建派送波次编码 (同站唯一):", defaultCode);
+                const code = prompt("Enter a unique wave code for this station:", defaultCode);
                 if (code && code.trim()) {
                   const selectedTrip = tripsQuery.data?.find(t => t.id === selectedTripId);
                   createWave({ waveCode: code.trim(), arrivalBatchNo: selectedTrip?.external_trip_no });
                 }
               }}
             >
-              ➕ 新建波次
+              ➕ Create wave
             </Button>
           </div>
 
           <div className="op-card" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)', borderRadius: '8px' }}>
-            <div className="card-header" style={{ fontSize: '14px', fontWeight: 'bold' }}>今日包裹概览</div>
+            <div className="card-header" style={{ fontSize: '14px', fontWeight: 'bold' }}>Today’s parcel overview</div>
             <div style={{ fontSize: '13px', lineHeight: '2.0', color: '#434343' }}>
-              <div>• 待规划总件数: <b style={{ fontSize: '15px', color: '#1677ff' }}>{all.length} 件</b></div>
-              <div>• ⚡ 优先级加急/特快件: <b style={{ color: '#c41d7f', fontSize: '15px' }}>{all.filter(p=>p.priority_flag).length} 件</b></div>
-              <div>• 📮 常规标快件: <b style={{ color: '#262626' }}>{all.filter(p=>!p.priority_flag).length} 件</b></div>
+              <div>• Ready to plan: <b style={{ fontSize: '15px', color: '#1677ff' }}>{all.length}</b></div>
+              <div>• ⚡ Priority parcels: <b style={{ color: '#c41d7f', fontSize: '15px' }}>{all.filter(p=>p.priority_flag).length}</b></div>
+              <div>• 📮 Standard parcels: <b style={{ color: '#262626' }}>{all.filter(p=>!p.priority_flag).length}</b></div>
             </div>
             <Button className="btn-primary btn-block" style={{ marginTop: '16px', height: '42px', fontSize: '14px', fontWeight: 'bold' }} onClick={() => ensureWaveAndProceed(1)}>
-              启动波次并进入下一步 <i className="fa-solid fa-arrow-right"></i>
+              Start wave and continue <i className="fa-solid fa-arrow-right"></i>
             </Button>
 
           </div>
@@ -763,12 +763,12 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
             size="small" 
             style={{ borderRadius: '10px', background: 'linear-gradient(135deg, #e6f4ff 0%, #f0f5ff 100%)', borderColor: '#91caef', boxShadow: '0 2px 8px rgba(22,119,255,0.08)' }}
           >
-            <div style={{ fontWeight: 'bold', color: '#0958d9', fontSize: '14px', marginBottom: '4px' }}>
+              <div style={{ fontWeight: 'bold', color: '#0958d9', fontSize: '14px', marginBottom: '4px' }}>
               <i className="fa-solid fa-wand-magic-sparkles" style={{ marginRight: 6 }}></i>
-              一键按责任区域指派全站包裹
+              Auto-assign all parcels by driver area
             </div>
             <div style={{ fontSize: '12px', color: '#595959', marginBottom: '10px', lineHeight: '1.5' }}>
-              系统根据全站司机配置的责任区域偏好与负载容量，自动将对应的区域包裹一键配对指派给司机。
+              Match parcel areas to driver preferences and remaining capacity in one action.
             </div>
             <Button 
               type="primary"
@@ -791,26 +791,26 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
                 });
               }}
             >
-              ⚡ 立即执行全站一键责任区域指派
+              ⚡ Run default assignment
             </Button>
           </Card>
 
           {/* 主动作 2: 指定司机与区域的单项指派 */}
           <div className="op-card" style={{ borderRadius: '10px' }}>
             <div style={{ fontWeight: 'bold', color: '#1f1f1f', fontSize: '13px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span><i className="fa-solid fa-location-dot" style={{ color: '#1677ff', marginRight: 6 }}></i> 手动按区域指派</span>
+              <span><i className="fa-solid fa-location-dot" style={{ color: '#1677ff', marginRight: 6 }}></i> Assign by area</span>
               <Button 
                 type="link" 
                 size="small" 
                 style={{ padding: 0, fontSize: '12px' }}
                 onClick={() => setCapacityOpen(true)}
               >
-                ⚙️ 司机容量
+                ⚙️ Driver capacity
               </Button>
             </div>
 
             <div style={{ marginBottom: '10px' }}>
-              <label style={{ fontSize: '12px', color: '#595959', fontWeight: 600, display: 'block', marginBottom: '4px' }}>1. 选择目标司机</label>
+              <label style={{ fontSize: '12px', color: '#595959', fontWeight: 600, display: 'block', marginBottom: '4px' }}>1. Select driver</label>
               <Select 
                 value={driver} 
                 onChange={(val) => {
@@ -820,13 +820,13 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
                 }} 
                 style={{ width: '100%' }} 
                 allowClear
-                placeholder="选择目标司机" 
+                placeholder="Select driver"
                 options={available.map(s => ({ value: s.driver_id, label: `${s.driver_name} (已分: ${s.assigned_count}/${s.parcel_capacity ?? 200} 件)` }))}
               />
             </div>
 
             <div style={{ marginBottom: '12px' }}>
-              <label style={{ fontSize: '12px', color: '#595959', fontWeight: 600, display: 'block', marginBottom: '4px' }}>2. 选择分配区域</label>
+              <label style={{ fontSize: '12px', color: '#595959', fontWeight: 600, display: 'block', marginBottom: '4px' }}>2. Select area</label>
               <Select 
                 value={areaVersion} 
                 onChange={(val) => {
@@ -835,7 +835,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
                 }} 
                 style={{ width: '100%' }} 
                 allowClear
-                placeholder="选择分配区域" 
+                placeholder="Select area"
                 options={areas}
               />
             </div>
@@ -855,7 +855,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
                   }
                 }}
               >
-                🎯 指派所选区域包裹
+                🎯 Assign area parcels
               </Button>
 
               <Button
@@ -873,13 +873,13 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
                   }
                 }}
               >
-                🧭 OSRM 智能计算当前司机派送路线
+                🧭 Calculate driver route
               </Button>
             </div>
           </div>
 
           <Button className="btn-primary btn-block" style={{ marginTop: '12px' }} onClick={() => setStage(3)}>
-            指派完成，进入预检发布 <i className="fa-solid fa-arrow-right"></i>
+            Assignment complete, continue to preflight <i className="fa-solid fa-arrow-right"></i>
           </Button>
         </div>
       )}
@@ -889,14 +889,14 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div className="op-card">
             <div className="card-header">
-              <span>波次门禁检查 (Gateways)</span>
+              <span>Wave gate checks</span>
               <i className="fa-solid fa-shield-halved" style={{ color: '#52c41a' }}></i>
             </div>
             <div style={{ fontSize: '13px', lineHeight: '2' }}>
-              <div><i className="fa-solid fa-circle-check" style={{ color: '#52c41a' }}></i> {all.length} 个包裹全量路由匹配成功</div>
-              <div><i className="fa-solid fa-circle-check" style={{ color: '#52c41a' }}></i> 无超载司机</div>
-              <div><i className="fa-solid fa-circle-check" style={{ color: '#52c41a' }}></i> {all.filter(p=>p.priority_flag).length} 件⚡特快件全部已指派</div>
-              <div><i className="fa-solid fa-circle-check" style={{ color: '#52c41a' }}></i> 司机 Shift 在岗状态正常</div>
+              <div><i className="fa-solid fa-circle-check" style={{ color: '#52c41a' }}></i> {all.length} parcels have a route</div>
+              <div><i className="fa-solid fa-circle-check" style={{ color: '#52c41a' }}></i> No driver is over capacity</div>
+              <div><i className="fa-solid fa-circle-check" style={{ color: '#52c41a' }}></i> {all.filter(p=>p.priority_flag).length} ⚡ priority parcels assigned</div>
+              <div><i className="fa-solid fa-circle-check" style={{ color: '#52c41a' }}></i> Driver shifts are available</div>
             </div>
           </div>
 
@@ -914,7 +914,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
               }
             }}
           >
-            <i className="fa-solid fa-rocket"></i> {waveStatus === 'PUBLISHED' ? '波次已发布' : '确认正式发布波次 (Publish)'}
+            <i className="fa-solid fa-rocket"></i> {waveStatus === 'PUBLISHED' ? 'Wave published' : 'Publish wave'}
           </Button>
         </div>
       )}
@@ -927,11 +927,11 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
         <div className="mobile-dispatch-controls">
           <Button className="mobile-driver-button" type="primary" onClick={() => setDriverDrawerOpen(true)}>
             <i className="fa-solid fa-user" style={{ marginRight: 6 }}></i>
-            {driver ? `司机：${available.find(s => s.driver_id === driver)?.driver_name ?? driver}` : '选择司机'}
+            {driver ? `Driver: ${available.find(s => s.driver_id === driver)?.driver_name ?? driver}` : 'Select driver'}
             <i className="fa-solid fa-chevron-down" style={{ marginLeft: 8, fontSize: 11 }}></i>
           </Button>
           <Tag color={currentArea ? 'blue' : 'default'}>
-            {currentArea ? `区域 ${areas.find(a => a.value === currentArea)?.label ?? currentArea}` : '全站包裹'}
+            {currentArea ? `Area ${areas.find(a => a.value === currentArea)?.label ?? currentArea}` : 'All station parcels'}
           </Tag>
         </div>
 
@@ -943,8 +943,8 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
             onClick={() => setListOpen(!listOpen)}
             style={{ boxShadow: '0 2px 6px rgba(0,0,0,0.15)' }}
           >
-            {listOpen ? '收起包裹明细' : `展开包裹明细 (${filteredVisibleParcels.length} 件)`}
-            {selected.size > 0 && <Tag color="purple" style={{ marginLeft: 6 }}>已选 {selected.size}</Tag>}
+            {listOpen ? 'Hide parcel details' : `Show parcel details (${filteredVisibleParcels.length})`}
+            {selected.size > 0 && <Tag color="purple" style={{ marginLeft: 6 }}>{selected.size} selected</Tag>}
           </Button>
         </div>
 
@@ -985,7 +985,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid #f0f0f0' }}>
               <span style={{ fontWeight: 'bold', fontSize: '14px' }}>
                 <i className="fa-solid fa-boxes-packing" style={{ color: '#1677ff', marginRight: 6 }}></i>
-                包裹动态明细 ({filteredVisibleParcels.length} 件)
+                Parcel details ({filteredVisibleParcels.length})
               </span>
               <Button size="small" type="text" onClick={() => setListOpen(false)}>
                 <i className="fa-solid fa-xmark"></i>
@@ -996,10 +996,10 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
             {selected.size > 0 && (
               <div style={{ padding: '8px', background: '#f9f0ff', border: '1px solid #d3ade8', borderRadius: '6px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '12px', color: '#531dab', fontWeight: 'bold' }}>
-                  已勾选 {selected.size} 件包裹
+                  {selected.size} parcels selected
                 </span>
                 <Space>
-                  <Button size="small" onClick={() => setSelected(new Set())}>取消选择</Button>
+                  <Button size="small" onClick={() => setSelected(new Set())}>Clear selection</Button>
                   <Button 
                     size="small" 
                     type="primary" 
@@ -1019,7 +1019,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
                       }
                     }}
                   >
-                    转移给当前目标司机
+                    Transfer to selected driver
                   </Button>
                 </Space>
               </div>
@@ -1047,14 +1047,14 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
                     render: (text: string, r) => (
                       <div>
                         <div style={{ fontWeight: 'bold', fontSize: '12px', color: '#1677ff' }}>{text}</div>
-                        <div style={{ fontSize: '11px', color: '#8c8c8c' }}>{r.area_code ?? '未划区'}</div>
+                    <div style={{ fontSize: '11px', color: '#8c8c8c' }}>{r.area_code ?? 'Unmapped'}</div>
                       </div>
                     )
                   },
                   {
                     title: '指派司机',
                     dataIndex: 'driver_name',
-                    render: (name: string) => name ? <Tag color="blue">{name}</Tag> : <Tag color="default">未指派</Tag>
+                    render: (name: string) => name ? <Tag color="blue">{name}</Tag> : <Tag color="default">Unassigned</Tag>
                   },
                   {
                     title: '状态',
@@ -1074,9 +1074,9 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
   </div>
 
 
-  {stage >= 2 && <MobileActionBar label="打开派送包裹列表" count={filteredVisibleParcels.length} onClick={() => setListOpen(true)} />}
+  {stage >= 2 && <MobileActionBar label="Open dispatch parcel list" count={filteredVisibleParcels.length} onClick={() => setListOpen(true)} />}
   <Drawer
-    title="选择派送司机"
+    title="Select dispatch driver"
     placement="bottom"
     height="72vh"
     open={driverDrawerOpen}
@@ -1089,11 +1089,11 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
       style={{ marginBottom: 8, textAlign: 'left' }}
       onClick={() => { setDriver(undefined); setAreaVersion(undefined); setCurrentArea(undefined); setDriverDrawerOpen(false); }}
     >
-      全站包裹（不筛选司机）
+      All station parcels (clear driver filter)
     </Button>
     <List
       dataSource={available}
-      locale={{ emptyText: '暂无可用司机' }}
+      locale={{ emptyText: 'No available drivers' }}
       renderItem={(shift) => (
         <List.Item
           className={driver === shift.driver_id ? 'mobile-driver-option active' : 'mobile-driver-option'}
@@ -1102,9 +1102,9 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
           <List.Item.Meta
             avatar={<i className="fa-solid fa-id-badge" style={{ color: driver === shift.driver_id ? '#1677ff' : '#8c8c8c', fontSize: 20 }}></i>}
             title={shift.driver_name}
-            description={`${shift.driver_code} · 已分 ${shift.assigned_count}/${shift.parcel_capacity ?? 200} 件`}
+            description={`${shift.driver_code} · ${shift.assigned_count}/${shift.parcel_capacity ?? 200} assigned`}
           />
-          {driver === shift.driver_id && <Tag color="blue">当前</Tag>}
+          {driver === shift.driver_id && <Tag color="blue">Current</Tag>}
         </List.Item>
       )}
     />

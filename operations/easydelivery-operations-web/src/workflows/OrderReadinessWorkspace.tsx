@@ -31,7 +31,7 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
   const waveOptions = useMemo(() => {
     const rawList = waves.data ?? [];
     return [
-      { value: 'ALL', label: t('orders.allWavesOption', { defaultValue: '🌐 全站点所有包裹 (不限波次)' }) },
+      { value: 'ALL', label: t('orders.allWavesOption', { defaultValue: '🌐 All station parcels (all waves)' }) },
       ...rawList.map(w => {
         const statusText = w.wave_status ?? w.status ?? 'DRAFT';
         return {
@@ -147,7 +147,7 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
                   />
                 
                 {/* Geographic Zoning selection - Operational Naming */}
-                <span style={{ color: '#667085', marginLeft: '12px' }}>{t('orders.geographicZoning', {defaultValue: '配送区域'} )}:</span>
+                <span style={{ color: '#667085', marginLeft: '12px' }}>{t('orders.geographicZoning', {defaultValue: 'Delivery area'} )}:</span>
                 <Select
                   value={selectedZoneCode}
                   onChange={val => setSelectedZoneCode(val)}
@@ -155,7 +155,7 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
                   allowClear
                   placeholder={t('orders.allZones', { defaultValue: '全部区域' })}
                   options={[
-                    { value: undefined, label: '🌐 全部区域' },
+                    { value: undefined, label: '🌐 All areas' },
                     ...(areas.data ?? []).map(a => ({ value: a.area_code, label: `${a.area_code} - ${a.area_name}` }))
                   ]}
                 />
@@ -274,7 +274,7 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
                   size="small" 
                   icon={<i className="fa-solid fa-angles-right" style={{ color: '#8c8c8c' }} />} 
                   onClick={() => setSidebarOpen(false)}
-                  title="收缩到右侧"
+                  title="Collapse worklist"
                 />
              </Space>
            </div>
@@ -351,7 +351,7 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
      </div>
 
      {/* Resolve Exception Drawer */}
-     <MobileActionBar label="打开订单工作列表" count={visible.length} onClick={() => setSidebarOpen(true)} />
+     <MobileActionBar label="Open order worklist" count={visible.length} onClick={() => setSidebarOpen(true)} />
      <Drawer width={520} open={!!focus} onClose={() => setFocus(undefined)} title={`${t('orders.detail')} · ${focus?.tracking_no}`}>
        {focus ? (
          <Space direction="vertical" style={{ width: '100%' }} size="middle">

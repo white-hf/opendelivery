@@ -65,12 +65,12 @@ export function ManifestWorkspace({ session, station }: { session: Session; stat
             {error && <Alert type="error" message={error.message} />}
 
             {/* Prototype View 2 Summary Hero */}
-            <Card title="📦 到仓与收货管理 (预报 Manifest vs. PDA 实收比对)">
+            <Card title="📦 Inbound receiving (upstream manifest vs. physical scan)">
                 <Alert
                     showIcon
                     type="warning"
-                    message="隐蔽少货 / 错站件 / 破损件核销规则"
-                    description="当干线车门封条解封后，实收件数与 Manifest 预报存在偏差时，系统自动生成拦截 Case 并发起到货复核。"
+                    message="Inbound discrepancy and exception rules"
+                    description="When physical receipt differs from the upstream manifest, the system creates a case for review."
                     style={{ marginBottom: 16 }}
                 />
 
@@ -90,32 +90,32 @@ export function ManifestWorkspace({ session, station }: { session: Session; stat
             </Card>
 
             {/* ⚠️ 上游清单差异与追查工单明细 (原型界面 2 核心差异表) */}
-            <Card title="⚠️ 上游清单差异与追查工单明细 (Inbound Discrepancy & Trace Cases)">
+            <Card title="⚠️ Inbound discrepancies and trace cases">
                 <Table<InboundDiscrepancyItem>
                     rowKey="id"
                     dataSource={discrepancyData}
                     pagination={false}
                     columns={[
-                        { title: '运单号 (Tracking No)', dataIndex: 'tracking_no', render: (v) => <strong>{v}</strong> },
-                        { title: '上游 Manifest 批次号', dataIndex: 'manifest_no' },
+                        { title: 'Tracking number', dataIndex: 'tracking_no', render: (v) => <strong>{v}</strong> },
+                        { title: 'Upstream manifest', dataIndex: 'manifest_no' },
                         {
                             title: '实收物理状态',
                             dataIndex: 'physical_status',
                             render: (v) => {
-                                if (v === 'NOT_FOUND') return <Tag color="volcano">未扫码(未到)</Tag>;
-                                if (v === 'MIS_ROUTED') return <Tag color="purple">错站件</Tag>;
-                                if (v === 'DAMAGED') return <Tag color="red">破损件</Tag>;
-                                return <Tag color="orange">多货件</Tag>;
+                                if (v === 'NOT_FOUND') return <Tag color="volcano">Not scanned</Tag>;
+                                if (v === 'MIS_ROUTED') return <Tag color="purple">Wrong station</Tag>;
+                                if (v === 'DAMAGED') return <Tag color="red">Damaged</Tag>;
+                                return <Tag color="orange">Unexpected parcel</Tag>;
                             },
                         },
                         {
-                            title: '判定异常类型',
+                            title: 'Exception type',
                             dataIndex: 'discrepancy_type',
                             render: (v) => {
-                                if (v === 'HIDDEN_MISSING') return <Tag color="red">隐蔽少货 (干线遗失)</Tag>;
-                                if (v === 'WRONG_STATION') return <Tag color="purple">发错分拨站</Tag>;
-                                if (v === 'PHYSICAL_DAMAGED') return <Tag color="orange">外包装破损</Tag>;
-                                return <Tag color="blue">无预报多货</Tag>;
+                                if (v === 'HIDDEN_MISSING') return <Tag color="red">Linehaul missing</Tag>;
+                                if (v === 'WRONG_STATION') return <Tag color="purple">Wrong station</Tag>;
+                                if (v === 'PHYSICAL_DAMAGED') return <Tag color="orange">Packaging damaged</Tag>;
+                                return <Tag color="blue">Unforecast parcel</Tag>;
                             },
                         },
                         { title: '追查工单号 (Case)', dataIndex: 'action_case_no', render: (v) => <Typography.Text copyable>{v}</Typography.Text> },
@@ -193,4 +193,3 @@ export function ManifestWorkspace({ session, station }: { session: Session; stat
         </Space>
     );
 }
-

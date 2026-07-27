@@ -212,7 +212,7 @@ function Workspace() {
                         style={{ width: 220 }}
                     />
 
-                    <DatePicker value={dayjs(serviceDate)} onChange={(_, dateString) => setServiceDate(typeof dateString === 'string' ? dateString : serviceDate)} />
+                    <DatePicker aria-label={t('date.serviceDate')} value={dayjs(serviceDate)} onChange={(_, dateString) => setServiceDate(typeof dateString === 'string' ? dateString : serviceDate)} />
                 </Space>
 
                 {/* 全局快捷搜索框 */}
@@ -240,7 +240,7 @@ function Workspace() {
                 <Page page={page} station={stationId} serviceDate={serviceDate} filter={filter} onNavigate={navigate} />
             </Content>
 
-            {/* 运单与包裹详情 Drawer */}
+            {/* Shipment and parcel detail drawer */}
             <ShipmentDetailDrawer
                 trackingNo={searchTrackingNo}
                 station={stationId}
@@ -249,7 +249,7 @@ function Workspace() {
             />
         </Layout>
         <Drawer
-            title="运营导航"
+            title={t('nav.mobileTitle')}
             placement="left"
             width={280}
             open={mobileNavOpen}

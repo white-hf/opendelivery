@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Table, Tag, Button, Modal, Form, Input, Select, Card, Badge, App } from 'antd';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Session } from '../api/client';
+import { useTranslation } from 'react-i18next';
 
 const PROVINCE_CITIES_MAP: Record<string, Array<{ value: string; label: string }>> = {
   NS: [
@@ -54,6 +55,9 @@ const DEFAULT_CITIES = [
 export function SystemConfigWorkspace({ session, station, mode }: { session: Session; station: number | string; mode: 'drivers' | 'stations' }) {
 
   const { message } = App.useApp();
+  const { i18n } = useTranslation();
+  const english = i18n.language === 'en-CA';
+  const label = (en: string, zh: string) => english ? en : zh;
   const queryClient = useQueryClient();
   const [driverModalOpen, setDriverModalOpen] = useState(false);
   const [areaModalOpen, setAreaModalOpen] = useState(false);
@@ -99,12 +103,12 @@ export function SystemConfigWorkspace({ session, station, mode }: { session: Ses
         method: 'POST',
         body: JSON.stringify(values),
       }, station);
-      message.success('末端站点新增成功');
+      message.success(english ? 'Station created successfully' : '末端站点新增成功');
       setStationModalOpen(false);
       stationForm.resetFields();
       void queryClient.invalidateQueries({ queryKey: ['stations'] });
     } catch (e: any) {
-      message.error(e.message || '新建末端站点失败');
+      message.error(e.message || (english ? 'Failed to create station' : '新建末端站点失败'));
     }
   };
 
@@ -114,12 +118,12 @@ export function SystemConfigWorkspace({ session, station, mode }: { session: Ses
         method: 'POST',
         body: JSON.stringify(values),
       }, station);
-      message.success('司机新增成功');
+      message.success(english ? 'Driver created successfully' : '司机新增成功');
       setDriverModalOpen(false);
       form.resetFields();
       void queryClient.invalidateQueries({ queryKey: ['system-drivers', station] });
     } catch (e: any) {
-      message.error(e.message || '新建司机失败');
+      message.error(e.message || (english ? 'Failed to create driver' : '新建司机失败'));
     }
   };
 
@@ -130,10 +134,10 @@ export function SystemConfigWorkspace({ session, station, mode }: { session: Ses
         method: 'PUT',
         body: JSON.stringify({ status: nextStatus }),
       }, station);
-      message.success('司机状态已更新');
+      message.success(english ? 'Driver status updated' : '司机状态已更新');
       void queryClient.invalidateQueries({ queryKey: ['system-drivers', station] });
     } catch (e: any) {
-      message.error(e.message || '更新司机状态失败');
+      message.error(e.message || (english ? 'Failed to update driver status' : '更新司机状态失败'));
     }
   };
 
@@ -143,12 +147,12 @@ export function SystemConfigWorkspace({ session, station, mode }: { session: Ses
         method: 'POST',
         body: JSON.stringify(values),
       }, station);
-      message.success('服务范围扩展成功');
+      message.success(english ? 'Service area created successfully' : '服务范围扩展成功');
       setAreaModalOpen(false);
       areaForm.resetFields();
       void queryClient.invalidateQueries({ queryKey: ['station-service-areas', station] });
     } catch (e: any) {
-      message.error(e.message || '新建服务范围失败');
+      message.error(e.message || (english ? 'Failed to create service area' : '新建服务范围失败'));
     }
   };
 
@@ -202,26 +206,26 @@ export function SystemConfigWorkspace({ session, station, mode }: { session: Ses
 
   return (
     <div style={{ padding: '16px' }}>
-      <Card title={mode === 'drivers' ? '👨‍✈️ 司机配置' : '🏢 站点配置与服务覆盖'}>
+      <Card title={mode === 'drivers' ? (english ? '👨‍✈️ Driver configuration' : '👨‍✈️ 司机配置') : (english ? '🏢 Station configuration and coverage' : '🏢 站点配置与服务覆盖')}>
         {mode === 'stations' ? (
           <div>
                   <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-                    <span>全网末端配送站点及其包揽的路由服务范围</span>
-                    <Button type="primary" onClick={() => setStationModalOpen(true)}>+ 新增末端站点</Button>
+                    <span>{english ? 'Delivery stations and their routing coverage' : '全网末端配送站点及其服务范围'}</span>
+                    <Button type="primary" onClick={() => setStationModalOpen(true)}>{english ? '+ Add station' : '+ 新增末端站点'}</Button>
                   </div>
                   <Table
                     loading={stationsQuery.isLoading}
                     dataSource={stationsQuery.data ?? []}
                     columns={[
-                      { title: '站点代码', dataIndex: 'station_code', key: 'station_code', width: 110 },
-                      { title: '站点全称', dataIndex: 'station_name', key: 'station_name' },
-                      { title: '城市', dataIndex: 'city', key: 'city' },
-                      { title: '省/州', dataIndex: 'province_code', key: 'province_code', width: 80 },
-                      { title: '国家', dataIndex: 'country_code', key: 'country_code', width: 80 },
-                      { title: '时区', dataIndex: 'timezone', key: 'timezone' },
-                      { title: '状态', dataIndex: 'status', key: 'status', width: 90, render: (s: string) => <Tag color={s === 'ACTIVE' ? 'green' : 'red'}>{s}</Tag> },
+                      { title: label('Station code', '站点代码'), dataIndex: 'station_code', key: 'station_code', width: 110 },
+                      { title: label('Station name', '站点全称'), dataIndex: 'station_name', key: 'station_name' },
+                      { title: label('City', '城市'), dataIndex: 'city', key: 'city' },
+                      { title: label('Province/state', '省/州'), dataIndex: 'province_code', key: 'province_code', width: 80 },
+                      { title: label('Country', '国家'), dataIndex: 'country_code', key: 'country_code', width: 80 },
+                      { title: label('Timezone', '时区'), dataIndex: 'timezone', key: 'timezone' },
+                      { title: label('Status', '状态'), dataIndex: 'status', key: 'status', width: 90, render: (s: string) => <Tag color={s === 'ACTIVE' ? 'green' : 'red'}>{s}</Tag> },
                       {
-                        title: '服务覆盖管理',
+                        title: label('Coverage management', '服务覆盖管理'),
                         key: 'area_action',
                         render: (_: any, record: any) => (
                           <Button

@@ -55,10 +55,10 @@ export function ShipmentDetailDrawer({
                     postalCode: values.postal_code,
                 }),
             }, station);
-            message.success('运单地址与收件人修改成功');
+            message.success('Shipment address and recipient updated successfully');
             setEditing(false);
         } catch (e: any) {
-            message.error(e.message || '运单地址修改失败');
+            message.error(e.message || 'Failed to update shipment address');
         } finally {
             setLoading(false);
         }
@@ -69,7 +69,7 @@ export function ShipmentDetailDrawer({
             title={
                 <Space>
                     <i className="fa-solid fa-box-archive" style={{ color: '#1677ff' }}></i>
-                    <span>📦 运单全链路明细与修改 (Shipment Detail)</span>
+                    <span>📦 Shipment detail and edit</span>
                 </Space>
             }
             width={520}
@@ -80,17 +80,17 @@ export function ShipmentDetailDrawer({
             {loading && !data ? (
                 <Spin style={{ display: 'block', margin: '40px auto' }} />
             ) : notFound ? (
-                <Alert type="warning" showIcon message="未找到该运单" description="请确认 tracking number 正确，且包裹属于当前站点。" />
+                <Alert type="warning" showIcon message="Shipment not found" description="Confirm the tracking number and station." />
             ) : data ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <Alert
                         type="info"
                         showIcon
-                        message={<b style={{ fontSize: '15px' }}>单号 / 追踪号: {data.tracking_no}</b>}
+                        message={<b style={{ fontSize: '15px' }}>Tracking number: {data.tracking_no}</b>}
                         description={
                             <div style={{ marginTop: '6px', fontSize: '12.5px' }}>
-                                <div>当前 Custody 托管归属: <Tag color="blue">{data.custody ?? 'STATION_WAREHOUSE'}</Tag></div>
-                                <div>履约状态: <Tag color="green">{data.status ?? 'RECEIVED'}</Tag></div>
+                                <div>Custody: <Tag color="blue">{data.custody ?? 'STATION_WAREHOUSE'}</Tag></div>
+                                <div>Fulfilment status: <Tag color="green">{data.status ?? 'RECEIVED'}</Tag></div>
                             </div>
                         }
                     />
@@ -98,10 +98,10 @@ export function ShipmentDetailDrawer({
                     <Card
                         title={
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span><i className="fa-solid fa-user-gear"></i> 收件人与派送地址属性</span>
+                                <span><i className="fa-solid fa-user-gear"></i> Recipient and delivery address</span>
                                 {!editing && (
                                     <Button size="small" type="primary" ghost onClick={() => setEditing(true)}>
-                                        <i className="fa-solid fa-pen" style={{ marginRight: 4 }}></i> 编辑修改
+                                        <i className="fa-solid fa-pen" style={{ marginRight: 4 }}></i> Edit
                                     </Button>
                                 )}
                             </div>
@@ -109,40 +109,40 @@ export function ShipmentDetailDrawer({
                         size="small"
                     >
                         <Form form={form} layout="vertical" onFinish={handleSave} disabled={!editing}>
-                            <Form.Item name="recipient_name" label="收件人姓名" rules={[{ required: true }]}>
-                                <Input placeholder="收件人姓名" />
+                            <Form.Item name="recipient_name" label="Recipient name" rules={[{ required: true }]}>
+                                <Input placeholder="Recipient name" />
                             </Form.Item>
-                            <Form.Item name="recipient_phone" label="联系电话" rules={[{ required: true }]}>
-                                <Input placeholder="联系电话" />
+                            <Form.Item name="recipient_phone" label="Phone" rules={[{ required: true }]}>
+                                <Input placeholder="Phone" />
                             </Form.Item>
-                            <Form.Item name="address_line1" label="派送地址 (Address Line 1)" rules={[{ required: true }]}>
-                                <Input placeholder="派送详细地址" />
+                            <Form.Item name="address_line1" label="Delivery address" rules={[{ required: true }]}>
+                                <Input placeholder="Delivery address" />
                             </Form.Item>
-                            <Form.Item name="postal_code" label="邮编 (Postal Code)" rules={[{ required: true }]}>
-                                <Input placeholder="邮编" />
+                            <Form.Item name="postal_code" label="Postal code" rules={[{ required: true }]}>
+                                <Input placeholder="Postal code" />
                             </Form.Item>
 
                             {editing && (
                                 <Space style={{ marginTop: 8, width: '100%', justifyContent: 'flex-end' }}>
-                                    <Button onClick={() => setEditing(false)}>取消</Button>
+                                    <Button onClick={() => setEditing(false)}>Cancel</Button>
                                     <Button type="primary" htmlType="submit" loading={loading}>
-                                        保存修改并自动 Geocode 重新校验
+                                        Save and re-geocode
                                     </Button>
                                 </Space>
                             )}
                         </Form>
                     </Card>
 
-                    <Card title={<span><i className="fa-solid fa-timeline"></i> 全链路操作履约时间线</span>} size="small">
+                    <Card title={<span><i className="fa-solid fa-timeline"></i> Shipment activity timeline</span>} size="small">
                         <Timeline
                             items={(data.timeline ?? [
-                                { time: '2026-07-24 08:30:00', title: '到仓扫码入库 (Received at Station)', user: 'warehouse.yhz' },
-                                { time: '2026-07-24 06:15:00', title: '干线班车到达 (Linehaul Arrival)', user: 'system' }
+                                { time: '2026-07-24 08:30:00', title: 'Received at station', user: 'warehouse.yhz' },
+                                { time: '2026-07-24 06:15:00', title: 'Linehaul arrival', user: 'system' }
                             ]).map((item: any) => ({
                                 children: (
                                     <div>
                                         <div style={{ fontWeight: 'bold' }}>{item.title}</div>
-                                        <div style={{ fontSize: '11px', color: '#8c8c8c' }}>{item.time} · 操作人: {item.user}</div>
+                                        <div style={{ fontSize: '11px', color: '#8c8c8c' }}>{item.time} · Operator: {item.user}</div>
                                     </div>
                                 )
                             }))}
