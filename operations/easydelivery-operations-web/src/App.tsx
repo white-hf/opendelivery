@@ -130,8 +130,8 @@ function Workspace() {
         label: (
             <span className="menu-label">
                 <i className={PAGE_ICONS[key] ?? 'fa-solid fa-circle'} style={{ fontSize: '13px', width: '18px', opacity: 0.85 }}></i>
-                {(displayIndex != null || index != null) && <span>{displayIndex ?? (index! + 1)}</span>}{' '}
-                <em>{t(`nav.${key}`)}{!available.has(key) ? ` · ${t('common.planned')}` : ''}</em>
+                {(displayIndex != null || index != null) ? `${displayIndex ?? (index! + 1)} ${t(`nav.${key}`)}` : t(`nav.${key}`)}
+                {!available.has(key) ? ` · ${t('common.planned')}` : ''}
                 {blocker(key) > 0 && available.has(key) && <Badge count={blocker(key)} overflowCount={99} />}
             </span>
         )
