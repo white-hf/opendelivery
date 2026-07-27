@@ -81,9 +81,15 @@ public class PhysicalArrivalService {
                 "units",units,
                 "parcels",jdbc.queryForList("""
                         SELECT hp.handling_unit_id unit_id,p.id parcel_id,p.tracking_no,p.status parcel_status,hp.link_source,
-                               dti.item_status,dt.id task_id,dt.task_code,dr.id driver_id,dr.driver_name
+                               dti.item_status,dt.id task_id,dt.task_code,dr.id driver_id,dr.driver_name,
+                               ST_Longitude(g.delivery_point) longitude, ST_Latitude(g.delivery_point) latitude,
+                               a.area_code, a.id area_id
                         FROM handling_unit_parcel hp
                         JOIN parcel p ON p.id=hp.parcel_id
+                        JOIN waybill w ON w.id=p.waybill_id
+                        LEFT JOIN waybill_geocode g ON g.waybill_id=w.id
+                        LEFT JOIN parcel_area_assignment paa ON paa.parcel_id=p.id AND paa.ended_at IS NULL
+                        LEFT JOIN delivery_area a ON a.id=COALESCE(p.current_area_id, paa.delivery_area_id)
                         JOIN handling_unit hu ON hu.id=hp.handling_unit_id
                         LEFT JOIN driver_task_item dti ON dti.parcel_id=p.id AND dti.item_status='ASSIGNED'
                         LEFT JOIN driver_task dt ON dt.id=dti.task_id

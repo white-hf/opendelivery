@@ -51,20 +51,15 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
   // Convert unitParcels to PlanningParcel for Google Map rendering
   const mapParcels = useMemo<PlanningParcel[]>(() => {
     const rawList = selectedUnit ? unitParcels : (detail.data?.parcels ?? []);
-    return rawList.map(p => {
-      // Offset coordinates cleanly using unit_id so each cage/unit occupies a distinct spatial cluster
-      const uOffset = (p.unit_id || 1) * 0.015;
-      const pOffset = (p.parcel_id % 20) * 0.0006;
-      return {
-        parcel_id: p.parcel_id,
-        tracking_no: p.tracking_no,
-        status: p.parcel_status,
-        longitude: p.longitude ?? (-63.5852 + uOffset + pOffset),
-        latitude: p.latitude ?? (44.6388 + uOffset + pOffset),
-        driver_name: p.driver_name,
-        area_code: p.area_code
-      };
-    });
+    return rawList.map(p => ({
+      parcel_id: p.parcel_id,
+      tracking_no: p.tracking_no,
+      status: p.parcel_status,
+      longitude: p.longitude!,
+      latitude: p.latitude!,
+      driver_name: p.driver_name,
+      area_code: p.area_code
+    }));
   }, [unitParcels, detail.data?.parcels, selectedUnit]);
 
   const countsMatch = detail.data ? aggregateEqualsDetail(detail.data.units, detail.data.parcels) : true;
