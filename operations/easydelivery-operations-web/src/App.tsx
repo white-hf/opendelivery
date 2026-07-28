@@ -250,7 +250,7 @@ function Workspace() {
                 </div>
 
                 <Space size="middle" className="top-actions">
-                    <Select value={i18n.language as SupportedLocale} onChange={(value: SupportedLocale) => void changeLocale(value)}
+                    <Select className="top-locale" value={i18n.language as SupportedLocale} onChange={(value: SupportedLocale) => void changeLocale(value)}
                         options={SUPPORTED_LOCALES.map((value) => ({ value, label: value }))} />
                     <span style={{ fontWeight: 600 }}><i className="fa-solid fa-user-circle" style={{ marginRight: 6, color: '#1677ff' }}></i>{session?.user.username}</span>
                     <Button type="text" danger onClick={() => void logout()}><i className="fa-solid fa-right-from-bracket" style={{ marginRight: 4 }}></i>{t('auth.signOut')}</Button>
@@ -276,6 +276,16 @@ function Workspace() {
             onClose={() => setMobileNavOpen(false)}
             className="mobile-nav-drawer"
         >
+            <div className="mobile-locale-setting">
+                <Typography.Text type="secondary">{t('locale.label')}</Typography.Text>
+                <Select
+                    aria-label={t('locale.label')}
+                    value={i18n.language as SupportedLocale}
+                    onChange={(value: SupportedLocale) => void changeLocale(value)}
+                    options={SUPPORTED_LOCALES.map((value) => ({ value, label: value }))}
+                    style={{ width: '100%' }}
+                />
+            </div>
             <Menu
                 mode="inline"
                 selectedKeys={[page]}
