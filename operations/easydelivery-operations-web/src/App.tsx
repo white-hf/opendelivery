@@ -26,6 +26,11 @@ const CaseCenterWorkspace = lazy(() => import('./workflows/CaseCenterWorkspace')
 
 const { Header, Sider, Content } = Layout;
 
+const DEV_EXPERIENCE_DATE = '2026-07-13';
+const DEV_EXPERIENCE_CREDENTIALS = import.meta.env.DEV
+    ? { username: 'opsadmin', password: 'password123' }
+    : { username: '', password: '' };
+
 export function App() {
     const auth = useAuth();
     return (
@@ -49,7 +54,7 @@ function Login() {
             <Select aria-label={t('locale.label')} value={i18n.language as SupportedLocale} style={{ width: '100%', marginBottom: 16 }}
                 onChange={(value: SupportedLocale) => void changeLocale(value)}
                 options={SUPPORTED_LOCALES.map((value) => ({ value, label: value }))} />
-            <Form onFinish={async (values) => {
+            <Form initialValues={DEV_EXPERIENCE_CREDENTIALS} onFinish={async (values) => {
                 try {
                     setError('');
                     await auth.login(values.username, values.password);
@@ -98,7 +103,7 @@ function Workspace() {
     const initialDate = initial.get('date');
     const safeInitialDate = initialDate && /^\d{4}-\d{2}-\d{2}$/.test(initialDate) && dayjs(initialDate).isValid()
         ? initialDate
-        : dayjs().format('YYYY-MM-DD');
+        : import.meta.env.DEV ? DEV_EXPERIENCE_DATE : dayjs().format('YYYY-MM-DD');
     const [serviceDate, setServiceDate] = useState(safeInitialDate);
     const [stationId, setStationId] = useState<number>(session!.user.stationId ?? 1);
     const [searchTrackingNo, setSearchTrackingNo] = useState<string | null>(null);
@@ -239,7 +244,7 @@ function Workspace() {
                 <div className="desktop-search" style={{ width: 320 }}>
                     <Input
                         prefix={<i className="fa-solid fa-magnifying-glass" style={{ color: '#bfbfbf', marginRight: 4 }}></i>}
-                        placeholder="🔍 全局搜索：单号 / 追踪号 / 电话"
+                        placeholder={t('common.searchPlaceholder')}
                         allowClear
                         onPressEnter={(e: any) => {
                             const val = e.target.value?.trim();
