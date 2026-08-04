@@ -133,7 +133,7 @@ public class ControlTowerService {
         // Query 1: Fetch active drivers for station with shift capacity (only driver + shift tables)
         String driverSql = """
             SELECT d.id AS driver_id, d.credential_id AS driver_code, d.driver_name,
-                   COALESCE(ds.availability_status, 'UNAVAILABLE') AS availability_status,
+                   COALESCE(ds.availability_status, 'AVAILABLE') AS availability_status,
                    COALESCE(ds.parcel_capacity, 200) AS capacity_limit
             FROM driver d
             LEFT JOIN driver_shift ds ON ds.driver_id = d.id AND ds.station_id = ? AND ds.service_date = ?
@@ -187,8 +187,7 @@ public class ControlTowerService {
         long stationId = station();
         String sql = """
             SELECT c.id AS case_id, c.case_no, c.case_type, c.status AS case_status,
-                   p.tracking_no, m.external_manifest_no AS manifest_no,
-                   c.description
+                   p.tracking_no, m.external_manifest_no AS manifest_no
             FROM operational_case c
             LEFT JOIN parcel p ON p.id = c.parcel_id
             LEFT JOIN inbound_manifest_item mi ON mi.parcel_id = p.id
