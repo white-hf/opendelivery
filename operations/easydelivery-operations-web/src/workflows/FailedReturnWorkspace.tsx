@@ -90,9 +90,9 @@ export function FailedReturnWorkspace({ session, station, serviceDate }: { sessi
     const failedRows = failedQuery.data ?? [];
 
     const mockSupervision: OnRoadSupervision[] = [
-        { driverId: 101, driverName: '张师傅', areaCode: 'YYZ-Downtown (密集)', dispatchedCount: 120, deliveredCount: 80, failedCount: 2, activeHours: 4.0, actualSph: 20.5, baselineSph: 20.0, efficiencyVariancePercent: 2.5, missingPodCount: 0, supervisionStatus: 'NORMAL' },
-        { driverId: 102, driverName: '李师傅', areaCode: 'YYZ-Suburbs (偏远)', dispatchedCount: 80, deliveredCount: 30, failedCount: 1, activeHours: 4.0, actualSph: 7.5, baselineSph: 12.0, efficiencyVariancePercent: -37.5, missingPodCount: 3, supervisionStatus: 'LAGGING' },
-        { driverId: 103, driverName: '王师傅', areaCode: 'YYZ-Midtown', dispatchedCount: 100, deliveredCount: 0, failedCount: 0, activeHours: 2.5, actualSph: 0.0, baselineSph: 18.0, efficiencyVariancePercent: -100.0, missingPodCount: 0, supervisionStatus: 'STAGNANT' },
+        { driverId: 101, driverName: 'Driver Zhang', areaCode: 'YYZ-Downtown (Dense)', dispatchedCount: 120, deliveredCount: 80, failedCount: 2, activeHours: 4.0, actualSph: 20.5, baselineSph: 20.0, efficiencyVariancePercent: 2.5, missingPodCount: 0, supervisionStatus: 'NORMAL' },
+        { driverId: 102, driverName: 'Driver Li', areaCode: 'YYZ-Suburbs (Remote)', dispatchedCount: 80, deliveredCount: 30, failedCount: 1, activeHours: 4.0, actualSph: 7.5, baselineSph: 12.0, efficiencyVariancePercent: -37.5, missingPodCount: 3, supervisionStatus: 'LAGGING' },
+        { driverId: 103, driverName: 'Driver Wang', areaCode: 'YYZ-Midtown', dispatchedCount: 100, deliveredCount: 0, failedCount: 0, activeHours: 2.5, actualSph: 0.0, baselineSph: 18.0, efficiencyVariancePercent: -100.0, missingPodCount: 0, supervisionStatus: 'STAGNANT' },
     ];
 
     const supervisionData = (supervisionQuery.data && supervisionQuery.data.length > 0) ? supervisionQuery.data : mockSupervision;
@@ -104,7 +104,7 @@ export function FailedReturnWorkspace({ session, station, serviceDate }: { sessi
 
     return (
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-            <Card title="📈 在途司机派送进展与效率监控 (On-Road Progress & SPH Baseline)" extra={<Typography.Text type="secondary">实时对比：实际 SPH vs. 区域历史基准 SPH</Typography.Text>}>
+            <Card title={t('delivery.monitorTitle')} extra={<Typography.Text type="secondary">{t('delivery.sphBaselineSub', { defaultValue: 'Real-time comparison: Actual SPH vs. Historical Area SPH Baseline' })}</Typography.Text>}>
                 <Alert
                     showIcon
                     type="info"
@@ -121,22 +121,22 @@ export function FailedReturnWorkspace({ session, station, serviceDate }: { sessi
                     items={[
                         {
                             key: 'supervision',
-                            label: '在途 SPH 效率督导 (原型界面 3)',
+                            label: t('delivery.tabSupervision'),
                             children: (
                                 <Table<OnRoadSupervision>
                                     rowKey="driverId"
                                     dataSource={supervisionData}
                                     pagination={false}
                                     columns={[
-                                        { title: '司机姓名', dataIndex: 'driverName', render: (v) => <strong>{v}</strong> },
-                                        { title: '派送区域 (Area)', dataIndex: 'areaCode' },
-                                        { title: '领包总数', dataIndex: 'dispatchedCount' },
-                                        { title: '已妥投 / 失败', render: (_, r) => `${r.deliveredCount} / ${r.failedCount}` },
-                                        { title: '派送时长', dataIndex: 'activeHours', render: (v) => `${v} h` },
-                                        { title: '实际 SPH (件/h)', dataIndex: 'actualSph', render: (v) => <strong>{v} 件/h</strong> },
-                                        { title: '区域基准 SPH', dataIndex: 'baselineSph', render: (v) => `${v} 件/h` },
+                                        { title: t('field.driver_name'), dataIndex: 'driverName', render: (v) => <strong>{v}</strong> },
+                                        { title: t('dispatch.area'), dataIndex: 'areaCode' },
+                                        { title: t('dayClose.dispatched'), dataIndex: 'dispatchedCount' },
+                                        { title: `${t('delivery.delivered')} / ${t('delivery.failed')}`, render: (_, r) => `${r.deliveredCount} / ${r.failedCount}` },
+                                        { title: t('delivery.activeHours'), dataIndex: 'activeHours', render: (v) => `${v} h` },
+                                        { title: t('delivery.actualSph'), dataIndex: 'actualSph', render: (v) => <strong>{v} /h</strong> },
+                                        { title: t('delivery.baselineSph'), dataIndex: 'baselineSph', render: (v) => `${v} /h` },
                                         {
-                                            title: '效率偏差 (Variance)',
+                                            title: t('delivery.efficiencyVariance'),
                                             dataIndex: 'efficiencyVariancePercent',
                                             render: (v) => (
                                                 <span style={{ color: v >= 0 ? '#52c41a' : '#ff4d4f', fontWeight: 'bold' }}>
@@ -145,17 +145,17 @@ export function FailedReturnWorkspace({ session, station, serviceDate }: { sessi
                                             ),
                                         },
                                         {
-                                            title: 'POD 无照片抽检',
+                                            title: t('delivery.podCheck'),
                                             dataIndex: 'missingPodCount',
-                                            render: (v) => v > 0 ? <Tag color="volcano">{v} 件缺失</Tag> : <Tag color="green">0 件缺失</Tag>,
+                                            render: (v) => v > 0 ? <Tag color="volcano">{v} missing</Tag> : <Tag color="green">0 missing</Tag>,
                                         },
                                         {
-                                            title: '监控状态',
+                                            title: t('supervision.status'),
                                             dataIndex: 'supervisionStatus',
                                             render: (v) => {
-                                                if (v === 'NORMAL') return <Tag color="green">🟢 正常</Tag>;
-                                                if (v === 'LAGGING') return <Tag color="red">🔴 效率滞后</Tag>;
-                                                return <Tag color="gold">⚠️ 长时间无打卡</Tag>;
+                                                if (v === 'NORMAL') return <Tag color="green">🟢 Normal</Tag>;
+                                                if (v === 'LAGGING') return <Tag color="red">🔴 Lagging</Tag>;
+                                                return <Tag color="gold">⚠️ Inactive</Tag>;
                                             },
                                         },
                                     ]}

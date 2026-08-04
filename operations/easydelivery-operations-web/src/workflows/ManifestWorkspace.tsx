@@ -90,43 +90,43 @@ export function ManifestWorkspace({ session, station }: { session: Session; stat
             </Card>
 
             {/* ⚠️ 上游清单差异与追查工单明细 (原型界面 2 核心差异表) */}
-            <Card title="⚠️ Inbound discrepancies and trace cases">
+            <Card title={t('manifest.discrepancyTitle')}>
                 <Table<InboundDiscrepancyItem>
                     rowKey="id"
                     dataSource={discrepancyData}
                     pagination={false}
                     columns={[
-                        { title: 'Tracking number', dataIndex: 'tracking_no', render: (v) => <strong>{v}</strong> },
-                        { title: 'Upstream manifest', dataIndex: 'manifest_no' },
+                        { title: t('field.tracking_no'), dataIndex: 'tracking_no', render: (v) => <strong>{v}</strong> },
+                        { title: t('manifest.upstreamManifest'), dataIndex: 'manifest_no' },
                         {
-                            title: '实收物理状态',
+                            title: t('manifest.physicalStatus'),
                             dataIndex: 'physical_status',
                             render: (v) => {
-                                if (v === 'NOT_FOUND') return <Tag color="volcano">Not scanned</Tag>;
-                                if (v === 'MIS_ROUTED') return <Tag color="purple">Wrong station</Tag>;
-                                if (v === 'DAMAGED') return <Tag color="red">Damaged</Tag>;
-                                return <Tag color="orange">Unexpected parcel</Tag>;
+                                if (v === 'NOT_FOUND') return <Tag color="volcano">{t('manifest.notScanned')}</Tag>;
+                                if (v === 'MIS_ROUTED') return <Tag color="purple">{t('manifest.wrongStation')}</Tag>;
+                                if (v === 'DAMAGED') return <Tag color="red">{t('manifest.damaged')}</Tag>;
+                                return <Tag color="orange">{t('manifest.unexpectedParcel')}</Tag>;
                             },
                         },
                         {
-                            title: 'Exception type',
+                            title: t('manifest.exceptionType'),
                             dataIndex: 'discrepancy_type',
                             render: (v) => {
-                                if (v === 'HIDDEN_MISSING') return <Tag color="red">Linehaul missing</Tag>;
-                                if (v === 'WRONG_STATION') return <Tag color="purple">Wrong station</Tag>;
-                                if (v === 'PHYSICAL_DAMAGED') return <Tag color="orange">Packaging damaged</Tag>;
-                                return <Tag color="blue">Unforecast parcel</Tag>;
+                                if (v === 'HIDDEN_MISSING') return <Tag color="red">{t('manifest.linehaulMissing')}</Tag>;
+                                if (v === 'WRONG_STATION') return <Tag color="purple">{t('manifest.wrongStation')}</Tag>;
+                                if (v === 'PHYSICAL_DAMAGED') return <Tag color="orange">{t('manifest.packagingDamaged')}</Tag>;
+                                return <Tag color="blue">{t('manifest.unforecastParcel')}</Tag>;
                             },
                         },
-                        { title: '追查工单号 (Case)', dataIndex: 'action_case_no', render: (v) => <Typography.Text copyable>{v}</Typography.Text> },
+                        { title: t('manifest.caseNo'), dataIndex: 'action_case_no', render: (v) => <Typography.Text copyable>{v}</Typography.Text> },
                         {
-                            title: '工单处理状态',
+                            title: t('manifest.caseStatus'),
                             dataIndex: 'action_status',
-                            render: (v) => v === 'CASE_OPENED' ? <Tag color="red">工单已建 · 待核销</Tag> : <Tag color="gold">二次人工复核中</Tag>,
+                            render: (v) => v === 'CASE_OPENED' ? <Tag color="red">{t('manifest.caseOpen')}</Tag> : <Tag color="gold">{t('manifest.manualReview')}</Tag>,
                         },
                         {
-                            title: '操作',
-                            render: () => <Button size="small" type="primary" danger>核销/挂起 Case</Button>,
+                            title: t('common.action'),
+                            render: () => <Button size="small" type="primary" danger>{t('manifest.reviewCase')}</Button>,
                         },
                     ]}
                 />

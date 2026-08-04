@@ -69,9 +69,9 @@ export function TodayWorkspace({ session, station, serviceDate, onNavigate }: { 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
             <span style={{ fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>
               <i className="fa-solid fa-diagram-next" style={{ color: '#2563eb', marginRight: 8 }}></i>
-              {t('tower.journey')} (select a stage to open its workspace)
+              {t('tower.journey')} {t('tower.selectStageHint')}
             </span>
-            <Tag color="blue" style={{ borderRadius: '12px', padding: '0 10px', margin: 0 }}>7-stage operating flow</Tag>
+            <Tag color="blue" style={{ borderRadius: '12px', padding: '0 10px', margin: 0 }}>{t('tower.operatingFlow')}</Tag>
           </div>
         }
       >
@@ -103,7 +103,7 @@ export function TodayWorkspace({ session, station, serviceDate, onNavigate }: { 
                 <div style={{ marginTop: '6px' }}>
                   <strong style={{ fontSize: '13px', color: '#0f172a', display: 'block' }}>{t(`stage.${stage.code}`)}</strong>
                   <small style={{ color: '#64748b', marginTop: '2px', fontSize: '11px', display: 'block' }}>
-                    {stage.code === 'INBOUND_ARRIVAL' ? `Received: ${stage.completed}` : isClickable ? `${stage.completed}/${stage.total} · ${stage.percent}%` : t('common.planned')}
+                    {stage.code === 'INBOUND_ARRIVAL' ? `${t('field.received_count')}: ${stage.completed}` : isClickable ? `${stage.completed}/${stage.total} · ${stage.percent}%` : t('common.planned')}
                   </small>
                 </div>
 
@@ -131,7 +131,7 @@ export function TodayWorkspace({ session, station, serviceDate, onNavigate }: { 
         </div>
       </Card>
 
-      {/* 📊 KPI 关键指标卡片组 (高质感渐变卡片 + 矢量图标 + 图标装饰) */}
+      {/* 📊 KPI 关键指标卡片组 */}
       <Row gutter={[16, 16]}>
         {/* 卡片 1：今日应处理总件数 */}
         <Col xs={24} sm={12} md={6}>
@@ -149,7 +149,7 @@ export function TodayWorkspace({ session, station, serviceDate, onNavigate }: { 
               <div>
                 <Typography.Text type="secondary" style={{ fontSize: '12px', fontWeight: 500, color: '#475569' }}>{t('metric.EXPECTED')}</Typography.Text>
                 <Typography.Title level={2} style={{ margin: '8px 0 4px 0', fontFamily: 'Outfit, Inter, sans-serif', color: '#1e3a8a', fontWeight: 700 }}>
-                  {totalExpected.toLocaleString()} <span style={{ fontSize: 13, fontWeight: 500, color: '#64748b' }}>parcels</span>
+                  {totalExpected.toLocaleString()} <span style={{ fontSize: 13, fontWeight: 500, color: '#64748b' }}>{t('tower.parcelsUnit')}</span>
                 </Typography.Title>
               </div>
               <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#dbeafe', display: 'grid', placeItems: 'center', color: '#2563eb', fontSize: '18px' }}>
@@ -157,7 +157,7 @@ export function TodayWorkspace({ session, station, serviceDate, onNavigate }: { 
               </div>
             </div>
             <div style={{ marginTop: '8px' }}>
-              <Tag color="blue" style={{ borderRadius: '12px', padding: '0 8px', fontSize: '11px', border: 'none' }}>Stage 1: inbound ready</Tag>
+              <Tag color="blue" style={{ borderRadius: '12px', padding: '0 8px', fontSize: '11px', border: 'none' }}>{t('tower.stageInboundReady')}</Tag>
             </div>
           </Card>
         </Col>
@@ -178,7 +178,7 @@ export function TodayWorkspace({ session, station, serviceDate, onNavigate }: { 
               <div>
                 <Typography.Text type="secondary" style={{ fontSize: '12px', fontWeight: 500, color: '#475569' }}>{t('metric.ARRIVED')}</Typography.Text>
                 <Typography.Title level={2} style={{ margin: '8px 0 4px 0', fontFamily: 'Outfit, Inter, sans-serif', color: '#9a3412', fontWeight: 700 }}>
-                  {totalArrived.toLocaleString()} <span style={{ fontSize: 13, fontWeight: 500, color: '#64748b' }}>parcels</span>
+                  {totalArrived.toLocaleString()} <span style={{ fontSize: 13, fontWeight: 500, color: '#64748b' }}>{t('tower.parcelsUnit')}</span>
                 </Typography.Title>
               </div>
               <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#ffedd5', display: 'grid', placeItems: 'center', color: '#ea580c', fontSize: '18px' }}>
@@ -186,7 +186,7 @@ export function TodayWorkspace({ session, station, serviceDate, onNavigate }: { 
               </div>
             </div>
             <Typography.Text type={missingCount > 0 ? "danger" : "secondary"} style={{ fontSize: 12, display: 'block', marginTop: '4px' }}>
-              {missingCount > 0 ? `⚠️ Missing or short: ${missingCount}` : '🟢 Inbound balanced'}
+              {missingCount > 0 ? t('tower.missingOrShort', { count: missingCount }) : t('tower.inboundBalanced')}
             </Typography.Text>
           </Card>
         </Col>
@@ -205,7 +205,7 @@ export function TodayWorkspace({ session, station, serviceDate, onNavigate }: { 
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <Typography.Text type="secondary" style={{ fontSize: '12px', fontWeight: 500, color: '#475569' }}>Dispatched / delivery rate</Typography.Text>
+                <Typography.Text type="secondary" style={{ fontSize: '12px', fontWeight: 500, color: '#475569' }}>{t('tower.dispatchedDeliveryRate')}</Typography.Text>
                 <Typography.Title level={2} style={{ margin: '8px 0 4px 0', fontFamily: 'Outfit, Inter, sans-serif', color: '#166534', fontWeight: 700 }}>
                   {totalOut} <span style={{ fontSize: 13, fontWeight: 500, color: '#16a34a' }}>/ {totalOut > 0 ? Math.round((totalDelivered / totalOut) * 100) : 0}%</span>
                 </Typography.Title>
@@ -215,7 +215,7 @@ export function TodayWorkspace({ session, station, serviceDate, onNavigate }: { 
               </div>
             </div>
             <Typography.Text style={{ color: '#16a34a', fontSize: 12, display: 'block', marginTop: '4px' }}>
-              Delivered {totalDelivered} | Failed {totalFailed}
+              {t('tower.deliveredFailed', { delivered: totalDelivered, failed: totalFailed })}
             </Typography.Text>
           </Card>
         </Col>
@@ -236,7 +236,7 @@ export function TodayWorkspace({ session, station, serviceDate, onNavigate }: { 
               <div>
                 <Typography.Text type="secondary" style={{ fontSize: '12px', fontWeight: 500, color: '#475569' }}>{t('tower.exceptions')}</Typography.Text>
                 <Typography.Title level={2} style={{ margin: '8px 0 4px 0', fontFamily: 'Outfit, Inter, sans-serif', color: data.exceptions.length > 0 ? '#dc2626' : '#16a34a', fontWeight: 700 }}>
-                  {data.exceptions.reduce((sum, e) => sum + e.count, 0)} <span style={{ fontSize: 13, fontWeight: 500, color: '#64748b' }}>items</span>
+                  {data.exceptions.reduce((sum, e) => sum + e.count, 0)} <span style={{ fontSize: 13, fontWeight: 500, color: '#64748b' }}>{t('tower.blockersCount', { count: data.exceptions.reduce((sum, e) => sum + e.count, 0) })}</span>
                 </Typography.Title>
               </div>
               <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#fee2e2', display: 'grid', placeItems: 'center', color: '#dc2626', fontSize: '18px' }}>
@@ -244,7 +244,7 @@ export function TodayWorkspace({ session, station, serviceDate, onNavigate }: { 
               </div>
             </div>
             <Typography.Text type={data.exceptions.length > 0 ? "danger" : "secondary"} style={{ fontSize: 12, display: 'block', marginTop: '4px' }}>
-              {data.exceptions.length > 0 ? data.exceptions.map(e => `${e.code}: ${e.count}`).join(' | ') : '🟢 No blockers'}
+              {data.exceptions.length > 0 ? data.exceptions.map(e => `${e.code}: ${e.count}`).join(' | ') : t('tower.noBlockers')}
             </Typography.Text>
           </Card>
         </Col>
@@ -258,9 +258,9 @@ export function TodayWorkspace({ session, station, serviceDate, onNavigate }: { 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
             <span style={{ fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>
               <i className="fa-solid fa-id-card" style={{ color: '#2563eb', marginRight: 8 }}></i>
-              Driver attendance and delivery workload
+              {t('tower.driverWorkload')}
             </span>
-            <Tag color="cyan" style={{ borderRadius: '12px', margin: 0 }}>{driverData.length} drivers on shift</Tag>
+            <Tag color="cyan" style={{ borderRadius: '12px', margin: 0 }}>{t('tower.onShiftCount', { count: driverData.length })}</Tag>
           </div>
         }
       >
@@ -270,7 +270,7 @@ export function TodayWorkspace({ session, station, serviceDate, onNavigate }: { 
           pagination={{ pageSize: 8, showSizeChanger: true, pageSizeOptions: ['8', '15', '30'] }}
           columns={[
             {
-              title: '司机编号',
+              title: t('field.driver_id'),
               dataIndex: 'driver_code',
               render: (v, r) => (
                 <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#334155' }}>
@@ -279,7 +279,7 @@ export function TodayWorkspace({ session, station, serviceDate, onNavigate }: { 
               ),
             },
             {
-              title: '司机姓名',
+              title: t('field.driver_name'),
               render: (_, r) => (
                 <Space>
                   <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#e2e8f0', display: 'grid', placeItems: 'center', fontSize: 12, color: '#475569', fontWeight: 'bold' }}>
@@ -290,21 +290,25 @@ export function TodayWorkspace({ session, station, serviceDate, onNavigate }: { 
               ),
             },
             {
-              title: '出勤状态',
+              title: t('common.status'),
               dataIndex: 'status',
-              render: (v) => (
-                <Tag color={v === 'AVAILABLE' ? 'success' : 'default'} style={{ borderRadius: '12px', padding: '0 10px' }}>
-                  {v === 'AVAILABLE' ? '🟢 出勤在岗' : '⚪ 未出勤'}
-                </Tag>
-              ),
+              render: (v, r) => {
+                const statusValue = (r as any).availability_status ?? r.status;
+                const isAvailable = statusValue === 'AVAILABLE' || statusValue === 'ACTIVE';
+                return (
+                  <Tag color={isAvailable ? 'success' : 'default'} style={{ borderRadius: '12px', padding: '0 10px' }}>
+                    {isAvailable ? `🟢 ${t('dispatch.available')}` : `⚪ ${t('dispatch.offDuty')}`}
+                  </Tag>
+                );
+              },
             },
             {
-              title: '已分配派送件数',
+              title: t('metric.ASSIGNED'),
               render: (_, r) => {
                 const count = r.assigned_count ?? r.assignedCount ?? 0;
                 return (
                   <Tag color={count > 0 ? 'blue' : 'default'} style={{ borderRadius: '10px', padding: '0 8px', fontWeight: 600 }}>
-                    {count} 件
+                    {count}
                   </Tag>
                 );
               },

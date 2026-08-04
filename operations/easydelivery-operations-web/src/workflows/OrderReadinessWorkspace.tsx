@@ -31,7 +31,7 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
   const waveOptions = useMemo(() => {
     const rawList = waves.data ?? [];
     return [
-      { value: 'ALL', label: t('orders.allWavesOption', { defaultValue: '🌐 All station parcels (all waves)' }) },
+      { value: 'ALL', label: t('orders.allWavesOption') },
       ...rawList.map(w => {
         const statusText = w.wave_status ?? w.status ?? 'DRAFT';
         return {
@@ -142,7 +142,7 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
                     }}
                     style={{ width: 280 }}
                     allowClear
-                    placeholder={t('orders.allWaves', { defaultValue: '🌐 全站点所有包裹 (不限波次)' })}
+                    placeholder={t('orders.allWaves')}
                     options={waveOptions}
                   />
                 
@@ -153,9 +153,9 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
                   onChange={val => setSelectedZoneCode(val)}
                   style={{ width: 200 }}
                   allowClear
-                  placeholder={t('orders.allZones', { defaultValue: '全部区域' })}
+                  placeholder={t('areas.showAll', { defaultValue: 'All areas' })}
                   options={[
-                    { value: undefined, label: '🌐 All areas' },
+                    { value: undefined, label: `🌐 ${t('areas.showAll', { defaultValue: 'All areas' })}` },
                     ...(areas.data ?? []).map(a => ({ value: a.area_code, label: `${a.area_code} - ${a.area_name}` }))
                   ]}
                 />
@@ -295,18 +295,18 @@ export function OrderReadinessWorkspace({session,station,serviceDate,initialFilt
              <Button size="small" style={{ fontSize: '11px' }} onClick={() => {
                const expressIds = all.filter(p => p && (p.tracking_no?.includes('EXPRESS') || p.promised_date === serviceDate)).map(p => p.parcel_id);
                setSelected(new Set(expressIds));
-               message.info(`Auto-selected ${expressIds.length} Express items. Click "Cut-off" to re-assign.`);
-             }}>SLA: Express</Button>
+               message.info(t('orders.selectedExpressNotice', { count: expressIds.length }));
+             }}>{t('orders.expressSlaFilter')}</Button>
              <Button size="small" style={{ fontSize: '11px' }} onClick={() => {
                const unmatchedIds = unmatched.map(p => p.parcel_id);
                setSelected(new Set(unmatchedIds));
-               message.info(`Auto-selected ${unmatchedIds.length} unmatched area items.`);
-             }}>All Unmatched</Button>
+               message.info(t('orders.selectedUnmatchedNotice', { count: unmatchedIds.length }));
+             }}>{t('orders.allUnmatchedFilter')}</Button>
              <Button size="small" style={{ fontSize: '11px' }} onClick={() => {
                const missingIds = missing.map(p => p.parcel_id);
                setSelected(new Set(missingIds));
-               message.info(`Auto-selected ${missingIds.length} missing coordinate items.`);
-             }}>All Missing</Button>
+               message.info(t('orders.selectedMissingNotice', { count: missingIds.length }));
+             }}>{t('orders.allMissingFilter')}</Button>
            </div>
 
            {/* Table Queue List */}

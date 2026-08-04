@@ -89,7 +89,7 @@ export function HandoverApprovalWorkspace({ session, station, serviceDate }: { s
                     dataSource={items}
                     loading={sessionsQuery.isLoading}
                     columns={[
-                        { title: 'Session ID', dataIndex: 'sessionId', key: 'sessionId' },
+                        { title: t('supervision.sessionId', { defaultValue: '扫描 Session ID' }), dataIndex: 'sessionId', key: 'sessionId' },
                         { title: t('handover.driver'), dataIndex: 'driverName', key: 'driverName' },
                         {
                             title: t('handover.status'),

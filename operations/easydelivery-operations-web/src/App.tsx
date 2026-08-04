@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react';
 import {
-    Alert, Badge, Button, Card, DatePicker, Drawer, Form, Input, Layout, Menu, Select, Space, Spin, Table, Typography, App as AntdApp
+    Alert, Badge, Button, Card, DatePicker, Drawer, Dropdown, Form, Input, Layout, Menu, Select, Space, Spin, Table, Typography, App as AntdApp
 } from 'antd';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Session } from './api/client';
@@ -30,6 +30,14 @@ const DEV_EXPERIENCE_DATE = '2026-07-13';
 const DEV_EXPERIENCE_CREDENTIALS = import.meta.env.DEV
     ? { username: 'opsadmin', password: 'password123' }
     : { username: '', password: '' };
+const DRIVER_SUGGESTION_DOC_URLS = {
+    zh: import.meta.env.VITE_DRIVER_SUGGESTION_DOC_ZH_URL ?? '/docs/driver-suggestion/index.zh-CN.html',
+    en: import.meta.env.VITE_DRIVER_SUGGESTION_DOC_EN_URL ?? '/docs/driver-suggestion/index.en.html',
+};
+
+function openDriverSuggestionDocument(url: string) {
+    window.open(url, '_blank', 'noopener,noreferrer');
+}
 
 export function App() {
     const auth = useAuth();
@@ -206,7 +214,7 @@ function Workspace() {
         <Layout>
             <Header className="top" style={{ padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', borderBottom: '1px solid #e8e8e8' }}>
                 <Space size="middle" className="top-context">
-                    <Button className="mobile-menu-trigger" type="text" aria-label="打开运营导航" onClick={() => setMobileNavOpen(true)}>
+                    <Button className="mobile-menu-trigger" type="text" aria-label={t('nav.mobileTitle')} onClick={() => setMobileNavOpen(true)}>
                         <i className="fa-solid fa-bars" />
                     </Button>
                     <Select
@@ -255,6 +263,14 @@ function Workspace() {
                 </div>
 
                 <Space size="middle" className="top-actions">
+                    <Dropdown menu={{
+                        items: [
+                            { key: 'zh', label: t('resource.driverSuggestionChinese'), onClick: () => openDriverSuggestionDocument(DRIVER_SUGGESTION_DOC_URLS.zh) },
+                            { key: 'en', label: t('resource.driverSuggestionEnglish'), onClick: () => openDriverSuggestionDocument(DRIVER_SUGGESTION_DOC_URLS.en) },
+                        ],
+                    }} placement="bottomRight" trigger={['click']}>
+                        <Button type="text"><i className="fa-solid fa-book-open" style={{ marginRight: 4 }}></i>{t('resource.driverSuggestion')}</Button>
+                    </Dropdown>
                     <Select className="top-locale" value={i18n.language as SupportedLocale} onChange={(value: SupportedLocale) => void changeLocale(value)}
                         options={SUPPORTED_LOCALES.map((value) => ({ value, label: value }))} />
                     <span style={{ fontWeight: 600 }}><i className="fa-solid fa-user-circle" style={{ marginRight: 6, color: '#1677ff' }}></i>{session?.user.username}</span>

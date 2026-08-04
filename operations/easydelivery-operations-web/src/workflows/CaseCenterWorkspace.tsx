@@ -95,7 +95,7 @@ export function CaseCenterWorkspace({ session, station }: { session: Session; st
                                     rowKey="id"
                                     dataSource={casesQuery.data ?? []}
                                     columns={[
-                                        { title: 'Case ID', dataIndex: 'case_code', render: (v, r) => v || `CASE-${r.id}` },
+                                        { title: t('cases.caseId', { defaultValue: '工单 ID' }), dataIndex: 'case_code', render: (v, r) => v || `CASE-${r.id}` },
                                         { title: t('cases.type'), dataIndex: 'case_type', render: (v) => <Tag color="blue">{v}</Tag> },
                                         { title: t('cases.caseTitle'), dataIndex: 'title' },
                                         { title: t('cases.status'), dataIndex: 'status', render: (v) => <Tag color={v === 'CLOSED' ? 'default' : 'orange'}>{v}</Tag> },

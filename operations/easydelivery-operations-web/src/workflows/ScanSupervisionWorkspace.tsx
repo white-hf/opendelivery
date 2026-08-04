@@ -172,7 +172,7 @@ export function ScanSupervisionWorkspace({ session, station, serviceDate }: { se
                     dataSource={sessionsQuery.data ?? []}
                     loading={sessionsQuery.isLoading}
                     columns={[
-                        { title: 'Session ID', dataIndex: 'sessionId', key: 'sessionId' },
+                        { title: t('supervision.sessionId', { defaultValue: '扫描 Session ID' }), dataIndex: 'sessionId', key: 'sessionId' },
                         { title: t('supervision.driver'), dataIndex: 'driverName', key: 'driverName' },
                         { title: t('supervision.status'), dataIndex: 'sessionStatus', key: 'sessionStatus', render: (s) => <Tag color={s === 'SUBMITTED' ? 'blue' : s === 'APPROVED' ? 'green' : 'default'}>{s}</Tag> },
                         { title: t('supervision.valid'), dataIndex: 'validCount', key: 'validCount' },

@@ -1,55 +1,55 @@
 import { useState } from 'react';
-import { Table, Tag, Button, Modal, Form, Input, Select, Card, Badge, App } from 'antd';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Table, Tag, Button, Modal, Form, Input, Select, Card, Badge, App, Space, Drawer, InputNumber, DatePicker } from 'antd';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, type Session } from '../api/client';
 import { useTranslation } from 'react-i18next';
 
 const PROVINCE_CITIES_MAP: Record<string, Array<{ value: string; label: string }>> = {
   NS: [
-    { value: 'HALIFAX', label: 'HALIFAX (哈利法克斯)' },
-    { value: 'DARTMOUTH', label: 'DARTMOUTH (达特茅斯)' },
-    { value: 'BEDFORD', label: 'BEDFORD (贝德福德)' },
-    { value: 'SYDNEY', label: 'SYDNEY (悉尼)' },
+    { value: 'HALIFAX', label: 'HALIFAX' },
+    { value: 'DARTMOUTH', label: 'DARTMOUTH' },
+    { value: 'BEDFORD', label: 'BEDFORD' },
+    { value: 'SYDNEY', label: 'SYDNEY' },
   ],
   ON: [
-    { value: 'TORONTO', label: 'TORONTO (多伦多)' },
-    { value: 'MISSISSAUGA', label: 'MISSISSAUGA (密西沙加)' },
-    { value: 'BRAMPTON', label: 'BRAMPTON (布兰普顿)' },
-    { value: 'MARKHAM', label: 'MARKHAM (万锦)' },
-    { value: 'OTTAWA', label: 'OTTAWA (渥太华)' },
-    { value: 'HAMILTON', label: 'HAMILTON (汉密尔顿)' },
+    { value: 'TORONTO', label: 'TORONTO' },
+    { value: 'MISSISSAUGA', label: 'MISSISSAUGA' },
+    { value: 'BRAMPTON', label: 'BRAMPTON' },
+    { value: 'MARKHAM', label: 'MARKHAM' },
+    { value: 'OTTAWA', label: 'OTTAWA' },
+    { value: 'HAMILTON', label: 'HAMILTON' },
   ],
   BC: [
-    { value: 'VANCOUVER', label: 'VANCOUVER (温哥华)' },
-    { value: 'RICHMOND', label: 'RICHMOND (列治文)' },
-    { value: 'BURNABY', label: 'BURNABY (本拿比)' },
-    { value: 'SURREY', label: 'SURREY (萨里)' },
-    { value: 'VICTORIA', label: 'VICTORIA (维多利亚)' },
+    { value: 'VANCOUVER', label: 'VANCOUVER' },
+    { value: 'RICHMOND', label: 'RICHMOND' },
+    { value: 'BURNABY', label: 'BURNABY' },
+    { value: 'SURREY', label: 'SURREY' },
+    { value: 'VICTORIA', label: 'VICTORIA' },
   ],
   QC: [
-    { value: 'MONTREAL', label: 'MONTREAL (蒙特利尔)' },
-    { value: 'QUEBEC CITY', label: 'QUEBEC CITY (魁北克市)' },
-    { value: 'LAVAL', label: 'LAVAL (拉瓦勒)' },
+    { value: 'MONTREAL', label: 'MONTREAL' },
+    { value: 'QUEBEC CITY', label: 'QUEBEC CITY' },
+    { value: 'LAVAL', label: 'LAVAL' },
   ],
   AB: [
-    { value: 'CALGARY', label: 'CALGARY (卡尔加里)' },
-    { value: 'EDMONTON', label: 'EDMONTON (埃德蒙顿)' },
+    { value: 'CALGARY', label: 'CALGARY' },
+    { value: 'EDMONTON', label: 'EDMONTON' },
   ],
   NY: [
-    { value: 'NEW YORK', label: 'NEW YORK (纽约)' },
-    { value: 'BUFFALO', label: 'BUFFALO (水牛城)' },
+    { value: 'NEW YORK', label: 'NEW YORK' },
+    { value: 'BUFFALO', label: 'BUFFALO' },
   ],
   CA: [
-    { value: 'LOS ANGELES', label: 'LOS ANGELES (洛杉矶)' },
-    { value: 'SAN FRANCISCO', label: 'SAN FRANCISCO (旧金山)' },
-    { value: 'SAN JOSE', label: 'SAN JOSE (圣何塞)' },
+    { value: 'LOS ANGELES', label: 'LOS ANGELES' },
+    { value: 'SAN FRANCISCO', label: 'SAN FRANCISCO' },
+    { value: 'SAN JOSE', label: 'SAN JOSE' },
   ],
 };
 
 const DEFAULT_CITIES = [
-  { value: 'HALIFAX', label: 'HALIFAX (哈利法克斯)' },
-  { value: 'TORONTO', label: 'TORONTO (多伦多)' },
-  { value: 'VANCOUVER', label: 'VANCOUVER (温哥华)' },
+  { value: 'HALIFAX', label: 'HALIFAX' },
+  { value: 'TORONTO', label: 'TORONTO' },
+  { value: 'VANCOUVER', label: 'VANCOUVER' },
 ];
 
 export function SystemConfigWorkspace({ session, station, mode }: { session: Session; station: number | string; mode: 'drivers' | 'stations' }) {
@@ -62,6 +62,9 @@ export function SystemConfigWorkspace({ session, station, mode }: { session: Ses
   const [driverModalOpen, setDriverModalOpen] = useState(false);
   const [areaModalOpen, setAreaModalOpen] = useState(false);
   const [stationModalOpen, setStationModalOpen] = useState(false);
+  const [shiftDrawerOpen, setShiftDrawerOpen] = useState(false);
+  const [shiftDate] = useState(new Date().toISOString().slice(0, 10));
+
   const [form] = Form.useForm();
   const [areaForm] = Form.useForm();
   const [stationForm] = Form.useForm();
@@ -89,6 +92,34 @@ export function SystemConfigWorkspace({ session, station, mode }: { session: Ses
     queryKey: ['system-drivers', station],
     queryFn: () => api<any[]>('/ops/v1/system/drivers', session, {}, station),
     enabled: mode === 'drivers',
+  });
+
+  const shiftsQuery = useQuery({
+    queryKey: ['system-config-shifts', station, shiftDate],
+    queryFn: () => api<any[]>(`/ops/v1/planning/shifts?serviceDate=${shiftDate}`, session, {}, station),
+    enabled: mode === 'drivers'
+  });
+
+  const updateShiftMutation = useMutation({
+    mutationFn: async ({ driverId, availabilityStatus, parcelCapacity }: { driverId: number; availabilityStatus: string; parcelCapacity: number }) => {
+      await api('/ops/v1/planning/shifts', session, {
+        method: 'POST',
+        body: JSON.stringify({
+          driverId,
+          serviceDate: shiftDate,
+          availabilityStatus,
+          parcelCapacity
+        })
+      }, station);
+    },
+    onSuccess: () => {
+      message.success(label('Driver shift updated successfully', '司机出勤班次及容量更新成功！'));
+      void queryClient.invalidateQueries({ queryKey: ['system-config-shifts', station, shiftDate] });
+      void queryClient.invalidateQueries({ queryKey: ['control-tower-driver-capacity', station] });
+    },
+    onError: (err: Error) => {
+      message.error(label(`Failed to update shift: ${err.message}`, `更新班次失败: ${err.message}`));
+    }
   });
 
   const serviceAreasQuery = useQuery({
@@ -157,47 +188,59 @@ export function SystemConfigWorkspace({ session, station, mode }: { session: Ses
   };
 
   const driverColumns = [
-    { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
-    { title: '工号/账号', dataIndex: 'credential_id', key: 'credential_id' },
-    { title: '姓名', dataIndex: 'driver_name', key: 'driver_name' },
-    { title: '手机号', dataIndex: 'phone', key: 'phone' },
+    { title: label('ID', 'ID'), dataIndex: 'id', key: 'id', width: 80 },
+    { title: label('Credential ID', '工号/账号'), dataIndex: 'credential_id', key: 'credential_id' },
+    { title: label('Driver name', '姓名'), dataIndex: 'driver_name', key: 'driver_name' },
+    { title: label('Phone number', '手机号'), dataIndex: 'phone', key: 'phone' },
     {
-      title: '状态',
+      title: label('Account Status', '账号状态'),
       dataIndex: 'status',
       key: 'status',
+      width: 110,
       render: (status: string) => (
-        <Badge status={status === 'ACTIVE' ? 'success' : 'default'} text={status === 'ACTIVE' ? '正常在职' : '已停用'} />
+        <Badge status={status === 'ACTIVE' ? 'success' : 'error'} text={status === 'ACTIVE' ? label('Active', '正常在职') : label('Inactive', '已禁用')} />
       ),
     },
     {
-      title: '操作',
+      title: label('Today Shift', '今日出勤'),
+      key: 'shift_status',
+      width: 120,
+      render: (_: any, record: any) => (
+        <Tag color={record.status === 'ACTIVE' ? 'green' : 'default'}>
+          {record.status === 'ACTIVE' ? `🟢 ${label('On Duty', '出勤中')}` : `⚪ ${label('Off Duty', '未出勤')}`}
+        </Tag>
+      ),
+    },
+    {
+      title: label('Account Control', '账号维护'),
       key: 'action',
+      width: 140,
       render: (_: any, record: any) => (
         <Button
           size="small"
           danger={record.status === 'ACTIVE'}
           onClick={() => handleToggleDriverStatus(record.id, record.status)}
         >
-          {record.status === 'ACTIVE' ? '停用' : '启用'}
+          {record.status === 'ACTIVE' ? label('Deactivate', '停用账号') : label('Activate', '启用账号')}
         </Button>
       ),
     },
   ];
 
   const serviceAreaColumns = [
-    { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
-    { title: '国家', dataIndex: 'country_code', key: 'country_code' },
-    { title: '省/州', dataIndex: 'province_code', key: 'province_code' },
-    { title: '城市', dataIndex: 'city_name', key: 'city_name' },
+    { title: label('ID', 'ID'), dataIndex: 'id', key: 'id', width: 80 },
+    { title: label('Country', '国家'), dataIndex: 'country_code', key: 'country_code' },
+    { title: label('Province/state', '省/州'), dataIndex: 'province_code', key: 'province_code' },
+    { title: label('City', '城市'), dataIndex: 'city_name', key: 'city_name' },
     {
-      title: '邮编前缀匹配',
+      title: label('Postal prefix', '邮编前缀匹配'),
       dataIndex: 'postal_prefix',
       key: 'postal_prefix',
-      render: (prefix: string) => prefix ? <Tag color="blue">{prefix}</Tag> : <Tag>全城通用</Tag>,
+      render: (prefix: string) => prefix ? <Tag color="blue">{prefix}</Tag> : <Tag>{label('Citywide', '全城通用')}</Tag>,
     },
-    { title: '优先级', dataIndex: 'priority', key: 'priority' },
+    { title: label('Priority', '优先级'), dataIndex: 'priority', key: 'priority' },
     {
-      title: '状态',
+      title: label('Status', '状态'),
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => <Tag color={status === 'ACTIVE' ? 'green' : 'red'}>{status}</Tag>,
@@ -241,7 +284,7 @@ export function SystemConfigWorkspace({ session, station, mode }: { session: Ses
                               setAreaModalOpen(true);
                             }}
                           >
-                            + 扩展该站点覆盖范围
+                            {label('+ Add coverage rule', '+ 扩展该站点覆盖范围')}
                           </Button>
                         ),
                       },
@@ -250,7 +293,7 @@ export function SystemConfigWorkspace({ session, station, mode }: { session: Ses
                   />
 
                   <div style={{ marginTop: 24 }}>
-                    <h4>📍 站点服务覆盖自动路由规则表 (Service Area Rules)</h4>
+                    <h4>📍 {label('Station service area auto-routing rules', '站点服务覆盖自动路由规则表 (Service Area Rules)')}</h4>
                     <Table
                       loading={serviceAreasQuery.isLoading}
                       dataSource={serviceAreasQuery.data ?? []}
@@ -262,9 +305,18 @@ export function SystemConfigWorkspace({ session, station, mode }: { session: Ses
           </div>
         ) : (
           <div>
-                  <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-                    <span>已录入司机列表（属于当前站点）</span>
-                    <Button type="primary" onClick={() => setDriverModalOpen(true)}>+ 新建司机账号</Button>
+                  <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>{label('Registered drivers list for current station', '已录入司机列表（属于当前站点）')}</span>
+                    <Space>
+                      <Button
+                        type="primary"
+                        ghost
+                        onClick={() => setShiftDrawerOpen(true)}
+                      >
+                        {label('Manage Driver Attendance & Capacity', '⚙️ 设置出勤与班次容量')}
+                      </Button>
+                      <Button type="primary" onClick={() => setDriverModalOpen(true)}>{label('+ Add driver account', '+ 新建司机账号')}</Button>
+                    </Space>
                   </div>
                   <Table
                     loading={driversQuery.isLoading}
@@ -278,30 +330,30 @@ export function SystemConfigWorkspace({ session, station, mode }: { session: Ses
 
       {/* 新增司机 Modal */}
       {mode === 'drivers' && <Modal
-        title="新增司机账号"
+        title={label('Add Driver Account', '新增司机账号')}
         open={driverModalOpen}
         onCancel={() => setDriverModalOpen(false)}
         onOk={() => form.submit()}
       >
         <Form form={form} layout="vertical" onFinish={handleCreateDriver} autoComplete="off">
-          <Form.Item label="司机工号/账号" name="credentialId" rules={[{ required: true, message: '请输入工号' }]}>
-            <Input placeholder="例如: driver.yhz.05" autoComplete="new-password" />
+          <Form.Item label={label('Credential ID', '司机工号/账号')} name="credentialId" rules={[{ required: true, message: label('Please enter credential ID', '请输入工号') }]}>
+            <Input placeholder="driver.yhz.05" autoComplete="new-password" />
           </Form.Item>
-          <Form.Item label="司机姓名" name="driverName" rules={[{ required: true, message: '请输入姓名' }]}>
-            <Input placeholder="例如: 张师傅" autoComplete="off" />
+          <Form.Item label={label('Driver Name', '司机姓名')} name="driverName" rules={[{ required: true, message: label('Please enter driver name', '请输入姓名') }]}>
+            <Input placeholder="Driver Name" autoComplete="off" />
           </Form.Item>
-          <Form.Item label="手机号" name="phone" rules={[{ pattern: /^\+?[0-9\s-]{7,15}$/, message: '请输入有效的手机格式（纯数字或含国家码）' }]}>
-            <Input placeholder="例如: 19021234567" type="tel" autoComplete="off" />
+          <Form.Item label={label('Phone Number', '手机号')} name="phone" rules={[{ pattern: /^\+?[0-9\s-]{7,15}$/, message: label('Please enter valid phone number', '请输入有效的手机格式') }]}>
+            <Input placeholder="+1 902 123 4567" type="tel" autoComplete="off" />
           </Form.Item>
-          <Form.Item label="初始密码" name="password">
-            <Input.Password placeholder="默认: password123" autoComplete="new-password" />
+          <Form.Item label={label('Initial Password', '初始密码')} name="password">
+            <Input.Password placeholder={label('Default: password123', '默认: password123')} autoComplete="new-password" />
           </Form.Item>
         </Form>
       </Modal>}
 
       {/* 新增服务范围 Modal */}
       {mode === 'stations' && <Modal
-        title="扩展站点覆盖范围"
+        title={label('Add Service Area', '扩展站点覆盖范围')}
         open={areaModalOpen}
         onCancel={() => setAreaModalOpen(false)}
         onOk={() => areaForm.submit()}
@@ -317,33 +369,33 @@ export function SystemConfigWorkspace({ session, station, mode }: { session: Ses
             priority: 100,
           }}
         >
-          <Form.Item label="国家代码" name="countryCode" rules={[{ required: true }]}>
+          <Form.Item label={label('Country Code', '国家代码')} name="countryCode" rules={[{ required: true }]}>
             <Select
               options={[
-                { value: 'CA', label: 'CA - Canada (加拿大)' },
-                { value: 'US', label: 'US - United States (美国)' },
+                { value: 'CA', label: 'CA - Canada' },
+                { value: 'US', label: 'US - United States' },
               ]}
             />
           </Form.Item>
-          <Form.Item label="省/州代码" name="provinceCode" rules={[{ required: true }]}>
+          <Form.Item label={label('Province/State Code', '省/州代码')} name="provinceCode" rules={[{ required: true }]}>
             <Select
               onChange={handleProvinceChange}
               options={[
-                { value: 'NS', label: 'NS - Nova Scotia (新斯佳省)' },
-                { value: 'ON', label: 'ON - Ontario (安大略省)' },
-                { value: 'BC', label: 'BC - British Columbia (不列颠哥伦比亚省)' },
-                { value: 'QC', label: 'QC - Quebec (魁北克省)' },
-                { value: 'AB', label: 'AB - Alberta (阿尔伯塔省)' },
-                { value: 'NY', label: 'NY - New York (纽约州)' },
-                { value: 'CA', label: 'CA - California (加利福尼亚州)' },
+                { value: 'NS', label: 'NS - Nova Scotia' },
+                { value: 'ON', label: 'ON - Ontario' },
+                { value: 'BC', label: 'BC - British Columbia' },
+                { value: 'QC', label: 'QC - Quebec' },
+                { value: 'AB', label: 'AB - Alberta' },
+                { value: 'NY', label: 'NY - New York' },
+                { value: 'CA', label: 'CA - California' },
               ]}
             />
           </Form.Item>
-          <Form.Item label="城市名称" name="cityName" rules={[{ required: true, message: '请输入或选择城市名称' }]}>
+          <Form.Item label={label('City Name', '城市名称')} name="cityName" rules={[{ required: true, message: label('Please enter or select city', '请输入或选择城市名称') }]}>
             <Select
               showSearch
               allowClear
-              placeholder="选择常用城市，或搜索/手写输入"
+              placeholder={label('Select or search city', '选择常用城市，或搜索/手写输入')}
               options={availableCities}
               filterOption={false}
               onSearch={(text) => {
@@ -353,15 +405,15 @@ export function SystemConfigWorkspace({ session, station, mode }: { session: Ses
               }}
             />
           </Form.Item>
-          <Form.Item label="邮编前缀限制 (可选)" name="postalPrefix">
-            <Input placeholder="例如 B3K (留空代表覆盖全城)" style={{ textTransform: 'uppercase' }} />
+          <Form.Item label={label('Postal Prefix (Optional)', '邮编前缀限制 (可选)')} name="postalPrefix">
+            <Input placeholder={label('e.g. B3K (leave blank for citywide)', '例如 B3K (留空代表覆盖全城)')} style={{ textTransform: 'uppercase' }} />
           </Form.Item>
         </Form>
       </Modal>}
 
       {/* 新增末端站点 Modal */}
       {mode === 'stations' && <Modal
-        title="新增末端配送站点 (Station)"
+        title={label('Add Last-Mile Station', '新增末端配送站点 (Station)')}
         open={stationModalOpen}
         onCancel={() => setStationModalOpen(false)}
         onOk={() => stationForm.submit()}
@@ -379,10 +431,10 @@ export function SystemConfigWorkspace({ session, station, mode }: { session: Ses
             timezone: 'America/Toronto',
           }}
         >
-          <Form.Item label="国家" name="countryCode" rules={[{ required: true }]}>
-            <Select options={[{ value: 'CA', label: 'CA - Canada (加拿大)' }, { value: 'US', label: 'US - United States (美国)' }]} />
+          <Form.Item label={label('Country', '国家')} name="countryCode" rules={[{ required: true }]}>
+            <Select options={[{ value: 'CA', label: 'CA - Canada' }, { value: 'US', label: 'US - United States' }]} />
           </Form.Item>
-          <Form.Item label="省/州" name="provinceCode" rules={[{ required: true }]}>
+          <Form.Item label={label('Province/State', '省/州')} name="provinceCode" rules={[{ required: true }]}>
             <Select
               onChange={(newProv) => {
                 const cityList = PROVINCE_CITIES_MAP[newProv] ?? DEFAULT_CITIES;
@@ -400,20 +452,20 @@ export function SystemConfigWorkspace({ session, station, mode }: { session: Ses
                 });
               }}
               options={[
-                { value: 'ON', label: 'ON - Ontario (安大略省)' },
-                { value: 'NS', label: 'NS - Nova Scotia (新斯佳省)' },
-                { value: 'BC', label: 'BC - British Columbia (不列颠哥伦比亚省)' },
-                { value: 'QC', label: 'QC - Quebec (魁北克省)' },
-                { value: 'AB', label: 'AB - Alberta (阿尔伯塔省)' },
-                { value: 'NY', label: 'NY - New York (纽约州)' },
-                { value: 'CA', label: 'CA - California (加利福尼亚州)' },
+                { value: 'ON', label: 'ON - Ontario' },
+                { value: 'NS', label: 'NS - Nova Scotia' },
+                { value: 'BC', label: 'BC - British Columbia' },
+                { value: 'QC', label: 'QC - Quebec' },
+                { value: 'AB', label: 'AB - Alberta' },
+                { value: 'NY', label: 'NY - New York' },
+                { value: 'CA', label: 'CA - California' },
               ]}
             />
           </Form.Item>
-          <Form.Item label="城市名称 (随省自动级联)" name="city" rules={[{ required: true, message: '请选择城市' }]}>
+          <Form.Item label={label('City Name', '城市名称 (随省自动级联)')} name="city" rules={[{ required: true, message: label('Please select city', '请选择城市') }]}>
             <Select
               showSearch
-              placeholder="选择常用城市，或搜索/手写输入"
+              placeholder={label('Select or search city', '选择常用城市，或搜索/手写输入')}
               options={stationAvailableCities}
               onChange={(val) => {
                 const rawCity = String(val).trim().toUpperCase();
@@ -444,26 +496,110 @@ export function SystemConfigWorkspace({ session, station, mode }: { session: Ses
               }}
             />
           </Form.Item>
-          <Form.Item label="站点代码 (根据城市极简自动推导)" name="stationCode" rules={[{ required: true }]}>
-            <Input placeholder="例如 HAM-01" style={{ textTransform: 'uppercase' }} />
+          <Form.Item label={label('Station Code', '站点代码')} name="stationCode" rules={[{ required: true }]}>
+            <Input placeholder="HAM-01" style={{ textTransform: 'uppercase' }} />
           </Form.Item>
-          <Form.Item label="站点全称 (自动生成)" name="stationName" rules={[{ required: true }]}>
-            <Input placeholder="例如 Hamilton Last Mile Station" />
+          <Form.Item label={label('Station Full Name', '站点全称')} name="stationName" rules={[{ required: true }]}>
+            <Input placeholder="Hamilton Last Mile Station" />
           </Form.Item>
-          <Form.Item label="时区 (根据省自动匹配)" name="timezone" rules={[{ required: true }]}>
+          <Form.Item label={label('Timezone', '时区')} name="timezone" rules={[{ required: true }]}>
             <Select
               options={[
-                { value: 'America/Toronto', label: 'America/Toronto (加东/EST)' },
-                { value: 'America/Vancouver', label: 'America/Vancouver (加西/PST)' },
-                { value: 'America/Halifax', label: 'America/Halifax (大西洋/AST)' },
+                { value: 'America/Toronto', label: 'America/Toronto (EST)' },
+                { value: 'America/Vancouver', label: 'America/Vancouver (PST)' },
+                { value: 'America/Halifax', label: 'America/Halifax (AST)' },
               ]}
             />
           </Form.Item>
-          <Form.Item label="详细地址 (可选)" name="addressLine">
-            <Input placeholder="例如 100 King St W, Hamilton, ON" />
+          <Form.Item label={label('Address Line (Optional)', '详细地址 (可选)')} name="addressLine">
+            <Input placeholder="100 King St W, Hamilton, ON" />
           </Form.Item>
         </Form>
       </Modal>}
+
+      {/* 司机出勤与班次容量管理 Drawer */}
+      {mode === 'drivers' && (
+        <Drawer
+          title={label('Driver Attendance & Capacity Management', '⚙️ 司机出勤状态与班次容量管理')}
+          width={640}
+          open={shiftDrawerOpen}
+          onClose={() => setShiftDrawerOpen(false)}
+        >
+          <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fafafa', padding: '12px', borderRadius: '8px' }}>
+            <span>{label('Service Date: ', '当前班次营业日：')} <strong>{shiftDate}</strong></span>
+            <Button size="small" type="primary" onClick={() => void shiftsQuery.refetch()}>
+              {label('Refresh Shifts', '刷新出勤数据')}
+            </Button>
+          </div>
+
+          <Table
+            loading={shiftsQuery.isLoading}
+            dataSource={shiftsQuery.data ?? []}
+            rowKey="driver_id"
+            pagination={false}
+            columns={[
+              {
+                title: label('Driver Name', '司机姓名'),
+                dataIndex: 'driver_name',
+                key: 'driver_name',
+                render: (name: string, r: any) => (
+                  <div>
+                    <strong>{name}</strong>
+                    <div style={{ fontSize: '12px', color: '#8c8c8c' }}>{r.driver_code}</div>
+                  </div>
+                ),
+              },
+              {
+                title: label('Today Attendance', '今日出勤状态'),
+                dataIndex: 'availability_status',
+                key: 'availability_status',
+                render: (status: string, record: any) => (
+                  <Select
+                    size="small"
+                    value={status ?? 'AVAILABLE'}
+                    onChange={(val) =>
+                      updateShiftMutation.mutate({
+                        driverId: record.driver_id,
+                        availabilityStatus: val,
+                        parcelCapacity: record.parcel_capacity ?? 200,
+                      })
+                    }
+                    style={{ width: 120 }}
+                    options={[
+                      { value: 'AVAILABLE', label: <Tag color="green" style={{ margin: 0 }}>🟢 {label('Available', '出勤中')}</Tag> },
+                      { value: 'UNAVAILABLE', label: <Tag color="default" style={{ margin: 0 }}>⚪ {label('Off Duty', '未出勤')}</Tag> },
+                    ]}
+                  />
+                ),
+              },
+              {
+                title: label('Max Capacity', '班次容量上限'),
+                dataIndex: 'parcel_capacity',
+                key: 'parcel_capacity',
+                render: (cap: number, record: any) => (
+                  <InputNumber
+                    size="small"
+                    min={10}
+                    max={1000}
+                    value={cap ?? 200}
+                    onBlur={(e) => {
+                      const val = Number(e.target.value);
+                      if (val > 0 && val !== cap) {
+                        updateShiftMutation.mutate({
+                          driverId: record.driver_id,
+                          availabilityStatus: record.availability_status ?? 'AVAILABLE',
+                          parcelCapacity: val,
+                        });
+                      }
+                    }}
+                    style={{ width: 100 }}
+                  />
+                ),
+              },
+            ]}
+          />
+        </Drawer>
+      )}
     </div>
   );
 }

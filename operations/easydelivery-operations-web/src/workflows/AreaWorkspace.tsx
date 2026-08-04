@@ -107,7 +107,7 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
             `/ops/v1/delivery-areas/${preferenceArea!.id}/driver-preferences/${preferenceId}`, session,
             { method: 'DELETE' }, station),
         onSuccess: async () => {
-            notice.success({ message: '解绑司机成功', placement: 'topRight', duration: 4 });
+            notice.success({ message: t('preferences.removed'), placement: 'topRight', duration: 4 });
             await Promise.all([preferences.refetch(), cache.invalidateQueries({ queryKey: ['areas', station] })]);
         },
         onError: (caught) => notice.error({ message: t('common.operationFailed'), description: caught.message, placement: 'topRight', duration: 6 }),
@@ -119,7 +119,7 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
         {displayedError && <Alert type="error" message={displayedError.message} />}
         <Card title={t('areas.title')} extra={
             <Space>
-                {selectedArea && <Button size="small" onClick={() => setSelectedArea(undefined)}>查看全部区域地图</Button>}
+                {selectedArea && <Button size="small" onClick={() => setSelectedArea(undefined)}>{t('areas.viewAllMap')}</Button>}
                 <Button type="primary" onClick={() => {
                     setEditingArea(undefined); form.resetFields(); form.setFieldValue('areaLevel', 1); setOpen(true);
                 }}>{t('areas.add')}</Button>
@@ -132,7 +132,7 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                 rowKey="id"
                 dataSource={sortedAreaList}
                 loading={list.isLoading}
-                pagination={{ pageSize: 5, showSizeChanger: true, pageSizeOptions: ['5', '10', '20'], showTotal: (total) => `共 ${total} 条` }}
+                pagination={{ pageSize: 5, showSizeChanger: true, pageSizeOptions: ['5', '10', '20'], showTotal: (total) => t('common.totalCount', { total }) }}
                 rowClassName={(row) => selectedArea?.id === row.id ? 'area-table-row-selected' : 'area-table-row'}
                 onRow={(row) => ({
                     onClick: () => setSelectedArea(row),
@@ -140,8 +140,8 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                 columns={[
                     { title: t('areas.code'), dataIndex: 'area_code', width: 140 },
                     { title: t('areas.name'), dataIndex: 'area_name', width: 220 },
-                    { title: '责任司机', render: (_, row) => row.primary_driver_name ? <Tag color="blue">{row.primary_driver_name}</Tag> : <Tag color="red">无责任司机</Tag> },
-                    { title: t('common.status'), render: (_, row) => <Tag color={row.status === 'ACTIVE' ? 'green' : 'default'}>{row.status === 'ACTIVE' ? '启用中' : '已停用'}</Tag>, width: 100 },
+                    { title: t('common.primaryDriver'), render: (_, row) => row.primary_driver_name ? <Tag color="blue">{row.primary_driver_name}</Tag> : <Tag color="red">{t('common.unassignedDriver')}</Tag> },
+                    { title: t('common.status'), render: (_, row) => <Tag color={row.status === 'ACTIVE' ? 'green' : 'default'}>{row.status === 'ACTIVE' ? t('common.active') : t('common.deactivated')}</Tag>, width: 100 },
                     { title: t('common.action'), render: (_, row) => <Space onClick={(e) => e.stopPropagation()}>
                         <Button size="small" onClick={() => setViewingArea(row)}>{t('common.view')}</Button>
                         {row.status === 'ACTIVE' && <Button size="small" onClick={async () => {
@@ -190,10 +190,10 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
             }}>
                 <Space style={{ display: 'flex' }} align="start">
                     <Form.Item name="areaCode" label={t('areas.code')} rules={[{ required: true, whitespace: true }]} style={{ width: 160 }}>
-                        <Input placeholder="如 DT-01" disabled={Boolean(editingArea)} />
+                        <Input placeholder="DT-01" disabled={Boolean(editingArea)} />
                     </Form.Item>
                     <Form.Item name="areaName" label={t('areas.name')} rules={[{ required: true, whitespace: true }]} style={{ width: 220 }}>
-                        <Input placeholder="如 市中心区域" />
+                        <Input placeholder={t('areas.namePlaceholder')} />
                     </Form.Item>
                     <Form.Item name="areaLevel" hidden initialValue={1}>
                         <Input hidden />
@@ -204,19 +204,19 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                     name="driverIds"
                     label={
                         <span>
-                            责任司机&nbsp;
-                            <Tooltip title="首位为主责任人，可多选添加备选司机">
+                            {t('common.primaryDriver')}&nbsp;
+                            <Tooltip title={t('areas.driverTooltip')}>
                                 <QuestionCircleOutlined style={{ color: '#8c8c8c' }} />
                             </Tooltip>
                         </span>
                     }
-                    rules={[{ required: true, type: 'array', min: 1, message: '请选择责任司机' }]}
+                    rules={[{ required: true, type: 'array', min: 1 }]}
                 >
                     <Select
                         mode="multiple"
                         maxTagCount="responsive"
                         popupMatchSelectWidth={false}
-                        placeholder="选择责任司机（首选为主责任人）"
+                        placeholder={t('areas.driverPlaceholder')}
                         options={(drivers.data ?? []).map((driver) => ({
                             value: driver.driver_id ?? driver.id!,
                             label: driver.driver_name ?? driver.display_name ?? driver.driver_code ?? String(driver.driver_id ?? driver.id)
@@ -228,7 +228,7 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                     name="geoJson"
                     label={
                         <span>
-                            区域 GeoJSON 边界数据&nbsp;
+                            {t('areas.geometry')}&nbsp;
                             <Upload accept=".geojson,.json,application/geo+json,application/json" showUploadList={false} beforeUpload={async (file) => {
                                 try {
                                     const text = await file.text();
@@ -245,20 +245,20 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                                 }
                                 return false;
                             }}>
-                                <Button size="small" icon={<UploadOutlined />}>导入文件</Button>
+                                <Button size="small" icon={<UploadOutlined />}>{t('areas.importFile')}</Button>
                             </Upload>
                         </span>
                     }
                     rules={[
-                        { required: true, whitespace: true, message: '请粘贴或导入 GeoJSON 边界数据' },
+                        { required: true, whitespace: true },
                         { validator: async (_, value) => { if (value) parseAreaGeoJson(value); } },
                     ]}
                 >
-                    <Input.TextArea rows={6} placeholder="请粘贴由 geojson.io 等工具导出的 GeoJSON 边界数据" />
+                    <Input.TextArea rows={6} placeholder={t('areas.geoJsonPlaceholder')} />
                 </Form.Item>
 
-                <Form.Item name="changeReason" label={t('areas.reason')} rules={[{ required: true, whitespace: true, message: '请输入变更原因' }]}>
-                    <Input placeholder="简要说明新增或调整原因" />
+                <Form.Item name="changeReason" label={t('areas.reason')} rules={[{ required: true, whitespace: true }]}>
+                    <Input placeholder={t('areas.reasonPlaceholder')} />
                 </Form.Item>
             </Form>
         </Modal>
@@ -307,7 +307,7 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                     }))} />
                 </Form.Item>
                 <Form.Item name="priority" label={t('preferences.priority')} rules={[{ required: true }]}>
-                    <Input placeholder="优先级数值（1为最高）" />
+                    <Input placeholder={t('preferences.priorityPlaceholder')} />
                 </Form.Item>
                 <Form.Item name="reason" label={t('common.reason')} rules={[{ required: true, whitespace: true }]}><Input.TextArea rows={2} /></Form.Item>
                 <Button htmlType="submit" type="primary" loading={savePreference.isPending}>{t('preferences.save')}</Button>
@@ -319,7 +319,7 @@ export function AreaWorkspace({ session, station }: { session: Session; station:
                     { title: t('common.status'), dataIndex: 'status' },
                     { title: t('common.action'), render: (_, row) => (
                         <Button size="small" danger onClick={() => deletePreference.mutate(row.id)} loading={deletePreference.isPending}>
-                            解绑/删除
+                            {t('preferences.remove')}
                         </Button>
                     ) },
                 ]} />

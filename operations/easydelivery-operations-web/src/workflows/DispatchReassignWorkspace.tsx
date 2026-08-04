@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react';
 import { Card, Table, Tag, Input, Select, Button, Space, Typography, Progress, Drawer, List, App, Pagination } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { api, type Session } from '../api/client';
 import { PlanningMap, type PlanningParcel } from './PlanningMap';
 
 export function DispatchReassignWorkspace({ session, station, serviceDate }: { session: Session; station: number | string; serviceDate: string }) {
 
+    const { t } = useTranslation();
     const { message } = App.useApp();
     const cache = useQueryClient();
     const [selectedDriverId, setSelectedDriverId] = useState<number | undefined>(undefined);
@@ -98,13 +100,13 @@ export function DispatchReassignWorkspace({ session, station, serviceDate }: { s
             }
         },
         onSuccess: () => {
-            message.success(`成功将 ${selectedParcels.size} 件包裹划转给新司机！`);
+            message.success(t('dispatch.reassignSuccess', { count: selectedParcels.size }));
             setSelectedParcels(new Set());
             cache.invalidateQueries({ queryKey: ['planning-parcels', station, serviceDate] });
             cache.invalidateQueries({ queryKey: ['planning-shifts', station, serviceDate] });
         },
         onError: (e: Error) => {
-            message.error(`划转改派失败: ${e.message}`);
+            message.error(t('dispatch.reassignFailed', { error: e.message }));
         }
     });
 
@@ -116,24 +118,23 @@ export function DispatchReassignWorkspace({ session, station, serviceDate }: { s
                     <Space size="middle">
                         <span style={{ fontSize: '16px', fontWeight: 'bold' }}>
                             <i className="fa-solid fa-boxes-stacked" style={{ color: '#1677ff', marginRight: 8 }}></i>
-                            3.2 司机包裹动态调配工作台 (Driver Re-assignment)
+                            {t('nav.dispatch-reassign')}
                         </span>
-                        <Tag color="orange">高频调优</Tag>
                     </Space>
                     <Space>
                         <Select
-                            placeholder="🔍 快速筛选司机查看其包裹"
+                            placeholder={t('dispatch.driver')}
                             allowClear
                             style={{ width: 240 }}
                             value={selectedDriverId}
                             onChange={setSelectedDriverId}
                             options={drivers.map(d => ({
                                 value: d.driver_id,
-                                label: `${d.driver_name} (${d.assigned_count}/${d.parcel_capacity ?? 200}件)`
+                                label: `${d.driver_name} (${d.assigned_count}/${d.parcel_capacity ?? 200})`
                             }))}
                         />
                         <Input
-                            placeholder="🔍 搜索单号 / 姓名 / 地址"
+                            placeholder={t('orders.searchPlaceholder')}
                             allowClear
                             value={searchQuery}
                             onChange={e => setSearchSearchQuery(e.target.value)}
@@ -145,10 +146,10 @@ export function DispatchReassignWorkspace({ session, station, serviceDate }: { s
 
             {/* 核心两列布局：左侧司机运力监控 + 右侧全屏地图区 (包含可收起包裹明细与改派工具条) */}
             <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '16px', height: '680px' }}>
-                {/* 左侧司机列表与运力状态 (固定 680px 高度与地图对齐，增加分页) */}
-                <Card 
-                    title={<span><i className="fa-solid fa-id-card"></i> 当班司机容量监控 ({drivers.length} 人)</span>} 
-                    size="small" 
+                {/* 左侧司机列表与运力状态 */}
+                <Card
+                    title={<span><i className="fa-solid fa-id-card"></i> {t('dispatch.capacity')} ({drivers.length})</span>}
+                    size="small"
                     style={{ height: '680px', display: 'flex', flexDirection: 'column' }}
                     styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '12px' } }}
                 >
@@ -178,13 +179,13 @@ export function DispatchReassignWorkspace({ session, station, serviceDate }: { s
                                             {d.driver_name}
                                         </span>
                                         <Tag color={isFull ? 'red' : 'green'} style={{ margin: 0 }}>
-                                            {d.assigned_count} / {cap} 件
+                                            {d.assigned_count} / {cap}
                                         </Tag>
                                     </div>
                                     <Progress percent={percent} status={isFull ? 'exception' : 'active'} size="small" showInfo={false} />
                                     <div style={{ fontSize: '11px', color: '#8c8c8c', marginTop: '4px', display: 'flex', justifyContent: 'space-between' }}>
-                                        <span>偏好区域: {d.area_code ?? '未配置'}</span>
-                                        <span>{isFull ? '🔴 容量已满' : `🟢 剩余 ${cap - d.assigned_count}`}</span>
+                                        <span>{t('dispatch.area')}: {d.area_code ?? '—'}</span>
+                                        <span>{isFull ? `🔴 ${t('dispatch.capacity')}` : `🟢 ${t('dispatch.remaining')}: ${cap - d.assigned_count}`}</span>
                                     </div>
                                 </div>
                             );
@@ -203,7 +204,7 @@ export function DispatchReassignWorkspace({ session, station, serviceDate }: { s
                     </div>
                 </Card>
 
-                {/* 右侧以地图为主的沉浸式工作区 (包含右上角套索、批量转移、与可折叠包裹抽屉) */}
+                {/* 右侧以地图为主的沉浸式工作区 */}
                 <div style={{ border: '1px solid #e8e8e8', borderRadius: '8px', overflow: 'hidden', position: 'relative', background: '#e5e9ec', display: 'flex', flexDirection: 'column' }}>
 
                     {/* 地图顶部控制条 */}
@@ -216,18 +217,18 @@ export function DispatchReassignWorkspace({ session, station, serviceDate }: { s
                                 style={{ boxShadow: '0 2px 6px rgba(0,0,0,0.15)' }}
                             >
                                 <i className="fa-solid fa-draw-polygon" style={{ marginRight: 6 }}></i>
-                                {lassoActive ? '关闭地图套索' : '开启地图套索圈选'}
+                                {lassoActive ? t('common.cancel') : t('areas.useDrawing')}
                             </Button>
 
                             {selectedParcels.size > 0 && (
                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: '#ffffff', padding: '4px 12px', borderRadius: '6px', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', border: '1px solid #d3ade8' }}>
                                     <Tag color="purple" style={{ margin: 0, fontSize: '13px', fontWeight: 'bold' }}>
-                                        已选 {selectedParcels.size} 件
+                                        {t('dispatch.selectedCount', { count: selectedParcels.size })}
                                     </Tag>
-                                    <span style={{ fontSize: '12px', color: '#595959' }}>转给:</span>
+                                    <span style={{ fontSize: '12px', color: '#595959' }}>{t('dispatch.targetDriver')}:</span>
                                     <Select
                                         size="small"
-                                        placeholder="选择目标司机"
+                                        placeholder={t('dispatch.targetDriver')}
                                         style={{ width: 150 }}
                                         value={targetDriverId}
                                         onChange={setTargetDriverId}
@@ -241,7 +242,7 @@ export function DispatchReassignWorkspace({ session, station, serviceDate }: { s
                                         style={{ background: '#722ed1', borderColor: '#722ed1' }}
                                         onClick={() => reassignMutation.mutate()}
                                     >
-                                        确认划转
+                                        {t('dispatch.confirmReassign')}
                                     </Button>
                                     <Button size="small" type="text" onClick={() => setSelectedParcels(new Set())}>
                                         <i className="fa-solid fa-xmark"></i>
@@ -259,16 +260,16 @@ export function DispatchReassignWorkspace({ session, station, serviceDate }: { s
                                     if (currentWaveId && selectedDriverId) {
                                         api(`/ops/v1/planning/waves/${currentWaveId}/drivers/${selectedDriverId}/optimize-route`, session, { method: 'POST', body: JSON.stringify({}) }, station)
                                             .then(() => {
-                                                message.success('已通过 OSRM 算法重新生成该司机的最优派送路线与序号！');
+                                                message.success(t('dispatch.osrmSuccess'));
                                                 cache.invalidateQueries({ queryKey: ['planning-parcels', station, serviceDate] });
                                             })
-                                            .catch(e => message.error(`路线优化失败: ${e.message}`));
+                                            .catch(e => message.error(t('dispatch.osrmFailed', { error: e.message })));
                                     }
                                 }}
                                 style={{ boxShadow: '0 2px 6px rgba(0,0,0,0.15)', background: '#fff' }}
                             >
                                 <i className="fa-solid fa-route" style={{ marginRight: 6 }}></i>
-                                🧭 OSRM 路线规划
+                                🧭 {t('dispatch.osrmRoute')}
                             </Button>
 
                             <Button
@@ -277,7 +278,7 @@ export function DispatchReassignWorkspace({ session, station, serviceDate }: { s
                                 onClick={() => setListOpen(!listOpen)}
                                 style={{ boxShadow: '0 2px 6px rgba(0,0,0,0.15)' }}
                             >
-                                {listOpen ? '收起包裹明细' : `展开包裹明细 (${filteredParcels.length} 件)`}
+                                {listOpen ? t('dispatch.collapseList') : t('dispatch.expandList', { count: filteredParcels.length })}
                             </Button>
                         </div>
                     </div>
@@ -316,7 +317,7 @@ export function DispatchReassignWorkspace({ session, station, serviceDate }: { s
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid #f0f0f0' }}>
                                 <span style={{ fontWeight: 'bold', fontSize: '14px' }}>
                                     <i className="fa-solid fa-boxes-packing" style={{ color: '#1677ff', marginRight: 6 }}></i>
-                                    包裹动态明细 ({filteredParcels.length} 件)
+                                    {t('dispatch.dynamicParcels', { count: filteredParcels.length })}
                                 </span>
                                 <Button size="small" type="text" onClick={() => setListOpen(false)}>
                                     <i className="fa-solid fa-xmark"></i>
@@ -327,20 +328,20 @@ export function DispatchReassignWorkspace({ session, station, serviceDate }: { s
                             <div style={{ padding: '8px', background: '#f9f0ff', border: '1px solid #d3ade8', borderRadius: '6px', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ fontSize: '12px', color: '#531dab', fontWeight: 'bold' }}>
-                                        转移已选 {selectedParcels.size} 件包裹给:
+                                        {t('dispatch.transferTarget', { count: selectedParcels.size })}
                                     </span>
                                     {selectedParcels.size > 0 && (
-                                        <Button size="small" type="text" danger onClick={() => setSelectedParcels(new Set())}>取消选择</Button>
+                                        <Button size="small" type="text" danger onClick={() => setSelectedParcels(new Set())}>{t('dispatch.cancelSelection')}</Button>
                                     )}
                                 </div>
                                 <div style={{ display: 'flex', gap: '8px' }}>
                                     <Select
                                         size="small"
-                                        placeholder="选择目标接手司机"
+                                        placeholder={t('dispatch.selectTargetDriver')}
                                         style={{ flex: 1 }}
                                         value={targetDriverId}
                                         onChange={setTargetDriverId}
-                                        options={drivers.map(d => ({ value: d.driver_id, label: `${d.driver_name} (余 ${d.parcel_capacity ? d.parcel_capacity - d.assigned_count : 200}件)` }))}
+                                        options={drivers.map(d => ({ value: d.driver_id, label: `${d.driver_name} (${t('tower.remaining')} ${d.parcel_capacity ? d.parcel_capacity - d.assigned_count : 200})` }))}
                                     />
                                     <Button
                                         size="small"
@@ -351,12 +352,12 @@ export function DispatchReassignWorkspace({ session, station, serviceDate }: { s
                                         style={{ background: '#722ed1', borderColor: '#722ed1' }}
                                         onClick={() => reassignMutation.mutate()}
                                     >
-                                        确认划转
+                                        {t('dispatch.confirmTransfer')}
                                     </Button>
                                 </div>
                             </div>
 
-                            {/* 包裹列表 (支持勾选多选与点击数据行查看详情) */}
+                            {/* 包裹列表 */}
                             <div style={{ flex: 1, overflowY: 'auto' }}>
                                 <Table<PlanningParcel>
                                     size="small"
@@ -373,22 +374,22 @@ export function DispatchReassignWorkspace({ session, station, serviceDate }: { s
                                     }}
                                     columns={[
                                         {
-                                            title: '追踪号 (Tracking No)',
+                                            title: t('field.tracking_no'),
                                             dataIndex: 'tracking_no',
                                             render: (val: string, r) => (
                                                 <div>
                                                     <div style={{ fontWeight: 'bold', fontSize: '12px', color: '#1677ff' }}>{val}</div>
-                                                    <div style={{ fontSize: '11px', color: '#8c8c8c' }}>{r.area_code ?? '未划区'}</div>
+                                                    <div style={{ fontSize: '11px', color: '#8c8c8c' }}>{r.area_code ?? t('dispatch.unmapped')}</div>
                                                 </div>
                                             )
                                         },
                                         {
-                                            title: '当前司机',
+                                            title: t('field.driver_name'),
                                             dataIndex: 'driver_name',
-                                            render: (val: string) => val ? <Tag color="blue">{val}</Tag> : <Tag color="default">未指派</Tag>
+                                            render: (val: string) => val ? <Tag color="blue">{val}</Tag> : <Tag color="default">{t('dispatch.unassigned')}</Tag>
                                         },
                                         {
-                                            title: '状态',
+                                            title: t('common.status'),
                                             dataIndex: 'status',
                                             render: (val: string) => <Tag color={val === 'ASSIGNED' ? 'green' : 'orange'}>{val}</Tag>
                                         }
@@ -400,11 +401,11 @@ export function DispatchReassignWorkspace({ session, station, serviceDate }: { s
                 </div>
             </div>
 
-            {/* 单个包裹详情抽屉 (zIndex 2000 保证最顶层无遮挡) */}
+            {/* 单个包裹详情抽屉 */}
             <Drawer
                 open={!!focusParcel}
                 onClose={() => setFocusParcel(undefined)}
-                title={`📦 包裹详情: ${focusParcel?.tracking_no ?? ''}`}
+                title={`📦 ${t('shipment.drawerTitle')}: ${focusParcel?.tracking_no ?? ''}`}
                 width={480}
                 zIndex={2000}
             >

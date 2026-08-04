@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>司机建议</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --primary-light: #eff6ff;
+            --text-color: #1f2937;
+            --text-secondary: #4b5563;
+            --bg-color: #f9fafb;
+            --card-bg: #ffffff;
+            --border-color: #e5e7eb;
+            --success-color: #10b981;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 280px;
+            background-color: var(--card-bg);
+            border-right: 1px solid var(--border-color);
+            padding: 24px;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+
+        .sidebar h2 {
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar li {
+            margin-bottom: 12px;
+        }
+
+        .sidebar a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.95rem;
+            display: block;
+            padding: 6px 12px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .sidebar a:hover, .sidebar a.active {
+            color: var(--primary-color);
+            background-color: var(--primary-light);
+            font-weight: 500;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 40px 48px;
+            max-width: 960px;
+            box-sizing: border-box;
+        }
+
+        header {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 24px;
+            margin-bottom: 32px;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            color: #111827;
+            margin: 0 0 12px 0;
+        }
+
+        /* Sections */
+        section {
+            margin-bottom: 48px;
+            scroll-margin-top: 40px;
+        }
+
+        h2.section-title {
+            font-size: 1.6rem;
+            color: #111827;
+            border-left: 4px solid var(--primary-color);
+            padding-left: 12px;
+            margin-bottom: 20px;
+        }
+
+        h3 {
+            font-size: 1.25rem;
+            color: #1f2937;
+            margin-top: 24px;
+            margin-bottom: 12px;
+            border-bottom: 1px dashed var(--border-color);
+            padding-bottom: 6px;
+        }
+
+        p {
+            margin-bottom: 16px;
+            color: var(--text-secondary);
+        }
+
+        /* Cards */
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .card h4 {
+            margin-top: 0;
+            margin-bottom: 12px;
+            font-size: 1.1rem;
+            color: #111827;
+        }
+
+        .benefit-box {
+            background-color: #f0fdf4;
+            border-left: 4px solid var(--success-color);
+            padding: 12px 16px;
+            margin-top: 16px;
+            border-radius: 0 6px 6px 0;
+        }
+
+        .benefit-box p {
+            margin: 0;
+            color: #166534;
+            font-size: 0.92rem;
+        }
+
+        .flow-list {
+            padding-left: 20px;
+            margin-bottom: 20px;
+        }
+
+        .flow-list li {
+            margin-bottom: 12px;
+            color: var(--text-secondary);
+        }
+
+        .flow-list strong {
+            color: #111827;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <h2>目录导航</h2>
+            <ul>
+                <li><a href="#section-map-navigation" class="active">1. 地图定位与行车导航</a></li>
+                <li><a href="#section-smart-pod">2. 签收拍照与临近切换</a></li>
+                <li><a href="#section-offline">3. 离线派送体验</a></li>
+                <li><a href="#section-utilities">4. 效率辅助工具</a></li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header>
+                <h1>司机建议</h1>
+            </header>
+
+            <!-- 1. 地图定位与行车导航 -->
+            <section id="section-map-navigation">
+                <h2 class="section-title">1. 地图定位与行车导航</h2>
+                <p>派送途中，我们需要地图能随着车辆状态和所处位置的变化，提供直观的视角调整：</p>
+
+                <div class="card">
+                    <h4>1.1 地图界面主导与路线总览</h4>
+                    <p>在每天的工作流程中，我们除了早晨在仓库花几十分钟扫描装车不需要看地图外，剩下的绝大部分时间都在路上行驶和投递。因此，应用应以地图作为主界面，并提供类似谷歌导航的行车引导效果，让所有包裹的物理位置直观地在地图上呈现，而不是显示在一行行的文本列表页中。</p>
+                    <div class="benefit-box">
+                        <p><strong>【司机收益】</strong>：由于白天装车完成后的大部分时间在路上，以地图为主界面的设计更易于我们在行车中操作和查看包裹位置，省去在列表与地图之间频繁切换的操作。</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h4>1.2 导航级别实时跟进</h4>
+                    <p>当地图处于行车跟随状态时，镜头缩放比例要随着车速快慢进行实时自适应调节。车速快时镜头自动拉高显示更广范围的路况，车速慢时镜头自动放大展示细节。</p>
+                    <div class="benefit-box">
+                        <p><strong>【司机收益】</strong>：对于在城市住宅小区派送且已经熟悉该区域的司机来说，地图镜头能自动跟进显示道路细节，这让我们直接看清周边道路而不需要使用外部第三方导航软件，减少了在不同App之间频繁切换的成本。</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h4>1.3 当前位置始终居中</h4>
+                    <p>在行车引导或低速滑行寻找特定房屋时，定位光标必须始终处于地图视图的正中央，保持视野随司机的位置同步推进。</p>
+                    <div class="benefit-box">
+                        <p><strong>【司机收益】</strong>：确保以我们当前的车辆位置为第一视角，无需在行车时用手指在屏幕上拖拽地图去寻找当前位置，双手可以专注于方向盘。</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h4>1.4 门口位置的自动特写与画面稳定</h4>
+                    <p>当我们驾车接近并停靠在客户房屋门前时，地图应自动放大并调平视角，将目标房屋的具体位置和周边细节清晰地呈现出来。在此过程中，地图画面应保持绝对平稳，避免在减速停车时镜头忽大忽小或前后颤动。</p>
+                    <div class="benefit-box">
+                        <p><strong>【司机收益】</strong>：车辆停稳的瞬间即可看到稳定、清晰的门牌指示。我们能立刻确认目标大门并下车，无需在车内等待地图镜头稳定，也无需手动缩放调整。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. 签收拍照与临近切换 -->
+            <section id="section-smart-pod">
+                <h2 class="section-title">2. 签收拍照与临近切换</h2>
+                <p>下车交付包裹时，我们需要尽量减少对手机的操作步骤：</p>
+
+                <div class="card">
+                    <h4>2.1 扫码与拍照签收一步完成</h4>
+                    <p>走到门口拍照时，当司机拿起手机对着包裹上的条形码时，系统自动识别条码并进行比对。如果条码一致，则自动完成 shipping label 的拍照；如果不一致，则提示司机拿错了包裹，无需手工点击拍照。</p>
+                    <div class="benefit-box">
+                        <p><strong>【司机收益】</strong>：每个包裹省去 2 次按键，全天 150 个包裹即可减少 300 次屏幕触碰，缩短每个客户门前的停留时间。</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h4>2.2 临近包裹一键顺手送</h4>
+                    <p>在拍照界面中，如果检测到附近有其他相同大楼或顺路包裹，界面能直接弹出附近包裹列表（以Fragment方式展示）并支持一键切换拍照界面为下一目标，不用每次投完都退回主页重新挑选。</p>
+                    <div class="benefit-box">
+                        <p><strong>【司机收益】</strong>：当同一个位置或附近有多个包裹时，能直接在拍照界面一键顺手切换，极大减少了我们在App上频繁退出、重新选择、再进入的页面切换操作。</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h4>2.3 拍照界面与派送流程的极简化</h4>
+                    <p><strong>实际场景与痛点：</strong>目前，我们从点击包裹列表或者地图上的包裹标点开始，到最后完成拍照派送，中间需要点击 6-7 下屏幕。比如点击地图标点会先弹出一个带有地图的包裹详情页面，点击妥投（Delivered）后又跳转到另一个详情界面，最后再点拍照按钮才进入相机。这两个中间界面的信息非常多且重复，无谓地拉长了我们的操作链路。</p>
+                    <p><strong>建议方案：</strong>希望能合并或跳过这些重复的信息界面。我们点击包裹标点或列表后，最好能直接跳转进入一个包含最核心包裹信息（如运单/房号）和操作按钮的拍照界面，让我们在 2-3 下点击内（若是需要多张图的公寓件则在 3 下点击内）就能快速完成全部操作。</p>
+                    <div class="benefit-box">
+                        <p><strong>【司机收益】</strong>：大幅削减在门口交付时的点击步骤，避免我们在配送时被复杂的重复菜单困扰，显著提升每单的派送速度。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. 离线派送体验 -->
+            <section id="section-offline">
+                <h2 class="section-title">3. 离线派送体验</h2>
+                <div class="card">
+                    <p>在偏远没有网络信号的区域、进入地下车库等盲区，或者遇到后台服务器暂时故障时，包裹的扫描、状态修改以及拍照签收等操作都应能照常使用。应用界面应保持极速响应，不出现加载等待或报错弹窗，保证完全不影响我们的正常工作。</p>
+                </div>
+            </section>
+
+            <!-- 4. 效率辅助工具 -->
+            <section id="section-utilities">
+                <h2 class="section-title">4. 效率辅助工具</h2>
+                <p>日常理货、核对当日业绩和公寓派送时，我们需要几项实用的辅助工具：</p>
+
+                <div class="card">
+                    <h4>4.1 大件包裹标识</h4>
+                    <p><strong>实际场景与痛点：</strong>在仓库理好货后，我们会按照派送路线号码的顺序，将每 10 件或 20 件包裹归类装入同一个货袋或货箱，并把这些袋子/箱子分类存放在车内的不同货架位置。然而，体积巨大或超重的包裹是无法装进这些袋子的，只能单独存放在后备箱（车尾箱）或其他开放区域。当我们按照路线号派送、从某一个货袋里依次找包裹时，如果里面找不到当前派送号的包裹，会非常困惑并在货袋里翻找半天，最后才想起来这其实是一件单独摆放的大件包裹，这极其耽误时间。</p>
+                    <p><strong>功能要求：</strong>我们可以在装车时对包裹做“大件”标记。被标记为大件的包裹在地图mark上或包裹信息页面应具有非常明显的“大件包裹标识”。</p>
+                    <div class="benefit-box">
+                        <p><strong>【司机收益】</strong>：当我们按照顺序派送时，只要看到地图mark上或包裹信息页面的大件标识，就知道这件货不能在当前的货袋里盲目寻找，而应该直接去车尾箱或其他存放处拿取，节省了无谓的翻找时间。</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h4>4.2 妥投数量与每日里程统计</h4>
+                    <p><strong>功能要求：</strong>系统应提供汇总日历，直观呈现我们每一天已妥投的包裹数量以及当天 GPS 测算出的行驶公里数，并支持点击某一天回溯查看当天所有妥投的运单明细。</p>
+                    <div class="benefit-box">
+                        <p><strong>【司机收益】</strong>：方便我们在下班时快速核对自己的每日送单业绩。由于妥投件数直接关联我们的计件工资，而行驶里程数能方便我们在报税时准确地计算车辆运营成本，该统计为我们核算日工资 and 个人报税抵扣提供了准确、防漏单的本地数据凭证。</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h4>4.3 历史投递图</h4>
+                    <p><strong>实际场景与功能要求：</strong>新司机在前往一些陌生的派送地点时，由于建筑周边环境复杂，或者有些房屋外部没有悬挂明显的门牌号，在现场往往很难确定正确的位置。应用应支持保存并在对应地址的派送界面直接调出该位置历史投递时拍摄的照片，帮助司机通过实物建筑物的外貌来对比和确认正确的位置。</p>
+                    <div class="benefit-box">
+                        <p><strong>【司机收益】</strong>：能帮助不熟悉路线的新司机在面对复杂地形或缺失门牌号的住宅区时迅速认出目标房屋，避免送错地址，同时也省去了下车后打电话反复询问客户的麻烦。</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h4>4.4 公寓门牌号自动补全与图片存证</h4>
+                    <p><strong>实际场景与功能要求：</strong>在公寓大楼配送时，有些收件客户在下单填地址时经常会漏写自己的具体公寓/房间号。我们希望系统能根据该收件人或该地址历史成功投递的记录，自动判断并补全缺失的门牌号，同时在界面上提供对应的历史投递照片，作为我们判断和确认正确门牌的直接依据。</p>
+                    <div class="benefit-box">
+                        <p><strong>【司机收益】</strong>：再也不用因为客户没写门牌号而被迫在楼下干等或挨个打电话确认。有了历史投递图片和系统自动补全的公寓号，我们可以直接送包裹上楼，大幅降低了退件率，提升了公寓投递的效率。</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h4>4.5 智能省电与定位控制</h4>
+                    <p><strong>实际场景与功能要求：</strong>我们每天需要长时间开启App工作，定位功能耗电极其明显。我们希望系统能够更加智能，当应用处于不需要采集位置数据的状态时（例如我们正停在路边或在门口扫描包裹时），自动暂停 GPS 位置数据采集，以减少后台功耗和手机发热。</p>
+                    <div class="benefit-box">
+                        <p><strong>【司机收益】</strong>：减少手机在高强度扫码 and 拍照时的发热程度，延长电池续航时间，保障全天配送过程中手机不会因电量耗尽而关机。</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+</body>
+</html>

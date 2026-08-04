@@ -12,7 +12,7 @@ describe('allowedPages', () => {
 
     it('unions multiple roles in stable navigation order', () => {
         expect(allowedPages(['DISPATCHER', 'INBOUND'])).toEqual([
-            'dashboard','orders','dispatch','manifests','scanning','handover','delivery','closeout','cases','areas','drivers',
+            'dashboard','orders','dispatch','dispatch-reassign','manifests','scanning','handover','delivery','closeout','cases','areas','drivers',
         ]);
     });
 

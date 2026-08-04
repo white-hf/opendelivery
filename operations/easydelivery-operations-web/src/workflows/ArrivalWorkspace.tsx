@@ -89,10 +89,10 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
   const countsMatch = detail.data ? aggregateEqualsDetail(detail.data.units, detail.data.parcels) : true;
 
   const tripProgressText: Record<string, string> = {
-    EXPECTED: '🚚 确认卡车到港',
-    ARRIVED: '📦 开始卸货',
-    UNLOADING: '⚡ 启动放行清点',
-    READY_FOR_SCAN: '✅ 关闭到货批次'
+    EXPECTED: t('arrival.confirmTruck'),
+    ARRIVED: t('arrival.startUnloading'),
+    UNLOADING: t('arrival.releaseForScan'),
+    READY_FOR_SCAN: t('arrival.closeTrip')
   };
 
   const currentTrip = detail.data?.trip;
@@ -108,7 +108,7 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
           style={{ borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
           title={
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 600, fontSize: '14px' }}>🚚 到港干线车次 <span style={{ display: 'none' }}>Physical arrivals 到仓实物 Arrival records physical containers only</span></span>
+              <span style={{ fontWeight: 600, fontSize: '14px' }}>{t('arrival.headerTitle')}</span>
               <Button type="primary" size="small" onClick={() => setCreateOpen(true)}>{t('arrival.create')}</Button>
             </div>
           }
@@ -140,8 +140,8 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
                     </Tag>
                   </div>
                   <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>车牌: {trip.vehicle_plate || '—'}</span>
-                    <span>件数: {trip.linked_piece_count}/{trip.expected_piece_count}</span>
+                    <span>{t('arrival.vehicle')}: {trip.vehicle_plate || '—'}</span>
+                    <span>{t('arrival.pieces')}: {trip.linked_piece_count}/{trip.expected_piece_count}</span>
                   </div>
                 </div>
               );
@@ -156,10 +156,10 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
             style={{ borderRadius: '10px', flex: 1, display: 'flex', flexDirection: 'column', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
             title={
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: 600, fontSize: '13px' }}>📦 车次笼板/笼车 ({detail.data?.units.length ?? 0})</span>
+                <span style={{ fontWeight: 600, fontSize: '13px' }}>📦 {t('arrival.units')} ({detail.data?.units.length ?? 0})</span>
                 <Space size={6}>
-                  <Button size="small" onClick={() => setEditTransportOpen(true)}>修改车辆/时间</Button>
-                  <Button size="small" onClick={() => setUnitOpen(true)}>+ 添加笼板</Button>
+                  <Button size="small" onClick={() => setEditTransportOpen(true)}>{t('arrival.editTransportBtn')}</Button>
+                  <Button size="small" onClick={() => setUnitOpen(true)}>{t('arrival.addUnitBtn')}</Button>
                 </Space>
               </div>
             }
@@ -176,7 +176,7 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
               </Button>
             )}
 
-            {!countsMatch && <Alert type="warning" showIcon message="件数统计不匹配" style={{ marginBottom: '8px', padding: '4px 8px' }} />}
+            {!countsMatch && <Alert type="warning" showIcon message={t('arrival.countMismatch')} style={{ marginBottom: '8px', padding: '4px 8px' }} />}
 
             {/* 笼车卡片纵向列表 */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', flex: 1 }}>
@@ -193,7 +193,7 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
                   color: '#1e293b'
                 }}
               >
-                🌐 显示全部车次包裹 ({detail.data?.parcels.length ?? 0} 件)
+                🌐 {t('arrival.parcels')} ({detail.data?.parcels.length ?? 0})
               </div>
 
               {(detail.data?.units ?? []).map(unit => {
@@ -217,15 +217,15 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
                     </div>
 
                     <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
-                      <Tag color="blue" style={{ fontSize: '11px', margin: 0 }}>预: {unit.declared_piece_count}</Tag>
-                      <Tag color="cyan" style={{ fontSize: '11px', margin: 0 }}>连: {unit.linked_piece_count}</Tag>
-                      <Tag color="green" style={{ fontSize: '11px', margin: 0 }}>扫: {unit.scanned_piece_count}</Tag>
-                      {unit.exception_piece_count > 0 && <Tag color="red" style={{ fontSize: '11px', margin: 0 }}>异: {unit.exception_piece_count}</Tag>}
+                      <Tag color="blue" style={{ fontSize: '11px', margin: 0 }}>{t('arrival.declared')}: {unit.declared_piece_count}</Tag>
+                      <Tag color="cyan" style={{ fontSize: '11px', margin: 0 }}>{t('arrival.linked')}: {unit.linked_piece_count}</Tag>
+                      <Tag color="green" style={{ fontSize: '11px', margin: 0 }}>{t('arrival.scanned')}: {unit.scanned_piece_count}</Tag>
+                      {unit.exception_piece_count > 0 && <Tag color="red" style={{ fontSize: '11px', margin: 0 }}>{t('arrival.exception')}: {unit.exception_piece_count}</Tag>}
                     </div>
                     <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
                       {Array.from(unitAreaDistribution.get(unit.id)?.entries() ?? []).map(([area, count]) => (
                         <Tag key={area} color={area === 'UNZONED' ? 'orange' : 'purple'} style={{ fontSize: '10px', margin: 0 }}>
-                          {area}: {count}
+                          {area === 'UNZONED' ? t('arrival.unzoned') : area}: {count}
                         </Tag>
                       ))}
                     </div>
@@ -233,7 +233,7 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
                     {/* 🔗 快捷操作与跳转配置 */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed #f0f0f0' }}>
                       {onNavigate && (
-                        <Tooltip title="跳转至 3.1 派送计划进行初始化波次排线">
+                        <Tooltip title={t('nav.dispatch')}>
                           <Button 
                             type="link" 
                             size="small" 
@@ -243,7 +243,7 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
                               onNavigate('orders');
                             }}
                           >
-                            🔗 3.1 派送排线
+                            🔗 {t('nav.dispatch')}
                           </Button>
                         </Tooltip>
                       )}
@@ -268,7 +268,7 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
           </Card>
         ) : (
           <Card size="small" style={{ flex: 1, borderRadius: '10px', display: 'grid', placeItems: 'center', color: '#94a3b8' }}>
-            👈 请在上方选择一个干线车次以查看笼板/包裹明细
+            👈 {t('arrival.boundary')}
           </Card>
         )}
       </div>
@@ -294,11 +294,11 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
         {/* Floating Top Indicator Bar */}
         <div style={{ position: 'absolute', top: '12px', left: '12px', background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(4px)', padding: '8px 14px', borderRadius: '20px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', gap: '12px', zIndex: 10 }}>
           <span style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b' }}>
-            🗺️ 到仓包裹空间分布地图
+            🗺️ {t('arrival.title')}
           </span>
           {selectedUnit && (
             <Tag color="purple" style={{ margin: 0, borderRadius: '10px' }}>
-              当前笼板: {unitLabels.get(selectedUnit)} ({unitParcels.length} 件)
+              {t('arrival.unitNo')}: {unitLabels.get(selectedUnit)} ({unitParcels.length})
             </Tag>
           )}
           <Button 
@@ -307,18 +307,18 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
             style={{ borderRadius: '12px' }}
             onClick={() => setDrawerOpen(true)}
           >
-            📋 查看包裹明细 ({unitParcels.length} 件)
+            📋 {t('arrival.parcels')} ({unitParcels.length})
           </Button>
         </div>
       </div>
 
       {/* ↗️ 右侧可收缩包裹明细 Drawer (与订单准备页面体验一致) */}
-      <MobileActionBar label="查看到仓包裹明细" count={unitParcels.length} onClick={() => setDrawerOpen(true)} />
+      <MobileActionBar label={t('arrival.mobileViewParcels')} count={unitParcels.length} onClick={() => setDrawerOpen(true)} />
       <Drawer
         title={
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>📦 到仓包裹清单 {selectedUnit ? `· ${unitLabels.get(selectedUnit)}` : ''}</span>
-            <Tag color="blue">{unitParcels.length} 件</Tag>
+            <span>📦 {t('arrival.parcels')} {selectedUnit ? `· ${unitLabels.get(selectedUnit)}` : ''}</span>
+            <Tag color="blue">{unitParcels.length}</Tag>
           </div>
         }
         placement="right"
@@ -334,7 +334,7 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
           columns={[
             { title: t('field.tracking_no'), dataIndex: 'tracking_no', render: v => <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{v}</span> },
             { title: t('common.status'), dataIndex: 'parcel_status', render: v => <Tag color="blue">{v}</Tag> },
-            { title: '片区', dataIndex: 'area_code', render: v => v ? <Tag color="purple">{v}</Tag> : <Tag>未划区</Tag> },
+            { title: t('areas.title'), dataIndex: 'area_code', render: v => v ? <Tag color="purple">{v}</Tag> : <Tag>{t('arrival.unzoned')}</Tag> },
             { title: t('arrival.driver'), dataIndex: 'driver_name', render: v => v ?? '—' }
           ]}
         />
@@ -361,14 +361,14 @@ export function ArrivalWorkspace({ session, station, serviceDate, onNavigate }: 
         </Form>
       </Drawer>
 
-      <Drawer width={480} open={editTransportOpen} destroyOnClose onClose={() => setEditTransportOpen(false)} title="修改到仓运输信息">
+      <Drawer width={480} open={editTransportOpen} destroyOnClose onClose={() => setEditTransportOpen(false)} title={t('arrival.editTransportTitle')}>
         <Form key={`${tripId ?? 'none'}-${currentTrip?.updated_at ?? ''}`} layout="vertical" initialValues={{ vehiclePlate: currentTrip?.vehicle_plate, sealNo: currentTrip?.seal_no, expectedAt: currentTrip?.expected_at ? dayjs(currentTrip.expected_at) : undefined, note: currentTrip?.note }} onFinish={v => command.mutate({ path: `/ops/v1/arrival-trips/${tripId}/transport`, method: 'PATCH', body: { ...v, expectedAt: v.expectedAt?.toISOString(), reason: v.reason } })}>
-          <Form.Item name="vehiclePlate" label="车牌号"><Input /></Form.Item>
-          <Form.Item name="sealNo" label="封签号"><Input /></Form.Item>
-          <Form.Item name="expectedAt" label="预计到仓时间"><DatePicker showTime style={{ width: '100%' }} /></Form.Item>
-          <Form.Item name="note" label="备注"><Input.TextArea /></Form.Item>
-          <Form.Item name="reason" label="修改原因" rules={[{ required: true, message: '请输入修改原因' }]}><Input.TextArea /></Form.Item>
-          <Button block type="primary" htmlType="submit" loading={command.isPending}>保存修改</Button>
+          <Form.Item name="vehiclePlate" label={t('arrival.vehicle')}><Input /></Form.Item>
+          <Form.Item name="sealNo" label={t('arrival.seal')}><Input /></Form.Item>
+          <Form.Item name="expectedAt" label={t('arrival.expected')}><DatePicker showTime style={{ width: '100%' }} /></Form.Item>
+          <Form.Item name="note" label={t('common.reason')}><Input.TextArea /></Form.Item>
+          <Form.Item name="reason" label={t('arrival.editReason')} rules={[{ required: true, message: t('arrival.editReasonRequired') }]}><Input.TextArea /></Form.Item>
+          <Button block type="primary" htmlType="submit" loading={command.isPending}>{t('common.save')}</Button>
         </Form>
       </Drawer>
 

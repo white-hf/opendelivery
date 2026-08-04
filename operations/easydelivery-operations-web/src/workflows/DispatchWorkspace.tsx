@@ -452,18 +452,18 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
     {/* Page Header */}
     <div style={{ padding: '12px 16px', background: '#fafafa', border: '1px solid #e8e8e8', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <div style={{ fontSize: '16px', fontWeight: 'bold' }}>
-        🌊 3.1 Dispatch planning (wave SOP)
+        🌊 {t('nav.dispatch')}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <span style={{ fontSize: '13px', color: '#8c8c8c' }}>
-          Available drivers: <b style={{ color: '#1677ff' }}>{available.length}</b> | Assigned parcels: <b>{assigned}</b>
+          {t('tower.drivers')}: <b style={{ color: '#1677ff' }}>{available.length}</b> | {t('dispatch.assigned')}: <b>{assigned}</b>
         </span>
         <Button 
           size="small" 
           icon={<i className="fa-solid fa-sliders" style={{ marginRight: 4 }}></i>}
           onClick={() => setCapacityOpen(true)}
         >
-          Driver availability and capacity
+          {t('dispatch.manageCapacity')}
         </Button>
       </div>
     </div>
@@ -475,10 +475,8 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
         <div className={`step-node ${stage === 0 ? 'active' : stage > 0 ? 'completed' : ''}`} onClick={() => setStage(0)}>
           <div className="step-num">{stage > 0 ? '✓' : '1'}</div>
           <div className="step-info">
-            <span className="step-title">1. Create daily wave</span>
-            <span className="step-sub">{currentWaveCode ?? 'No wave created'}</span>
-
-
+            <span className="step-title">{t('dispatch.step1Title')}</span>
+            <span className="step-sub">{currentWaveCode ?? t('dispatch.noDraft')}</span>
           </div>
         </div>
         <i className="fa-solid fa-chevron-right" style={{ color: '#ccc', fontSize: '11px' }}></i>
@@ -487,8 +485,8 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
         <div className={`step-node ${stage === 1 ? 'active' : stage > 1 ? 'completed' : ''}`} onClick={() => ensureWaveAndProceed(1)}>
           <div className="step-num">{stage > 1 ? '✓' : '2'}</div>
           <div className="step-info">
-            <span className="step-title">2. Plan handling units</span>
-            <span className="step-sub">Persist unit-to-area mapping</span>
+            <span className="step-title">{t('dispatch.step2Title')}</span>
+            <span className="step-sub">{t('dispatch.step2Sub')}</span>
           </div>
         </div>
         <i className="fa-solid fa-chevron-right" style={{ color: '#ccc', fontSize: '11px' }}></i>
@@ -497,8 +495,8 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
         <div className={`step-node ${stage === 2 ? 'active' : stage > 2 ? 'completed' : ''}`} onClick={() => ensureWaveAndProceed(2)}>
           <div className="step-num">{stage > 2 ? '✓' : '3'}</div>
           <div className="step-info">
-            <span className="step-title">3. Assign drivers and routes</span>
-            <span className="step-sub">Area assignment and route tools</span>
+            <span className="step-title">{t('dispatch.step3Title')}</span>
+            <span className="step-sub">{t('dispatch.step3Sub')}</span>
           </div>
         </div>
         <i className="fa-solid fa-chevron-right" style={{ color: '#ccc', fontSize: '11px' }}></i>
@@ -507,16 +505,11 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
         <div className={`step-node ${stage === 3 ? 'active' : ''}`} onClick={() => ensureWaveAndProceed(3)}>
           <div className="step-num">4</div>
           <div className="step-info">
-            <span className="step-title">4. Preflight and publish</span>
-            <span className="step-sub">Gate checks and lock</span>
+            <span className="step-title">{t('dispatch.step4Title')}</span>
+            <span className="step-sub">{t('dispatch.step4Sub')}</span>
           </div>
         </div>
       </div>
-
-      <Button type="primary" onClick={() => ensureWaveAndProceed(Math.min(3, stage + 1))}>
-        Next <i className="fa-solid fa-arrow-right"></i>
-      </Button>
-
     </div>
 
   {(parcels.error||shifts.error||wave.error)&&<Alert type="error" showIcon message={(parcels.error??shifts.error??wave.error)?.message}/>} 
@@ -529,12 +522,12 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
       <div style={{ paddingBottom: '12px', marginBottom: '16px', borderBottom: '1px solid #e8e8e8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontWeight: 'bold', fontSize: '14px' }}>
           <i className="fa-solid fa-wand-magic-sparkles" style={{ color: '#1677ff', marginRight: 8 }}></i>
-          {stage === 0 && 'Step 1: Create daily wave'}
-          {stage === 1 && 'Step 2: Plan handling units'}
-          {stage === 2 && 'Step 3: Assign drivers and routes'}
-          {stage === 3 && 'Step 4: Preflight and publish'}
+          {stage === 0 && t('dispatch.step1Title')}
+          {stage === 1 && t('dispatch.step2Title')}
+          {stage === 2 && t('dispatch.step3Title')}
+          {stage === 3 && t('dispatch.step4Title')}
         </span>
-        <span style={{ fontSize: '11px', background: '#e6f4ff', color: '#0958d9', padding: '2px 6px', borderRadius: '4px' }}>Editing</span>
+        <span style={{ fontSize: '11px', background: '#e6f4ff', color: '#0958d9', padding: '2px 6px', borderRadius: '4px' }}>{t('common.edit')}</span>
       </div>
 
 
@@ -543,25 +536,25 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
         <div style={{ maxWidth: '640px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', gap: '16px', padding: '12px 0' }}>
           <div className="op-card" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)', borderRadius: '8px' }}>
             <div className="card-header">
-              <span>Wave information</span>
-              <Tag color="green">Auto-generated</Tag>
+              <span>{t('dispatch.waveInfo')}</span>
+              <Tag color="green">{t('dispatch.autoGenerated')}</Tag>
             </div>
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '6px', color: '#262626' }}>Wave code</label>
+              <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '6px', color: '#262626' }}>{t('dispatch.waveCode')}</label>
               <Input value={defaultWaveCode} readOnly style={{ background: '#f5f5f5', borderRadius: '6px' }} size="large" />
             </div>
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '6px', color: '#262626' }}>Arrival trip (optional)</label>
+              <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '6px', color: '#262626' }}>{t('dispatch.arrivalTripOptional')}</label>
               <Select
                 size="large"
                 style={{ width: '100%' }}
-                placeholder="Can be linked later from inbound arrivals"
+                placeholder={t('dispatch.arrivalTripPlaceholder')}
                 value={tripId}
                 allowClear
                 onChange={(val) => { setTripSelectionTouched(true); setSelectedTripId(val); }}
-                options={(tripsQuery.data ?? []).map(t => ({
-                  value: t.id,
-                  label: `🚚 ${t.external_trip_no} (${t.vehicle_plate || 'no plate'}) [${t.unit_count ?? 0} units]`
+                options={(tripsQuery.data ?? []).map(tTrip => ({
+                  value: tTrip.id,
+                  label: `🚚 ${tTrip.external_trip_no} (${tTrip.vehicle_plate || t('dispatch.noPlate')}) [${tTrip.unit_count ?? 0} ${t('field.parcel_count')}]`
                 }))}
               />
               {waveId && tripSelectionTouched && (
@@ -582,7 +575,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
                     setTripSelectionTouched(false);
                   }}
                 >
-                  Save trip link
+                  {t('dispatch.saveTripLink')}
                 </Button>
               )}
             </div>
@@ -596,26 +589,26 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
                 const nextSeq = (wavesList.data ?? []).length + 1;
                 const cleanDate = serviceDate.replace(/-/g, '');
                 const defaultCode = `${cleanDate}-WAVE-0${nextSeq}`;
-                const code = prompt("Enter a unique wave code for this station:", defaultCode);
+                const code = prompt(t('dispatch.promptWaveCode'), defaultCode);
                 if (code && code.trim()) {
-                  const selectedTrip = tripsQuery.data?.find(t => t.id === selectedTripId);
+                  const selectedTrip = tripsQuery.data?.find(tTrip => tTrip.id === selectedTripId);
                   createWave({ waveCode: code.trim(), arrivalBatchNo: selectedTrip?.external_trip_no });
                 }
               }}
             >
-              ➕ Create wave
+              ➕ {t('dispatch.createPlan')}
             </Button>
           </div>
 
           <div className="op-card" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)', borderRadius: '8px' }}>
-            <div className="card-header" style={{ fontSize: '14px', fontWeight: 'bold' }}>Today’s parcel overview</div>
+            <div className="card-header" style={{ fontSize: '14px', fontWeight: 'bold' }}>{t('dispatch.parcelOverview')}</div>
             <div style={{ fontSize: '13px', lineHeight: '2.0', color: '#434343' }}>
-              <div>• Ready to plan: <b style={{ fontSize: '15px', color: '#1677ff' }}>{all.length}</b></div>
-              <div>• ⚡ Priority parcels: <b style={{ color: '#c41d7f', fontSize: '15px' }}>{all.filter(p=>p.priority_flag).length}</b></div>
-              <div>• 📮 Standard parcels: <b style={{ color: '#262626' }}>{all.filter(p=>!p.priority_flag).length}</b></div>
+              <div>• {t('dispatch.readyToPlan')}: <b style={{ fontSize: '15px', color: '#1677ff' }}>{all.length}</b></div>
+              <div>• ⚡ {t('dispatch.priorityParcels')}: <b style={{ color: '#c41d7f', fontSize: '15px' }}>{all.filter(p=>p.priority_flag).length}</b></div>
+              <div>• 📮 {t('dispatch.standardParcels')}: <b style={{ color: '#262626' }}>{all.filter(p=>!p.priority_flag).length}</b></div>
             </div>
             <Button className="btn-primary btn-block" style={{ marginTop: '16px', height: '42px', fontSize: '14px', fontWeight: 'bold' }} onClick={() => ensureWaveAndProceed(1)}>
-              Start wave and continue <i className="fa-solid fa-arrow-right"></i>
+              {t('dispatch.startWaveAndContinue')} <i className="fa-solid fa-arrow-right"></i>
             </Button>
 
           </div>
@@ -631,21 +624,21 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
               size="small"
               rowKey="id"
               dataSource={serviceAreasQuery.data ?? []}
-              pagination={{ pageSize: 6, showSizeChanger: false, showTotal: (total) => `${total} delivery areas` }}
+              pagination={{ pageSize: 6, showSizeChanger: false, showTotal: (total) => `${total} ${t('nav.areas')}` }}
               columns={[
                 {
-                  title: 'Area code / name',
+                  title: t('areas.code'),
                   dataIndex: 'area_code',
                   key: 'area_code',
                   render: (text, record: any) => (
                     <div>
                       <div style={{ fontWeight: 'bold', color: '#1677ff' }}>{text}</div>
-                      <div style={{ fontSize: '11px', color: '#8c8c8c' }}>{record.area_name || 'Default grid'}</div>
+                      <div style={{ fontSize: '11px', color: '#8c8c8c' }}>{record.area_name || t('dispatch.defaultGrid')}</div>
                     </div>
                   )
                 },
                 {
-                  title: 'Linked parcels',
+                  title: t('dispatch.linkedParcels'),
                   key: 'parcels',
                   width: 90,
                   render: (_, record: any) => {
@@ -654,13 +647,12 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
                   }
                 },
                 {
-                  title: 'Target handling unit (HU)',
+                  title: t('dispatch.targetUnit'),
                   key: 'target_unit',
                   render: (_, record: any) => {
                     const areaVerId = record.id;
                     let currentUnitId: number | undefined = undefined;
 
-                    // 1. First check if any unit has linked parcels for this area
                     if (tripDetailQuery.data?.parcels) {
                       const parcelAreaMap = new Map(all.map((p: any) => [p.parcel_id, p.area_id ?? p.area_version_id]));
 
@@ -670,7 +662,6 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
                       if (match) currentUnitId = match.unit_id;
                     }
 
-                    // 2. Fallback: match by local state / unit selected areas
                     if (!currentUnitId && tripDetailQuery.data?.units) {
                       for (const u of tripDetailQuery.data.units) {
                         const selectedForUnit = unitSelectedAreas[u.id] ?? [];
@@ -683,21 +674,17 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
 
                     const unitOptions = (tripDetailQuery.data?.units ?? []).map(u => ({
                       value: u.id,
-                      label: `📦 ${u.external_unit_no} (${u.linked_piece_count} linked)`
+                      label: `📦 ${u.external_unit_no} (${u.linked_piece_count})`
                     }));
 
                     return (
                       <Select
                         style={{ width: '100%', maxWidth: '280px' }}
-                        placeholder="Select handling unit..."
+                        placeholder={t('dispatch.selectUnitPlaceholder')}
                         allowClear
                         value={currentUnitId}
                         options={unitOptions}
                         onChange={(newUnitId) => {
-                          // area-fill is a replace operation, not an append. Build
-                          // the complete mapping first; otherwise selecting a
-                          // second area for the same HU silently removes the first
-                          // area when the page is revisited.
                           const next: Record<number, number[]> = Object.fromEntries(
                             Object.entries(linkedAreasByUnit).map(([id, ids]) => [Number(id), [...ids]])
                           );
@@ -724,13 +711,13 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
                             },
                             station
                           ))).then(async () => {
-                            message.success('Handling-unit area mapping saved');
+                            message.success(t('dispatch.unitAreaSaved'));
                             await Promise.all([
                               cache.invalidateQueries({ queryKey: ['arrival-trip', station, tripId] }),
                               cache.invalidateQueries({ queryKey: ['arrival-trips', station, serviceDate] }),
                               refresh()
                             ]);
-                          }).catch((error: Error) => message.error(`Failed to save handling-unit mapping: ${error.message}`));
+                          }).catch((error: Error) => message.error(`${t('common.operationFailed')}: ${error.message}`));
                         }}
                       />
                     );
@@ -744,10 +731,10 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Button size="small" onClick={autoFillAllUnits} loading={command.isPending}>
-              <i className="fa-solid fa-wand-magic-sparkles"></i> Fill using defaults
+              <i className="fa-solid fa-wand-magic-sparkles"></i> {t('dispatch.assignDefaults')}
             </Button>
             <Button className="btn-primary" onClick={() => setStage(2)}>
-              Confirm handling-unit plan <i className="fa-solid fa-arrow-right"></i>
+              {t('dispatch.confirmUnitPlan')} <i className="fa-solid fa-arrow-right"></i>
             </Button>
           </div>
         </div>
@@ -765,10 +752,10 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
           >
               <div style={{ fontWeight: 'bold', color: '#0958d9', fontSize: '14px', marginBottom: '4px' }}>
               <i className="fa-solid fa-wand-magic-sparkles" style={{ marginRight: 6 }}></i>
-              Auto-assign all parcels by driver area
+              {t('dispatch.autoAssignTitle')}
             </div>
             <div style={{ fontSize: '12px', color: '#595959', marginBottom: '10px', lineHeight: '1.5' }}>
-              Match parcel areas to driver preferences and remaining capacity in one action.
+              {t('dispatch.autoAssignHelp')}
             </div>
             <Button 
               type="primary"
@@ -791,26 +778,26 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
                 });
               }}
             >
-              ⚡ Run default assignment
+              ⚡ {t('dispatch.assignDefaults')}
             </Button>
           </Card>
 
           {/* Primary action 2: assign one driver and area */}
           <div className="op-card" style={{ borderRadius: '10px' }}>
             <div style={{ fontWeight: 'bold', color: '#1f1f1f', fontSize: '13px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span><i className="fa-solid fa-location-dot" style={{ color: '#1677ff', marginRight: 6 }}></i> Assign by area</span>
+              <span><i className="fa-solid fa-location-dot" style={{ color: '#1677ff', marginRight: 6 }}></i> {t('dispatch.assignArea')}</span>
               <Button 
                 type="link" 
                 size="small" 
                 style={{ padding: 0, fontSize: '12px' }}
                 onClick={() => setCapacityOpen(true)}
               >
-                ⚙️ Driver capacity
+                ⚙️ {t('dispatch.capacity')}
               </Button>
             </div>
 
             <div style={{ marginBottom: '10px' }}>
-              <label style={{ fontSize: '12px', color: '#595959', fontWeight: 600, display: 'block', marginBottom: '4px' }}>1. Select driver</label>
+              <label style={{ fontSize: '12px', color: '#595959', fontWeight: 600, display: 'block', marginBottom: '4px' }}>1. {t('dispatch.selectDriver')}</label>
               <Select 
                 value={driver} 
                 onChange={(val) => {
@@ -820,13 +807,13 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
                 }} 
                 style={{ width: '100%' }} 
                 allowClear
-                placeholder="Select driver"
-                options={available.map(s => ({ value: s.driver_id, label: `${s.driver_name} (${s.assigned_count}/${s.parcel_capacity ?? 200} assigned)` }))}
+                placeholder={t('dispatch.selectDriver')}
+                options={available.map(s => ({ value: s.driver_id, label: `${s.driver_name} (${s.assigned_count}/${s.parcel_capacity ?? 200})` }))}
               />
             </div>
 
             <div style={{ marginBottom: '12px' }}>
-              <label style={{ fontSize: '12px', color: '#595959', fontWeight: 600, display: 'block', marginBottom: '4px' }}>2. Select area</label>
+              <label style={{ fontSize: '12px', color: '#595959', fontWeight: 600, display: 'block', marginBottom: '4px' }}>2. {t('areas.code')}</label>
               <Select 
                 value={areaVersion} 
                 onChange={(val) => {
@@ -835,7 +822,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
                 }} 
                 style={{ width: '100%' }} 
                 allowClear
-                placeholder="Select area"
+                placeholder={t('dispatch.area')}
                 options={areas}
               />
             </div>
@@ -855,7 +842,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
                   }
                 }}
               >
-                🎯 Assign area parcels
+                🎯 {t('dispatch.assignArea')}
               </Button>
 
               <Button
@@ -873,13 +860,13 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
                   }
                 }}
               >
-                🧭 Calculate driver route
+                🧭 {t('dispatch.calcRoute')}
               </Button>
             </div>
           </div>
 
           <Button className="btn-primary btn-block" style={{ marginTop: '12px' }} onClick={() => setStage(3)}>
-            Assignment complete, continue to preflight <i className="fa-solid fa-arrow-right"></i>
+            {t('dispatch.continuePreflight')} <i className="fa-solid fa-arrow-right"></i>
           </Button>
         </div>
       )}
@@ -889,14 +876,14 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div className="op-card">
             <div className="card-header">
-              <span>Wave gate checks</span>
+              <span>{t('dispatch.gateChecks')}</span>
               <i className="fa-solid fa-shield-halved" style={{ color: '#52c41a' }}></i>
             </div>
             <div style={{ fontSize: '13px', lineHeight: '2' }}>
-              <div><i className="fa-solid fa-circle-check" style={{ color: '#52c41a' }}></i> {all.length} parcels have a route</div>
-              <div><i className="fa-solid fa-circle-check" style={{ color: '#52c41a' }}></i> No driver is over capacity</div>
-              <div><i className="fa-solid fa-circle-check" style={{ color: '#52c41a' }}></i> {all.filter(p=>p.priority_flag).length} ⚡ priority parcels assigned</div>
-              <div><i className="fa-solid fa-circle-check" style={{ color: '#52c41a' }}></i> Driver shifts are available</div>
+              <div><i className="fa-solid fa-circle-check" style={{ color: '#52c41a' }}></i> {all.length} {t('dispatch.parcelsHaveRoute')}</div>
+              <div><i className="fa-solid fa-circle-check" style={{ color: '#52c41a' }}></i> {t('dispatch.capacityNormal')}</div>
+              <div><i className="fa-solid fa-circle-check" style={{ color: '#52c41a' }}></i> {all.filter(p=>p.priority_flag).length} ⚡ {t('dispatch.priorityAssigned')}</div>
+              <div><i className="fa-solid fa-circle-check" style={{ color: '#52c41a' }}></i> {t('dispatch.shiftsAvailable')}</div>
             </div>
           </div>
 
@@ -914,7 +901,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
               }
             }}
           >
-            <i className="fa-solid fa-rocket"></i> {waveStatus === 'PUBLISHED' ? 'Wave published' : 'Publish wave'}
+            <i className="fa-solid fa-rocket"></i> {waveStatus === 'PUBLISHED' ? t('status.PUBLISHED') : t('dispatch.publish')}
           </Button>
         </div>
       )}
@@ -927,11 +914,11 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
         <div className="mobile-dispatch-controls">
           <Button className="mobile-driver-button" type="primary" onClick={() => setDriverDrawerOpen(true)}>
             <i className="fa-solid fa-user" style={{ marginRight: 6 }}></i>
-            {driver ? `Driver: ${available.find(s => s.driver_id === driver)?.driver_name ?? driver}` : 'Select driver'}
+            {driver ? `${t('dispatch.driver')}: ${available.find(s => s.driver_id === driver)?.driver_name ?? driver}` : t('dispatch.driver')}
             <i className="fa-solid fa-chevron-down" style={{ marginLeft: 8, fontSize: 11 }}></i>
           </Button>
           <Tag color={currentArea ? 'blue' : 'default'}>
-            {currentArea ? `Area ${areas.find(a => a.value === currentArea)?.label ?? currentArea}` : 'All station parcels'}
+            {currentArea ? `${t('dispatch.area')} ${areas.find(a => a.value === currentArea)?.label ?? currentArea}` : t('dispatch.allStationParcels', { defaultValue: '全站包裹' })}
           </Tag>
         </div>
 
@@ -943,8 +930,8 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
             onClick={() => setListOpen(!listOpen)}
             style={{ boxShadow: '0 2px 6px rgba(0,0,0,0.15)' }}
           >
-            {listOpen ? 'Hide parcel details' : `Show parcel details (${filteredVisibleParcels.length})`}
-            {selected.size > 0 && <Tag color="purple" style={{ marginLeft: 6 }}>{selected.size} selected</Tag>}
+            {listOpen ? t('dispatch.hideParcelDetails', { defaultValue: '隐藏包裹明细' }) : `${t('dispatch.showParcelDetails', { defaultValue: '显示包裹明细' })} (${filteredVisibleParcels.length})`}
+            {selected.size > 0 && <Tag color="purple" style={{ marginLeft: 6 }}>{t('dispatch.selectedCount', { count: selected.size })}</Tag>}
           </Button>
         </div>
 
@@ -985,7 +972,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid #f0f0f0' }}>
               <span style={{ fontWeight: 'bold', fontSize: '14px' }}>
                 <i className="fa-solid fa-boxes-packing" style={{ color: '#1677ff', marginRight: 6 }}></i>
-                Parcel details ({filteredVisibleParcels.length})
+                {t('dispatch.parcelDetails', { defaultValue: '包裹明细' })} ({filteredVisibleParcels.length})
               </span>
               <Button size="small" type="text" onClick={() => setListOpen(false)}>
                 <i className="fa-solid fa-xmark"></i>
@@ -996,10 +983,10 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
             {selected.size > 0 && (
               <div style={{ padding: '8px', background: '#f9f0ff', border: '1px solid #d3ade8', borderRadius: '6px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '12px', color: '#531dab', fontWeight: 'bold' }}>
-                  {selected.size} parcels selected
+                  {t('dispatch.selectedCount', { count: selected.size })}
                 </span>
                 <Space>
-                  <Button size="small" onClick={() => setSelected(new Set())}>Clear selection</Button>
+                  <Button size="small" onClick={() => setSelected(new Set())}>{t('dispatch.clearSelection', { defaultValue: '清空选择' })}</Button>
                   <Button 
                     size="small" 
                     type="primary" 
@@ -1019,7 +1006,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
                       }
                     }}
                   >
-                    Transfer to selected driver
+                    {t('dispatch.transferToDriver', { defaultValue: '划拨给所选司机' })}
                   </Button>
                 </Space>
               </div>
@@ -1042,22 +1029,22 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
                 }}
                 columns={[
                   {
-                    title: 'Tracking number',
+                    title: t('field.tracking_no'),
                     dataIndex: 'tracking_no',
                     render: (text: string, r) => (
                       <div>
                         <div style={{ fontWeight: 'bold', fontSize: '12px', color: '#1677ff' }}>{text}</div>
-                    <div style={{ fontSize: '11px', color: '#8c8c8c' }}>{r.area_code ?? 'Unmapped'}</div>
+                        <div style={{ fontSize: '11px', color: '#8c8c8c' }}>{r.area_code ?? t('dispatch.unmapped')}</div>
                       </div>
                     )
                   },
                   {
-                    title: 'Assigned driver',
+                    title: t('field.driver_name'),
                     dataIndex: 'driver_name',
-                    render: (name: string) => name ? <Tag color="blue">{name}</Tag> : <Tag color="default">Unassigned</Tag>
+                    render: (name: string) => name ? <Tag color="blue">{name}</Tag> : <Tag color="default">{t('dispatch.unassigned')}</Tag>
                   },
                   {
-                    title: 'Status',
+                    title: t('common.status'),
                     dataIndex: 'status',
                     render: (v: string) => <Tag color={v === 'ASSIGNED' ? 'green' : 'orange'}>{v}</Tag>
                   }
@@ -1074,9 +1061,9 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
   </div>
 
 
-  {stage >= 2 && <MobileActionBar label="Open dispatch parcel list" count={filteredVisibleParcels.length} onClick={() => setListOpen(true)} />}
+  {stage >= 2 && <MobileActionBar label={t('dispatch.showParcelDetails', { defaultValue: '显示包裹明细' })} count={filteredVisibleParcels.length} onClick={() => setListOpen(true)} />}
   <Drawer
-    title="Select dispatch driver"
+    title={t('dispatch.selectDriver', { defaultValue: '选择派送司机' })}
     placement="bottom"
     height="72vh"
     open={driverDrawerOpen}
@@ -1089,11 +1076,11 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
       style={{ marginBottom: 8, textAlign: 'left' }}
       onClick={() => { setDriver(undefined); setAreaVersion(undefined); setCurrentArea(undefined); setDriverDrawerOpen(false); }}
     >
-      All station parcels (clear driver filter)
+      {t('dispatch.allStationParcels', { defaultValue: '本站全部包裹 (清除司机筛选)' })}
     </Button>
     <List
       dataSource={available}
-      locale={{ emptyText: 'No available drivers' }}
+      locale={{ emptyText: t('tower.drivers') + ' — ' + t('common.none', { defaultValue: '暂无出勤司机' }) }}
       renderItem={(shift) => (
         <List.Item
           className={driver === shift.driver_id ? 'mobile-driver-option active' : 'mobile-driver-option'}
@@ -1102,9 +1089,9 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
           <List.Item.Meta
             avatar={<i className="fa-solid fa-id-badge" style={{ color: driver === shift.driver_id ? '#1677ff' : '#8c8c8c', fontSize: 20 }}></i>}
             title={shift.driver_name}
-            description={`${shift.driver_code} · ${shift.assigned_count}/${shift.parcel_capacity ?? 200} assigned`}
+            description={`${shift.driver_code} · ${shift.assigned_count}/${shift.parcel_capacity ?? 200} ${t('dispatch.assigned')}`}
           />
-          {driver === shift.driver_id && <Tag color="blue">Current</Tag>}
+          {driver === shift.driver_id && <Tag color="blue">{t('common.current', { defaultValue: '当前选择' })}</Tag>}
         </List.Item>
       )}
     />
@@ -1113,7 +1100,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
     title={<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <span style={{ fontSize: '18px', fontWeight: 600 }}>{t('dispatch.manageCapacity')}</span>
       <Input.Search 
-        placeholder="Search name, code, or driver ID..."
+        placeholder={t('common.searchPlaceholder')}
         allowClear 
         value={shiftSearch}
         onChange={e => setShiftSearch(e.target.value)}
@@ -1134,7 +1121,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
       pagination={{
         pageSize: 10,
         showSizeChanger: true,
-        showTotal: (total) => `${total} drivers`,
+        showTotal: (total) => `${total} ${t('tower.drivers')}`,
         size: 'small'
       }}
       style={{ marginTop: '4px' }}
@@ -1143,7 +1130,7 @@ type WaveResult={wave:{id:number;wave_code:string;arrival_trip_id?:number;status
   <Drawer 
     open={!!focus} 
     onClose={()=>setFocus(undefined)} 
-    title={`📦 Parcel detail: ${focus?.tracking_no ?? ''}`}
+    title={`📦 ${t('shipment.drawerTitle')}: ${focus?.tracking_no ?? ''}`}
     width={480}
     zIndex={2000}
   >
